@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "722916662508",
+    "project_id": "snapwisefinal",
+    "storage_bucket": "snapwisefinal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:722916662508:android:4c3f72d175f98132b899c9",
+        "android_client_info": {
+          "package_name": "com.example.snapwise"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChRuxv25stbvN4jG4-aaL_Se8llWgUlOw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
