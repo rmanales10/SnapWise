@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:snapwise/screens/auth_screens/login/login_controller.dart';
 import 'package:snapwise/screens/widget/bottom_nav_bar.dart';
 
 class LoginPage extends StatefulWidget {
@@ -10,10 +11,10 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final LoginController controller = Get.put(LoginController());
+
   bool _showPassword = false;
-  bool _wrongPassword = false;
+  final bool _wrongPassword = false;
 
   final bool isTablet =
       MediaQueryData.fromView(
@@ -61,7 +62,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 8),
                           TextField(
-                            controller: _emailController,
+                            controller: controller.emailController,
                             cursorColor: Color.fromARGB(255, 3, 30, 53),
                             decoration: InputDecoration(
                               hintText: "Enter your email",
@@ -97,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 8),
                           TextField(
-                            controller: _passwordController,
+                            controller: controller.passwordController,
                             obscureText: !_showPassword,
                             cursorColor: Color.fromARGB(255, 3, 30, 53),
                             decoration: InputDecoration(
@@ -167,13 +168,7 @@ class _LoginPageState extends State<LoginPage> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: () {
-                                Get.offAll(() => BottomNavBar(initialIndex: 0));
-                                setState(() {
-                                  _wrongPassword =
-                                      _passwordController.text.isEmpty;
-                                });
-                              },
+                              onPressed: () => _handleLogin(),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Color.fromARGB(255, 3, 30, 53),
                                 shape: RoundedRectangleBorder(
@@ -311,4 +306,17 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+
+  void _handleLogin() async {
+    bool success = await controller.login();
+    if (success) {
+      Get.offAll(() => BottomNavBar(initialIndex: 0));
+      controller.emailController.clear();
+      controller.passwordController.clear();
+    }
+  }
+
+  // void _handleResetPassword() {
+  //   controller.resetPassword();
+  // }
 }

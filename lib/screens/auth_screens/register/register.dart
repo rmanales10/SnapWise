@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:snapwise/screens/auth_screens/register/register_controller.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -8,6 +10,7 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  final _controller = Get.put(RegisterController());
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -204,9 +207,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/success');
-                        },
+                        onPressed: () => onSubmit(),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color.fromARGB(255, 3, 30, 53),
                           shape: RoundedRectangleBorder(
@@ -362,5 +363,26 @@ class _RegisterPageState extends State<RegisterPage> {
         );
       },
     );
+  }
+
+  // In your form submission:
+  void onSubmit() async {
+    _controller.username = _usernameController.text;
+    _controller.email = _emailController.text;
+    _controller.password = _passwordController.text;
+
+    bool success = await _controller.register();
+    if (success) {
+      Get.snackbar('Success', 'Registered successfully!');
+      // ignore: use_build_context_synchronously
+      Navigator.pushNamed(context, '/success');
+    } else {
+      Get.snackbar(
+        'Failed',
+        _controller.errorMessage.value,
+        colorText: Colors.white,
+      );
+      return;
+    }
   }
 }

@@ -11,17 +11,10 @@ class ExpenseManualPage extends StatefulWidget {
 }
 
 class _ExpenseManualPageState extends State<ExpenseManualPage> {
-  int _selectedIndex = 5;
   final TextEditingController amountController = TextEditingController();
   final TextEditingController categoryController = TextEditingController(
     text: "Shopping",
   );
-
-  void _onNavItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,10 +22,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: _selectedIndex,
-        onTap: _onNavItemTapped,
-      ),
+
       body: SizedBox(
         width: double.infinity,
         height: double.infinity,
@@ -56,13 +46,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
                   Stack(
                     alignment: Alignment.center,
                     children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Icon(Icons.arrow_back, color: Colors.white),
-                        ),
-                      ),
+                     
 
                       Align(
                         alignment: Alignment.center,

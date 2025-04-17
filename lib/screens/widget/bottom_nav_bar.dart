@@ -5,6 +5,7 @@ import 'package:snapwise/screens/budget/edit_budget_category.dart';
 import 'package:snapwise/screens/budget/income/edit_income.dart';
 import 'package:snapwise/screens/budget/income/input_income.dart';
 import 'package:snapwise/screens/budget/input_budget.dart';
+import 'package:snapwise/screens/expense/expense.dart';
 import 'package:snapwise/screens/history/records.dart';
 import 'package:snapwise/screens/home/home.dart';
 import 'package:snapwise/screens/home/predict.dart';
@@ -40,6 +41,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
     PredictBudgetPage(),
     CreateBudgetPage(),
     IncomeInputPage(),
+    ExpenseManualPage(),
   ];
 
   @override
@@ -51,8 +53,10 @@ class _BottomNavBarState extends State<BottomNavBar> {
         height: 70,
         child: FloatingActionButton(
           onPressed: () {
-            // Add your action here
-            print('FAB pressed');
+            setState(() {
+              _currentIndex =
+                  body.length - 1; // Use the last index of the body list
+            });
           },
           backgroundColor: Color.fromARGB(255, 3, 30, 53),
 
