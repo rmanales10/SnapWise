@@ -234,8 +234,12 @@ class _LoginPageState extends State<LoginPage> {
                       child: Column(
                         children: [
                           OutlinedButton(
-                            onPressed: () {
-                              // Handle Google login
+                            onPressed: () async {
+                              bool success =
+                                  await controller.signInWithGoogle();
+                              if (success) {
+                                Get.offAll(() => BottomNavBar(initialIndex: 0));
+                              }
                             },
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(
@@ -311,12 +315,7 @@ class _LoginPageState extends State<LoginPage> {
     bool success = await controller.login();
     if (success) {
       Get.offAll(() => BottomNavBar(initialIndex: 0));
-      controller.emailController.clear();
-      controller.passwordController.clear();
+      controller.clearData();
     }
   }
-
-  // void _handleResetPassword() {
-  //   controller.resetPassword();
-  // }
 }

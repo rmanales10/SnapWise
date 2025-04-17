@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -46,13 +48,16 @@ class RegisterController extends GetxController {
         case 'email-already-in-use':
           errorMessage.value = 'An account already exists for that email.';
           break;
+        case 'invalid-email':
+          errorMessage.value =
+              'The email address is invalid. Please enter a valid email address.';
+          break;
         default:
           errorMessage.value = 'An error occurred. Please try again.';
       }
-      print('Registration error: $errorMessage');
+
       return false;
     } catch (e) {
-      print('Registration error: ${e.toString()}');
       return false;
     }
   }

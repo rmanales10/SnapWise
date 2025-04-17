@@ -376,6 +376,7 @@ class _RegisterPageState extends State<RegisterPage> {
       Get.snackbar('Success', 'Registered successfully!');
       // ignore: use_build_context_synchronously
       Navigator.pushNamed(context, '/success');
+      _controller.clearData();
     } else {
       Get.snackbar(
         'Failed',

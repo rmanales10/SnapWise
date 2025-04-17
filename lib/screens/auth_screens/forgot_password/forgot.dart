@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:snapwise/screens/auth_screens/login/login_controller.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -8,7 +10,7 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  final TextEditingController _emailController = TextEditingController();
+  final LoginController controller = Get.put(LoginController());
   final bool isTablet =
       MediaQueryData.fromView(
         // ignore: deprecated_member_use
@@ -72,7 +74,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                     SizedBox(height: isTablet ? 100 : 40),
+                    SizedBox(height: isTablet ? 100 : 40),
                     // Description Text
                     Text(
                       "Don't worry! It happens. Please enter the email associated with your account.",
@@ -94,7 +96,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     const SizedBox(height: 8),
                     TextField(
                       cursorColor: const Color.fromARGB(255, 3, 30, 53),
-                      controller: _emailController,
+                      controller: controller.emailController,
                       decoration: InputDecoration(
                         hintText: "Enter your email address",
                         border: OutlineInputBorder(
@@ -127,9 +129,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          // Handle send code
-                        },
+                        onPressed: () => _handleResetPassword(),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color.fromARGB(255, 3, 30, 53),
                           shape: RoundedRectangleBorder(
@@ -182,5 +182,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ),
       ),
     );
+  }
+
+  void _handleResetPassword() {
+    controller.resetPassword();
+    if (controller.isSuccess.value == true) {
+      Get.offAllNamed('/login');
+      controller.clearData();
+    }
   }
 }

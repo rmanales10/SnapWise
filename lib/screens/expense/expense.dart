@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:snapwise/screens/widget/bottomnavbar.dart';
-
 class ExpenseManualPage extends StatefulWidget {
   const ExpenseManualPage({super.key});
 
