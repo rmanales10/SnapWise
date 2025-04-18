@@ -31,10 +31,10 @@ class _CreateBudgetState extends State<CreateBudget> {
   Future<void> fetchOverallBudget() async {
     await _budgetController.fetchOverallBudget();
     setState(() {
-      amountController.text =
-          _budgetController.budgetData.value['amount'].toString() == 'null'
-              ? ''
-              : _budgetController.budgetData.value['amount'].toString();
+      // amountController.text =
+      //     _budgetController.budgetData.value['amount'].toString() == 'null'
+      //         ? ''
+      //         : _budgetController.budgetData.value['amount'].toString();
       alertPercentage =
           _budgetController.budgetData.value['alertPercentage'] as double;
       receiveAlert = _budgetController.budgetData.value['receiveAlert'] as bool;

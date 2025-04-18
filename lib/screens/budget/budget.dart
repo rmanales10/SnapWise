@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:snapwise/screens/budget/budget_controller.dart';
 import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
 class BudgetPage extends StatefulWidget {
@@ -12,6 +14,23 @@ class BudgetPage extends StatefulWidget {
 
 class _BudgetPageState extends State<BudgetPage> {
   bool isbudgetTab = true;
+  RxDouble overallBudget = 0.0.obs;
+  RxDouble income = 0.0.obs;
+
+  final _budgetController = Get.put(BudgetController());
+  @override
+  void initState() {
+    super.initState();
+    fetchData();
+  }
+
+  Future<void> fetchData() async {
+    _budgetController.fetchBudgetCategory();
+    _budgetController.fetchOverallBudget();
+    _budgetController.fetchIncome();
+    overallBudget.value = _budgetController.budgetData.value['amount'];
+    income.value = _budgetController.incomeData.value['amount'];
+  }
 
   final List<Category> categories = [
     Category(
@@ -45,8 +64,6 @@ class _BudgetPageState extends State<BudgetPage> {
       exceeded: true,
     ),
   ];
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -116,11 +133,14 @@ class _BudgetPageState extends State<BudgetPage> {
                   radius: isTablet ? 100.0 : 80.0,
                   lineWidth: 20.0,
                   percent: 0.75,
-                  center: Text(
-                    "5000",
-                    style: TextStyle(
-                      fontSize: isTablet ? 32 : 24,
-                      fontWeight: FontWeight.bold,
+                  center: Obx(
+                    () => Text(
+                      overallBudget.value.toString(),
+
+                      style: TextStyle(
+                        fontSize: isTablet ? 32 : 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   progressColor: Colors.orange,
@@ -131,11 +151,13 @@ class _BudgetPageState extends State<BudgetPage> {
                   radius: isTablet ? 100.0 : 80.0,
                   lineWidth: 20.0,
                   percent: 0.75,
-                  center: Text(
-                    "7000",
-                    style: TextStyle(
-                      fontSize: isTablet ? 32 : 24,
-                      fontWeight: FontWeight.bold,
+                  center: Obx(
+                    () => Text(
+                      income.toString(),
+                      style: TextStyle(
+                        fontSize: isTablet ? 32 : 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   progressColor: Colors.orange,
@@ -252,30 +274,42 @@ class _BudgetPageState extends State<BudgetPage> {
 
             Expanded(
               child: SingleChildScrollView(
-                child: Column(
-                  children:
-                      categories.map((category) {
-                        return isbudgetTab
-                            ? _buildCategoryItem1(
-                              isTablet,
-                              icon: category.icon,
-                              category: category.name,
-                              amountSpent: category.spent,
-                              totalBudget: category.budget,
-                              color: category.color,
-                              exceeded: category.exceeded,
-                            )
-                            : _buildCategoryItem2(
-                              isTablet,
-                              icon: category.icon,
-                              category: category.name,
-                              amountSpent: category.spent,
-                              totalBudget: category.budget,
-                              color: category.color,
-                              exceeded: category.exceeded,
-                            );
-                      }).toList(),
-                ),
+                child: Obx(() {
+                  return Column(
+                    children:
+                        _budgetController.budgetCategories.map((category) {
+                          return isbudgetTab
+                              ? _buildCategoryItem1(
+                                isTablet,
+                                icon: category['icon'],
+                                category: category['title'],
+                                amountSpent: double.parse(
+                                  category['amount'].toString(),
+                                ),
+                                totalBudget: double.parse(
+                                  overallBudget.value.toString(),
+                                ),
+                                color: category['color'] ?? Colors.grey,
+
+                                exceeded: false,
+                              )
+                              : _buildCategoryItem2(
+                                isTablet,
+                                icon: category['icon'],
+                                category: category['title'],
+                                amountSpent: double.parse(
+                                  category['amount'].toString(),
+                                ),
+                                totalBudget: double.parse(
+                                  overallBudget.value.toString(),
+                                ),
+                                color: category['color'] ?? Colors.grey,
+
+                                exceeded: false,
+                              );
+                        }).toList(),
+                  );
+                }),
               ),
             ),
           ],
@@ -339,7 +373,7 @@ class _BudgetPageState extends State<BudgetPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            "Remaining ${remaining < 0 ? 0 : remaining.toStringAsFixed(0)}",
+            "Remaining ₱${remaining < 0 ? 0 : remaining.toStringAsFixed(0)}",
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
           ),
           LinearProgressIndicator(
@@ -356,7 +390,7 @@ class _BudgetPageState extends State<BudgetPage> {
               Column(
                 children: [
                   Text(
-                    "\$$amountSpent of \$$totalBudget",
+                    "₱ $amountSpent of ₱ $totalBudget",
                     style: TextStyle(
                       color: Colors.grey.shade500,
                       fontWeight: FontWeight.bold,

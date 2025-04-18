@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/screens/budget/budget.dart';
+import 'package:snapwise/screens/budget/budget_controller.dart';
 import 'package:snapwise/screens/budget/edit_budget.dart';
 import 'package:snapwise/screens/budget/edit_budget_category.dart';
 import 'package:snapwise/screens/budget/income/edit_income.dart';
@@ -27,6 +28,7 @@ class BottomNavBar extends StatefulWidget {
 class _BottomNavBarState extends State<BottomNavBar> {
   final HomeController controller = Get.put(HomeController());
   final expenseController = Get.put(ExpenseController());
+  final _budgetController = Get.put(BudgetController());
   int _currentIndex = 0;
 
   @override
@@ -35,6 +37,13 @@ class _BottomNavBarState extends State<BottomNavBar> {
     _currentIndex = widget.initialIndex;
     controller.fetchTransactions();
     controller.fetchTransactionsHistory();
+    fetchData();
+  }
+
+  Future<void> fetchData() async {
+    _budgetController.fetchBudgetCategory();
+    _budgetController.fetchOverallBudget();
+    _budgetController.fetchIncome();
   }
 
   List<Widget> body = [

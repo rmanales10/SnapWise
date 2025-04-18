@@ -1,6 +1,10 @@
+import 'dart:developer';
+
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class BudgetController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -8,6 +12,7 @@ class BudgetController extends GetxController {
   final RxBool isSuccess = false.obs;
   final Rx<Map<String, dynamic>> budgetData = Rx<Map<String, dynamic>>({});
   final Rx<Map<String, dynamic>> incomeData = Rx<Map<String, dynamic>>({});
+  RxList<Map<String, dynamic>> budgetCategories = <Map<String, dynamic>>[].obs;
 
   Future<void> addBudget(
     String category,
@@ -132,6 +137,72 @@ class BudgetController extends GetxController {
       }
     } catch (e) {
       Get.snackbar('Error', 'Failed to fetch income: ${e.toString()}');
+    }
+  }
+
+  Future<void> fetchBudgetCategory() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        final querySnapshot =
+            await _firestore
+                .collection('budget')
+                .where('userId', isEqualTo: user.uid)
+                .orderBy('timestamp', descending: true)
+                .get();
+
+        final fetchBudgetCategories =
+            querySnapshot.docs.map((doc) {
+              final data = doc.data();
+              return {
+                'id': doc.id,
+                'alertPercentage': data['alertPercentage'],
+                'receiveAlert': data['receiveAlert'],
+                "icon": _getCategoryIcon(data['category']),
+                "color": _getCategoryColor(data['category']),
+                "title": data['category'],
+                "amount": "${data['amount'].toStringAsFixed(2)}",
+              };
+            }).toList();
+
+        budgetCategories.assignAll(fetchBudgetCategories);
+      }
+    } catch (e) {
+      log('Error fetching transactions: $e');
+    }
+  }
+
+  Color _getCategoryColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'shopping':
+        return Colors.blue;
+      case 'food':
+        return Colors.green;
+      case 'transport':
+        return Colors.orange;
+      case 'rent':
+        return Colors.purple;
+      case 'entertainment':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'shopping':
+        return LucideIcons.shoppingBag;
+      case 'food':
+        return LucideIcons.utensils;
+      case 'transport':
+        return LucideIcons.train;
+      case 'rent':
+        return LucideIcons.home;
+      case 'entertainment':
+        return Icons.movie;
+      default:
+        return LucideIcons.dollarSign;
     }
   }
 }
