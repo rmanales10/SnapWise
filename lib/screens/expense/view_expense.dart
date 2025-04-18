@@ -150,7 +150,7 @@ class _ViewExpenseState extends State<ViewExpense> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (base64Image == null) ...[
+                            if (base64Image == 'No Image') ...[
                               Icon(
                                 Icons.attachment_rounded,
                                 color: Colors.grey.shade700,

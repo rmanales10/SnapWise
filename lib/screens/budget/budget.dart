@@ -16,6 +16,7 @@ class _BudgetPageState extends State<BudgetPage> {
   bool isbudgetTab = true;
   RxDouble overallBudget = 0.0.obs;
   RxDouble income = 0.0.obs;
+  RxDouble remainingBudgetPercentage = 0.0.obs;
 
   final _budgetController = Get.put(BudgetController());
   @override
@@ -25,11 +26,14 @@ class _BudgetPageState extends State<BudgetPage> {
   }
 
   Future<void> fetchData() async {
-    _budgetController.fetchBudgetCategory();
-    _budgetController.fetchOverallBudget();
-    _budgetController.fetchIncome();
+    await _budgetController.fetchBudgetCategory();
+    await _budgetController.fetchOverallBudget();
+    await _budgetController.fetchIncome();
+    await _budgetController.calculateRemainingBudget();
     overallBudget.value = _budgetController.budgetData.value['amount'];
     income.value = _budgetController.incomeData.value['amount'];
+    remainingBudgetPercentage.value =
+        _budgetController.remainingBudgetPercentage.value;
   }
 
   final List<Category> categories = [
@@ -129,12 +133,12 @@ class _BudgetPageState extends State<BudgetPage> {
 
             const SizedBox(height: 20),
             isbudgetTab
-                ? CircularPercentIndicator(
-                  radius: isTablet ? 100.0 : 80.0,
-                  lineWidth: 20.0,
-                  percent: 0.75,
-                  center: Obx(
-                    () => Text(
+                ? Obx(() {
+                  return CircularPercentIndicator(
+                    radius: isTablet ? 100.0 : 80.0,
+                    lineWidth: 20.0,
+                    percent: remainingBudgetPercentage.value,
+                    center: Text(
                       overallBudget.value.toString(),
 
                       style: TextStyle(
@@ -142,11 +146,11 @@ class _BudgetPageState extends State<BudgetPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                  progressColor: Colors.orange,
-                  backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                  circularStrokeCap: CircularStrokeCap.round,
-                )
+                    progressColor: Colors.orange,
+                    backgroundColor: const Color.fromARGB(255, 3, 30, 53),
+                    circularStrokeCap: CircularStrokeCap.round,
+                  );
+                })
                 : CircularPercentIndicator(
                   radius: isTablet ? 100.0 : 80.0,
                   lineWidth: 20.0,

@@ -13,6 +13,7 @@ class HomeController extends GetxController {
   RxList<Map<String, dynamic>> transactions = <Map<String, dynamic>>[].obs;
   RxList<Map<String, dynamic>> transactionsHistory =
       <Map<String, dynamic>>[].obs;
+  final Rx<Map<String, dynamic>> budgetData = Rx<Map<String, dynamic>>({});
 
   @override
   void onInit() {
@@ -135,6 +136,26 @@ class HomeController extends GetxController {
       return '${inThousands.toStringAsFixed(1)}k';
     } else {
       return total.toStringAsFixed(2);
+    }
+  }
+
+  Future<void> getTotalBudget() async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final DocumentSnapshot budgetDoc =
+          await _firestore.collection('overallBudget').doc(user.uid).get();
+
+      if (budgetDoc.exists) {
+        budgetData.value = budgetDoc.data() as Map<String, dynamic>;
+      } else {
+        budgetData.value = {};
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to fetch budget: ${e.toString()}');
     }
   }
 }

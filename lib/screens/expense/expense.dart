@@ -740,7 +740,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     await controller.addExpense(
       categoryController.text,
       double.parse(amountController.text),
-      base64Image!,
+      base64Image ?? 'No Image',
     );
     if (controller.isSuccess.value == true) {
       homeController.fetchTransactions();

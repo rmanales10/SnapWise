@@ -13,6 +13,8 @@ class BudgetController extends GetxController {
   final Rx<Map<String, dynamic>> budgetData = Rx<Map<String, dynamic>>({});
   final Rx<Map<String, dynamic>> incomeData = Rx<Map<String, dynamic>>({});
   RxList<Map<String, dynamic>> budgetCategories = <Map<String, dynamic>>[].obs;
+  RxDouble remainingBudget = 0.0.obs;
+  RxDouble remainingBudgetPercentage = 0.0.obs;
 
   Future<void> addBudget(
     String category,
@@ -203,6 +205,44 @@ class BudgetController extends GetxController {
         return Icons.movie;
       default:
         return LucideIcons.dollarSign;
+    }
+  }
+
+  Future<void> calculateRemainingBudget() async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Fetch overall budget
+      await fetchOverallBudget();
+      double overallBudget = budgetData.value['amount'] ?? 0.0;
+
+      QuerySnapshot expensesSnapshot =
+          await _firestore
+              .collection('expenses')
+              .where('userId', isEqualTo: user.uid)
+              .get();
+
+      double totalExpenses = expensesSnapshot.docs.fold(0.0, (sum, doc) {
+        return sum + (doc.data() as Map<String, dynamic>)['amount'];
+      });
+
+      remainingBudget.value = overallBudget - totalExpenses;
+
+      // Calculate the percentage
+      if (overallBudget > 0) {
+        remainingBudgetPercentage.value =
+            (remainingBudget.value / overallBudget);
+      } else {
+        remainingBudgetPercentage.value = 0;
+      }
+
+      print('Remaining Budget: ${remainingBudget.value}');
+      print('Remaining Budget Percentage: ${remainingBudgetPercentage.value}');
+    } catch (e) {
+      log('Error calculating remaining budget: $e');
     }
   }
 }

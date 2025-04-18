@@ -312,8 +312,13 @@ class _HomePageState extends State<HomePage> {
                   controller.transactions.map((transaction) {
                     return GestureDetector(
                       onTap:
-                          () => Get.to(
-                            () => ViewExpense(expenseId: transaction['id']),
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) =>
+                                      ViewExpense(expenseId: transaction['id']),
+                            ),
                           ),
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 10),

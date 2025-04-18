@@ -29,7 +29,7 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
       amountController.text =
           _budgetController.budgetData.value['amount'].toString() == 'null'
               ? ''
-              : _budgetController.incomeData.value['amount'].toString();
+              : _budgetController.budgetData.value['amount'].toString();
       alertPercentage =
           _budgetController.budgetData.value['alertPercentage'] as double;
       receiveAlert = _budgetController.budgetData.value['receiveAlert'] as bool;
