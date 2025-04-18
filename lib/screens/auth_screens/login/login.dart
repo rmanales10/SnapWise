@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/screens/auth_screens/login/login_controller.dart';
-import 'package:snapwise/screens/widget/bottom_nav_bar.dart';
+import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -238,7 +238,19 @@ class _LoginPageState extends State<LoginPage> {
                               bool success =
                                   await controller.signInWithGoogle();
                               if (success) {
-                                Get.offAll(() => BottomNavBar(initialIndex: 0));
+                                Navigator.pushReplacement(
+                                  // ignore: use_build_context_synchronously
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) =>
+                                            BottomNavBar(initialIndex: 0),
+                                  ),
+                                );
+                                Get.snackbar(
+                                  'Success',
+                                  'Signed in with Google successfully',
+                                );
                               }
                             },
                             style: OutlinedButton.styleFrom(
@@ -314,7 +326,11 @@ class _LoginPageState extends State<LoginPage> {
   void _handleLogin() async {
     bool success = await controller.login();
     if (success) {
-      Get.offAll(() => BottomNavBar(initialIndex: 0));
+      Navigator.pushReplacement(
+        // ignore: use_build_context_synchronously
+        context,
+        MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 0)),
+      );
       controller.clearData();
     }
   }

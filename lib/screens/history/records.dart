@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:snapwise/screens/home/home_controller.dart';
 
 class TransactionHistoryPage extends StatefulWidget {
   const TransactionHistoryPage({super.key});
@@ -8,10 +10,11 @@ class TransactionHistoryPage extends StatefulWidget {
 }
 
 class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
+  final HomeController controller = Get.find<HomeController>();
+
   bool isSelecting = false;
   List<int> selectedIndices = [];
   bool get isTablet => MediaQuery.of(context).size.shortestSide > 600;
-
 
   List<Map<String, dynamic>> transactions = [
     {
@@ -133,88 +136,19 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.grey.shade100,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          "History",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: isTablet ? 24 : 20,
-            color: Colors.black,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: EdgeInsets.only(right: isTablet ? 25 : 15),
-            child:
-                isSelecting && selectedIndices.isNotEmpty
-                    ? IconButton(
-                      icon: Icon(
-                        Icons.delete,
-                        color: Colors.red,
-                        size: isTablet ? 28 : 24,
-                      ),
-                      onPressed: () => _showConfirmation(context),
-                    )
-                    : PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.more_horiz,
-                        color: Colors.black,
-                        size: isTablet ? 28 : 24,
-                      ),
-                      color: Colors.grey.shade100,
-                      onSelected: (value) {
-                        if (value == 'select') {
-                          setState(() {
-                            isSelecting = true;
-                          });
-                        } else if (value == 'select_all') {
-                          setState(() {
-                            isSelecting = true;
-                            selectedIndices = List<int>.generate(
-                              transactions.length,
-                              (i) => i,
-                            );
-                          });
-                        }
-                      },
-                      itemBuilder:
-                          (context) => [
-                            PopupMenuItem<String>(
-                              value: 'select',
-                              child: Text(
-                                'Select',
-                                style: TextStyle(fontSize: isTablet ? 18 : 14),
-                              ),
-                            ),
-                            PopupMenuItem<String>(
-                              value: 'select_all',
-                              child: Text(
-                                'Select all',
-                                style: TextStyle(fontSize: isTablet ? 18 : 14),
-                              ),
-                            ),
-                          ],
-                    ),
-          ),
-        ],
+        // ... (keep your existing AppBar code)
       ),
-
-      body:
-          transactions.isEmpty
-              ? Center(
-                child: Text(
-                  "There is no transactions for now",
-                  style: TextStyle(fontSize: isTablet ? 20 : 16),
-                ),
-              )
-              : Column(children: [Expanded(child: _buildTransactionsList())]),
-      // bottomNavigationBar: CustomBottomNavBar(
-      //   currentIndex: _selectedIndex,
-      //   onTap: _onNavItemTapped,
-      // ),
+      body: Obx(
+        () =>
+            controller.transactionsHistory.isEmpty
+                ? Center(
+                  child: Text(
+                    "There are no transactions for now",
+                    style: TextStyle(fontSize: isTablet ? 20 : 16),
+                  ),
+                )
+                : Column(children: [Expanded(child: _buildTransactionsList())]),
+      ),
     );
   }
 
@@ -224,9 +158,9 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
         horizontal: isTablet ? 30 : 20,
         vertical: isTablet ? 15 : 10,
       ),
-      itemCount: transactions.length,
+      itemCount: controller.transactionsHistory.length,
       itemBuilder: (context, index) {
-        var tx = transactions[index];
+        var tx = controller.transactionsHistory[index];
         return Padding(
           padding: EdgeInsets.only(bottom: isTablet ? 15 : 10),
           child: Stack(
@@ -248,7 +182,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                         children: [
                           Icon(
                             tx["icon"],
-                            color: tx["color"],
+                            color: Colors.orange,
                             size: isTablet ? 36 : 30,
                           ),
                           SizedBox(width: isTablet ? 15 : 10),
@@ -273,15 +207,12 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                           ),
                         ],
                       ),
-                      Padding(
-                        padding: EdgeInsets.only(right: isTablet ? 60 : 50),
-                        child: Text(
-                          tx["amount"],
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                            fontSize: isTablet ? 18 : 16,
-                          ),
+                      Text(
+                        tx["amount"],
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                          fontSize: isTablet ? 18 : 16,
                         ),
                       ),
                     ],

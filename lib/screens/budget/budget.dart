@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
-import 'package:snapwise/screens/widget/bottom_nav_bar.dart';
+import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
 class BudgetPage extends StatefulWidget {
   const BudgetPage({super.key});

@@ -1,13 +1,14 @@
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final _storage = GetStorage();
 
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
@@ -15,6 +16,9 @@ class LoginController extends GetxController {
   final _isLoading = false.obs;
   bool get isLoading => _isLoading.value;
   RxBool isSuccess = false.obs;
+
+  // RxMap to store user information
+  final Rx<Map<String, String?>> userData = Rx<Map<String, String?>>({});
 
   @override
   void onClose() {
@@ -37,7 +41,6 @@ class LoginController extends GetxController {
     _isLoading.value = true;
 
     try {
-      // Sign in user with email and password
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: emailController.text,
         password: passwordController.text,
@@ -45,12 +48,14 @@ class LoginController extends GetxController {
 
       _isLoading.value = false;
 
-      // Check if email is verified
       if (userCredential.user != null && !userCredential.user!.emailVerified) {
         Get.snackbar('Warning', 'Please verify your email before logging in');
         await _auth.signOut();
         return false;
       }
+
+      // Update user data
+      updateUserData(userCredential.user);
 
       return true;
     } on FirebaseAuthException catch (e) {
@@ -76,12 +81,10 @@ class LoginController extends GetxController {
           errorMessage = 'An error occurred. Please try again.';
       }
       Get.snackbar('Error', errorMessage);
-
       return false;
     } catch (e) {
       _isLoading.value = false;
       Get.snackbar('Error', 'An unexpected error occurred');
-
       return false;
     }
   }
@@ -101,7 +104,6 @@ class LoginController extends GetxController {
       isSuccess.value = true;
     } catch (e) {
       Get.snackbar('Error', 'Failed to send password reset email');
-
       isSuccess.value = false;
     }
   }
@@ -110,20 +112,22 @@ class LoginController extends GetxController {
     _isLoading.value = true;
 
     try {
-      // Trigger the authentication flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication? googleAuth =
-          await googleUser?.authentication;
+      if (googleUser == null) {
+        _isLoading.value = false;
+        Get.snackbar('Error', 'Google Sign-In was cancelled');
+        return false;
+      }
 
-      // Create a new credential
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth?.accessToken,
-        idToken: googleAuth?.idToken,
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
 
-      // Sign in to Firebase with the Google credential
       final UserCredential userCredential = await _auth.signInWithCredential(
         credential,
       );
@@ -131,7 +135,9 @@ class LoginController extends GetxController {
       _isLoading.value = false;
 
       if (userCredential.user != null) {
-        Get.snackbar('Success', 'Signed in with Google successfully');
+        // Update user data
+        updateUserData(userCredential.user);
+
         return true;
       } else {
         Get.snackbar('Error', 'Failed to sign in with Google');
@@ -145,8 +151,37 @@ class LoginController extends GetxController {
     }
   }
 
+  void updateUserData(User? user) async {
+    if (user != null) {
+      userData.value = {
+        'displayName': user.displayName,
+        'photoUrl': user.photoURL,
+      };
+      await _storage.write('displayName', userData.value['displayName']);
+      await _storage.write('photoUrl', userData.value['photoUrl']);
+    } else {
+      userData.value = {};
+    }
+  }
+
   void clearData() {
     emailController.clear();
     passwordController.clear();
+    userData.value = {};
+  }
+
+  Future<void> logout(BuildContext context) async {
+    try {
+      await _auth.signOut();
+      await _storage.erase();
+
+      // ignore: use_build_context_synchronously
+      Navigator.pushReplacementNamed(context, '/login');
+      Get.snackbar('Success', 'Logout Successfully');
+      Get.reset();
+    } catch (e) {
+      log(e.toString());
+      Get.snackbar('Error', 'Failed to logout. Please try again.');
+    }
   }
 }

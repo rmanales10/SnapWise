@@ -1,148 +1,119 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:snapwise/screens/budget/budget.dart';
+import 'package:snapwise/screens/budget/edit_budget.dart';
+import 'package:snapwise/screens/budget/edit_budget_category.dart';
+import 'package:snapwise/screens/budget/income/edit_income.dart';
+import 'package:snapwise/screens/budget/income/input_income.dart';
+import 'package:snapwise/screens/budget/create_budget.dart';
+import 'package:snapwise/screens/expense/expense.dart';
+import 'package:snapwise/screens/expense/expense_controller.dart';
+import 'package:snapwise/screens/history/records.dart';
+import 'package:snapwise/screens/home/home.dart';
+import 'package:snapwise/screens/home/home_controller.dart';
+import 'package:snapwise/screens/home/predict.dart';
+import 'package:snapwise/screens/profile/notification.dart';
+import 'package:snapwise/screens/profile/profile.dart';
+import 'package:snapwise/screens/profile/setting.dart';
 
-class CustomBottomNavBar extends StatelessWidget {
-  final int currentIndex;
-  final Function(int) onTap;
+class BottomNavBar extends StatefulWidget {
+  final int initialIndex;
+  const BottomNavBar({super.key, this.initialIndex = 0});
 
-  const CustomBottomNavBar({
-    super.key,
-    required this.currentIndex,
-    required this.onTap,
-  });
+  @override
+  State<BottomNavBar> createState() => _BottomNavBarState();
+}
+
+class _BottomNavBarState extends State<BottomNavBar> {
+  final HomeController controller = Get.put(HomeController());
+  final expenseController = Get.put(ExpenseController());
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    controller.fetchTransactions();
+    controller.fetchTransactionsHistory();
+  }
+
+  List<Widget> body = [
+    HomePage(),
+    TransactionHistoryPage(),
+    BudgetPage(),
+    ProfilePage(),
+    IncomeEditPage(),
+    EditBudgetPage(),
+    EditBudgetCategoryPage(),
+    SettingsPage(),
+    PredictBudgetPage(),
+    CreateBudget(),
+    InputIncome(),
+    NotificationSettingsPage(),
+    ExpenseManualPage(),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    // Use MediaQuery to get the screen width
-    final double screenWidth = MediaQuery.of(context).size.width;
+    return Scaffold(
+      body: Center(child: body[_currentIndex]),
+      floatingActionButton: SizedBox(
+        width: 70,
+        height: 70,
+        child: FloatingActionButton(
+          onPressed: () {
+            setState(() {
+              _currentIndex = body.length - 1;
+              expenseController.fetchCategories();
+            });
+          },
+          backgroundColor: Color.fromARGB(255, 3, 30, 53),
 
-    // For tablets, we might want to add larger icon sizes and more spacing
-    final bool isTablet =
-        screenWidth >= 600; // Adjust this threshold for tablets
-
-    return SizedBox(
-      child: Stack(
-        alignment: Alignment.topCenter,
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 5,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(context, Icons.home_filled, "Home", 0, isTablet),
-                _buildNavItem(
-                  context,
-                  Icons.receipt_long_sharp,
-                  "Records",
-                  1,
-                  isTablet,
-                ),
-                const SizedBox(width: 40), // Center button gap
-                _buildNavItem(
-                  context,
-                  Icons.pie_chart_rounded,
-                  "Budget",
-                  2,
-                  isTablet,
-                ),
-                _buildNavItem(context, Icons.person, "Profile", 3, isTablet),
-              ],
-            ),
-          ),
-          Positioned(
-            top: isTablet ? -45 : -25,
-            child: _buildCenterButton(context, isTablet),
-          ),
-        ],
+          shape: CircleBorder(),
+          child: Icon(Icons.add, color: Colors.white),
+        ),
       ),
-    );
-  }
-
-  // Pass isTablet to adjust the icons and text size for tablet screens
-  Widget _buildNavItem(
-    BuildContext context,
-    IconData icon,
-    String label,
-    int index,
-    bool isTablet,
-  ) {
-    bool isSelected = currentIndex == index;
-
-    return GestureDetector(
-      onTap: () {
-        onTap(index); // optional, in case you track index in parent
-
-        // Navigate based on index using pushReplacementNamed
-        switch (index) {
-          case 0:
-            Navigator.pushReplacementNamed(context, '/home');
-            break;
-          case 1:
-            Navigator.pushReplacementNamed(context, '/records');
-            break;
-          case 2:
-            Navigator.pushReplacementNamed(context, '/budget');
-            break;
-          case 3:
-            Navigator.pushReplacementNamed(context, '/profile');
-            break;
-        }
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: isTablet ? 30 : 24,
-            color:
-                isSelected ? const Color.fromARGB(255, 3, 30, 53) : Colors.grey,
-          ),
-          SizedBox(height: isTablet ? 6 : 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isTablet ? 14 : 10,
-              color:
-                  isSelected
-                      ? const Color.fromARGB(255, 3, 30, 53)
-                      : Colors.grey,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Adjust the center button size for tablets
-  Widget _buildCenterButton(BuildContext context, bool isTablet) {
-    return GestureDetector(
-      onTap: () => Navigator.pushReplacementNamed(context, '/expense'),
-      child: Container(
-        padding: EdgeInsets.all(
-          isTablet ? 20 : 15,
-        ), // Larger padding for tablets
-        decoration: const BoxDecoration(
-          color: Color.fromARGB(255, 3, 30, 53),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(color: Colors.black26, blurRadius: 6, spreadRadius: 2),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: CircularNotchedRectangle(),
+        notchMargin: 10,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(0, Icons.home_filled),
+            _buildNavItem(1, Icons.receipt_long_sharp),
+            SizedBox(width: 48), // Space for FAB
+            _buildNavItem(2, Icons.pie_chart_rounded),
+            _buildNavItem(3, Icons.person),
           ],
         ),
-        child: Icon(
-          Icons.add,
-          color: Colors.white,
-          size: isTablet ? 36 : 28, // Larger icon for tablets
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon) {
+    return InkWell(
+      onTap: () => setState(() => _currentIndex = index),
+      child: Container(
+        padding: EdgeInsets.all(10),
+        decoration:
+            _currentIndex == index
+                ? BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color.fromARGB(255, 3, 30, 53).withOpacity(0.1),
+                )
+                : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color:
+                  _currentIndex == index
+                      ? Color.fromARGB(255, 3, 30, 53)
+                      : Colors.grey,
+            ),
+          ],
         ),
       ),
     );

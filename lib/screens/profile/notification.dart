@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -10,15 +9,8 @@ class NotificationSettingsPage extends StatefulWidget {
 }
 
 class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
-  int _selectedIndex = 3;
   bool _expenseAlertsEnabled = true;
   bool _budgetAlertsEnabled = true;
-
-  void _onNavItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +46,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                           child: const Icon(Icons.arrow_back),
                         ),
                       ),
-                       Text(
+                      Text(
                         'Notification',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
@@ -216,10 +208,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: _selectedIndex,
-        onTap: _onNavItemTapped,
       ),
     );
   }

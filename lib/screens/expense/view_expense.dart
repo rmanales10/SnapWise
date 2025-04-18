@@ -7,31 +7,38 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:snapwise/screens/expense/expense_controller.dart';
-import 'package:snapwise/screens/expense/gemini_ai.dart';
 import 'package:snapwise/screens/expense/ocr_controller.dart';
-import 'package:snapwise/screens/home/home_controller.dart';
 import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
-class ExpenseManualPage extends StatefulWidget {
-  const ExpenseManualPage({super.key});
+class ViewExpense extends StatefulWidget {
+  final String expenseId;
+  const ViewExpense({super.key, required this.expenseId});
 
   @override
-  State<ExpenseManualPage> createState() => _ExpenseManualPageState();
+  State<ViewExpense> createState() => _ViewExpenseState();
 }
 
-class _ExpenseManualPageState extends State<ExpenseManualPage> {
+class _ViewExpenseState extends State<ViewExpense> {
   String? base64Image;
   final ImagePicker picker = ImagePicker();
   final OcrController ocrController = Get.put(OcrController());
-  final GeminiAi aiController = Get.put(GeminiAi());
   final controller = Get.put(ExpenseController());
-  final homeController = Get.put(HomeController());
   final TextEditingController amountController = TextEditingController();
-  final TextEditingController categoryController = TextEditingController();
+  final TextEditingController categoryController = TextEditingController(
+    text: "Shopping",
+  );
   @override
   void initState() {
     super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
     controller.fetchCategories();
+    controller.fetchExpense(widget.expenseId);
+    amountController.text = controller.expenses['amount'].toString();
+    categoryController.text = controller.expenses['category'].toString();
+    base64Image = controller.expenses['base64Image'];
   }
 
   @override
@@ -344,6 +351,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     // Process the image for OCR
     await _processImage(image, ocrController);
 
+    // Show the image preview
     _showImagePreview(context);
   }
 
@@ -397,16 +405,16 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       Map<String, String> expenseDetails = await ocrController
           .identifyExpenseDetails(extractedText);
 
-      setState(() async {
-        controller.fetchCategories();
-        await controller.addCategory(expenseDetails['category'] ?? '');
-        categoryController.text = expenseDetails['category'] ?? '';
+      setState(() {
+        categoryController.text = expenseDetails['category'] ?? 'Shopping';
         amountController.text = expenseDetails['amount'] ?? '';
 
         if (categoryController.text.isEmpty || amountController.text.isEmpty) {
           _showErrorSnackbar(
             'Failed to extract expense details. Please enter manually.',
           );
+        } else {
+          // _addExpense();
         }
       });
     } catch (e) {
@@ -743,8 +751,6 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       base64Image!,
     );
     if (controller.isSuccess.value == true) {
-      homeController.fetchTransactions();
-      homeController.fetchTransactionsHistory();
       Navigator.pushReplacement(
         // ignore: use_build_context_synchronously
         context,

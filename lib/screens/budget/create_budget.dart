@@ -1,24 +1,45 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:snapwise/screens/budget/budget_controller.dart';
+import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
-class CreateBudgetPage extends StatefulWidget {
-  const CreateBudgetPage({super.key});
+class CreateBudget extends StatefulWidget {
+  const CreateBudget({super.key});
 
   @override
-  State<CreateBudgetPage> createState() => _CreateBudgetPageState();
+  State<CreateBudget> createState() => _CreateBudgetState();
 }
 
-class _CreateBudgetPageState extends State<CreateBudgetPage> {
+class _CreateBudgetState extends State<CreateBudget> {
   bool isOverall = true;
   bool receiveAlert = false;
   double alertPercentage = 80.0;
   final TextEditingController amountController = TextEditingController();
   final TextEditingController categoryController = TextEditingController(
-    text: "Shopping",
+    text: null,
   );
+  final _budgetController = Get.put(BudgetController());
 
+  @override
+  void initState() {
+    super.initState();
+    fetchOverallBudget();
+  }
 
+  Future<void> fetchOverallBudget() async {
+    await _budgetController.fetchOverallBudget();
+    setState(() {
+      amountController.text =
+          _budgetController.budgetData.value['amount'].toString() == 'null'
+              ? ''
+              : _budgetController.budgetData.value['amount'].toString();
+      alertPercentage =
+          _budgetController.budgetData.value['alertPercentage'] as double;
+      receiveAlert = _budgetController.budgetData.value['receiveAlert'] as bool;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -376,6 +397,14 @@ class _CreateBudgetPageState extends State<CreateBudgetPage> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
+                        if (categoryController.text.isNotEmpty &&
+                            amountController.text.isNotEmpty) {
+                          setBudgetCategory();
+                        }
+                        if (amountController.text.isNotEmpty &&
+                            categoryController.text.isEmpty) {
+                          setOverallBudget();
+                        }
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
@@ -589,6 +618,7 @@ class _CreateBudgetPageState extends State<CreateBudgetPage> {
   Widget _buildAmountInput() {
     return TextField(
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
+      enabled: amountController.text.isNotEmpty ? false : true,
       controller: amountController,
       keyboardType: TextInputType.number,
       decoration: InputDecoration(
@@ -611,6 +641,40 @@ class _CreateBudgetPageState extends State<CreateBudgetPage> {
         ),
       ),
     );
+  }
+
+  Future<void> setBudgetCategory() async {
+    await _budgetController.addBudget(
+      categoryController.text,
+      double.parse(amountController.text),
+      alertPercentage,
+      receiveAlert,
+    );
+    if (_budgetController.isSuccess.value == true) {
+      categoryController.clear();
+      amountController.clear();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
+      );
+      Get.snackbar('Success', 'Budget added successfully');
+    }
+  }
+
+  Future<void> setOverallBudget() async {
+    await _budgetController.addOverallBudget(
+      double.parse(amountController.text),
+      alertPercentage,
+      receiveAlert,
+    );
+    if (_budgetController.isSuccess.value == true) {
+      amountController.clear();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
+      );
+      Get.snackbar('Success', 'Overall Budget added successfully');
+    }
   }
 }
 

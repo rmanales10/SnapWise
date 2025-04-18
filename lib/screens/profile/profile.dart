@@ -1,18 +1,35 @@
-// ignore_for_file: library_private_types_in_public_api
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:snapwise/screens/widget/bottom_nav_bar.dart';
+import 'package:snapwise/screens/auth_screens/login/login_controller.dart';
+import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _ProfilePageState createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  final loginController = Get.put(LoginController());
+  final _storage = GetStorage();
+  RxString displayName = ''.obs;
+  RxString photoUrl = ''.obs;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  void _fetchUserData() {
+    displayName.value = _storage.read('displayName') ?? '';
+    photoUrl.value = _storage.read('photoUrl') ?? '';
+  }
+
   @override
   Widget build(BuildContext context) {
     // Get screen width to detect tablet size
@@ -33,57 +50,66 @@ class _ProfilePageState extends State<ProfilePage> {
             // Profile header
             Padding(
               padding: const EdgeInsets.only(top: 50),
-              child: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(
-                      isTablet ? 5 : 3,
-                    ), // Larger padding for tablets
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.blue, // Change color as needed
-                        width: 3, // Border thickness
-                      ),
-                    ),
-                    child: CircleAvatar(
-                      backgroundImage: AssetImage('assets/logo.png'),
-                      backgroundColor: Colors.grey,
-                      radius: isTablet ? 50 : 35, // Larger avatar for tablets
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Username',
-                        style: TextStyle(
-                          fontSize:
-                              isTablet ? 20 : 15, // Larger text for tablets
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade600,
+              child: Obx(() {
+                ImageProvider imageProvider =
+                    photoUrl.isNotEmpty
+                        ? NetworkImage(photoUrl.value)
+                        : AssetImage('assets/logo.png');
+
+                return Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(
+                        isTablet ? 5 : 3,
+                      ), // Larger padding for tablets
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.blue, // Change color as needed
+                          width: 3, // Border thickness
                         ),
                       ),
-                      Text(
-                        'Iriana Saliha',
-                        style: TextStyle(
-                          fontSize:
-                              isTablet ? 25 : 20, // Larger text for tablets
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: CircleAvatar(
+                        backgroundImage: imageProvider,
+                        backgroundColor: Colors.grey,
+                        radius: isTablet ? 50 : 35, // Larger avatar for tablets
                       ),
-                    ],
-                  ),
-                  Spacer(),
-                  Icon(
-                    LucideIcons.edit2,
-                    size: isTablet ? 30 : 20,
-                  ), // Larger icon for tablets
-                  const SizedBox(width: 20),
-                ],
-              ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Username',
+                          style: TextStyle(
+                            fontSize:
+                                isTablet ? 20 : 15, // Larger text for tablets
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        Text(
+                          displayName.value.isEmpty
+                              ? 'Set Username'
+                              : displayName.value,
+                          style: TextStyle(
+                            fontSize:
+                                isTablet ? 25 : 20, // Larger text for tablets
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Spacer(),
+                    Icon(
+                      LucideIcons.edit2,
+                      size: isTablet ? 30 : 20,
+                    ), // Larger icon for tablets
+                    const SizedBox(width: 20),
+                  ],
+                );
+              }),
             ),
 
             const SizedBox(height: 40),
@@ -261,7 +287,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Get.offAllNamed('/login'),
+                      onPressed: () => loginController.logout(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color.fromARGB(255, 3, 30, 53),
                         shape: RoundedRectangleBorder(

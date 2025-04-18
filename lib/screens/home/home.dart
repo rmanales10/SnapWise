@@ -1,46 +1,41 @@
-// ignore_for_file: deprecated_member_use, library_private_types_in_public_api
-
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
-import 'package:snapwise/screens/widget/bottom_nav_bar.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:snapwise/screens/expense/view_expense.dart';
+import 'package:snapwise/screens/home/home_controller.dart';
+import 'package:snapwise/screens/widget/bottomnavbar.dart';
 import 'package:snapwise/screens/widget/graph.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
+  final HomeController controller = Get.put(HomeController());
+
+  final _storage = GetStorage();
+  RxString photoUrl = ''.obs;
   final bool isTablet =
       MediaQueryData.fromView(
+        // ignore: deprecated_member_use
         WidgetsBinding.instance.window,
       ).size.shortestSide >
       600;
 
+  @override
+  void initState() {
+    super.initState();
+    _fetchPhotoUrl();
+    controller.fetchTransactions();
+  }
 
-
-  final List<Map<String, dynamic>> transactions = [
-    {
-      "icon": LucideIcons.shoppingBag,
-      "title": "Shopping",
-      "date": "Jan 12, 2022",
-      "amount": "-150.00",
-    },
-    {
-      "icon": LucideIcons.utensils,
-      "title": "Food",
-      "date": "Jan 16, 2022",
-      "amount": "-11.99",
-    },
-    {
-      "icon": LucideIcons.train,
-      "title": "Transport",
-      "date": "Jan 18, 2022",
-      "amount": "-30.50",
-    },
-  ];
+  void _fetchPhotoUrl() {
+    photoUrl.value = _storage.read('photoUrl') ?? '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,14 +84,27 @@ class _HomePageState extends State<HomePage> {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.blue, width: 3),
                     ),
-                    child: CircleAvatar(
-                      backgroundImage: const AssetImage('assets/logo.png'),
-                      backgroundColor: Colors.grey,
-                      radius: isTablet ? 30 : 20,
-                    ),
+                    child: Obx(() {
+                      ImageProvider imageProvider =
+                          photoUrl.isNotEmpty
+                              ? NetworkImage(photoUrl.value)
+                              : AssetImage('assets/logo.png');
+                      return CircleAvatar(
+                        backgroundImage: imageProvider,
+                        backgroundColor: Colors.grey,
+                        radius: isTablet ? 30 : 20,
+                      );
+                    }),
                   ),
                   GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/notification'),
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => BottomNavBar(initialIndex: 11),
+                          ),
+                        ),
                     child: Icon(
                       Icons.notifications,
                       color: const Color.fromARGB(255, 3, 30, 53),
@@ -123,72 +131,82 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             SizedBox(height: isTablet ? 20 : 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildBalanceCard(
-                  'assets/money-management 1.png',
-                  'Budget',
-                  'PHP 100000',
-                ),
-                SizedBox(width: isTablet ? 30 : 10),
-                _buildBalanceCard(
-                  'assets/save-money 1.png',
-                  'Income',
-                  'PHP 11000',
-                ),
-              ],
-            ),
-            SizedBox(height: isTablet ? 20 : 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildBalanceCard(
-                  'assets/sales 1.png',
-                  'Total Spent',
-                  'PHP 89000',
-                ),
-                SizedBox(width: isTablet ? 30 : 10),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => BottomNavBar(initialIndex: 8),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildBalanceCard(
+                        'assets/money-management 1.png',
+                        'Budget',
+                        'PHP 100000',
                       ),
-                    );
-                  },
-                  child: Container(
-                    width: isTablet ? 250 : 150,
-                    padding: EdgeInsets.symmetric(
-                      vertical: isTablet ? 12 : 7,
-                      horizontal: isTablet ? 30 : 20,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 3, 30, 53),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 5,
-                          offset: const Offset(0, 5),
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Predict Budget',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: isTablet ? 18 : 15,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      SizedBox(width: isTablet ? 30 : 10),
+                      _buildBalanceCard(
+                        'assets/save-money 1.png',
+                        'Income',
+                        'PHP 11000',
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              ],
+                  SizedBox(height: isTablet ? 20 : 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Obx(
+                        () => _buildBalanceCard(
+                          'assets/sales 1.png',
+                          'Total Spent',
+                          'PHP ${controller.getTotalSpent()}',
+                        ),
+                      ),
+                      SizedBox(width: isTablet ? 30 : 10),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => BottomNavBar(initialIndex: 8),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: isTablet ? 250 : 150,
+                          padding: EdgeInsets.symmetric(
+                            vertical: isTablet ? 12 : 7,
+                            horizontal: isTablet ? 30 : 20,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color.fromARGB(255, 3, 30, 53),
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 5,
+                                offset: const Offset(0, 5),
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Predict Budget',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: isTablet ? 18 : 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -288,19 +306,27 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 10),
-          Column(
-            children:
-                transactions.map((transaction) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _buildTransactionItem(
-                      transaction["icon"],
-                      transaction["title"],
-                      transaction["date"],
-                      transaction["amount"],
-                    ),
-                  );
-                }).toList(),
+          Obx(
+            () => Column(
+              children:
+                  controller.transactions.map((transaction) {
+                    return GestureDetector(
+                      onTap:
+                          () => Get.to(
+                            () => ViewExpense(expenseId: transaction['id']),
+                          ),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _buildTransactionItem(
+                          transaction["icon"],
+                          transaction["title"],
+                          transaction["date"],
+                          transaction["amount"],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+            ),
           ),
         ],
       ),

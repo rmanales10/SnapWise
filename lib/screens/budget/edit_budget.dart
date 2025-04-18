@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:snapwise/screens/budget/budget_controller.dart';
+import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
 class EditBudgetPage extends StatefulWidget {
   const EditBudgetPage({super.key});
@@ -12,11 +15,26 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
   bool receiveAlert = false;
   double alertPercentage = 80.0;
   final TextEditingController amountController = TextEditingController();
-  final TextEditingController categoryController = TextEditingController(
-    text: "Shopping",
-  );
+  final _budgetController = Get.put(BudgetController());
 
+  @override
+  void initState() {
+    super.initState();
+    fetchOverallBudget();
+  }
 
+  Future<void> fetchOverallBudget() async {
+    await _budgetController.fetchOverallBudget();
+    setState(() {
+      amountController.text =
+          _budgetController.budgetData.value['amount'].toString() == 'null'
+              ? ''
+              : _budgetController.incomeData.value['amount'].toString();
+      alertPercentage =
+          _budgetController.budgetData.value['alertPercentage'] as double;
+      receiveAlert = _budgetController.budgetData.value['receiveAlert'] as bool;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -281,6 +299,7 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
+                        setOverallBudget();
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
@@ -335,6 +354,22 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
         ),
       ),
     );
+  }
+
+  Future<void> setOverallBudget() async {
+    await _budgetController.addOverallBudget(
+      double.parse(amountController.text),
+      alertPercentage,
+      receiveAlert,
+    );
+    if (_budgetController.isSuccess.value == true) {
+      amountController.clear();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
+      );
+      Get.snackbar('Success', 'Income set successfully');
+    }
   }
 }
 

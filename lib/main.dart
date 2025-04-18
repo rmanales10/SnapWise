@@ -4,7 +4,7 @@ import 'package:snapwise/screens/budget/edit_budget.dart';
 import 'package:snapwise/screens/budget/edit_budget_category.dart';
 import 'package:snapwise/screens/budget/income/edit_income.dart';
 import 'package:snapwise/screens/budget/income/input_income.dart';
-import 'package:snapwise/screens/budget/input_budget.dart';
+import 'package:snapwise/screens/budget/create_budget.dart';
 import 'package:snapwise/screens/expense/expense.dart';
 import 'package:snapwise/screens/auth_screens/forgot_password/forgot.dart';
 import 'package:snapwise/screens/history/records.dart';
@@ -36,9 +36,8 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.blue),
-      initialRoute: '/',
+      home: SplashScreen(),
       routes: {
-        '/': (context) => const SplashScreen(),
         '/login': (context) => LoginPage(),
         '/register': (context) => RegisterPage(),
         '/success': (context) => RegistrationSuccessPage(),
@@ -53,9 +52,9 @@ class MyApp extends StatelessWidget {
         '/notif-setting': (context) => NotificationSettingsPage(),
         '/about': (context) => AboutPage(),
         '/predict': (context) => PredictBudgetPage(),
-        '/input-income': (context) => IncomeInputPage(),
+        '/input-income': (context) => InputIncome(),
         '/edit-income': (context) => IncomeEditPage(),
-        '/create-budget': (context) => CreateBudgetPage(),
+        '/create-budget': (context) => CreateBudget(),
         '/edit-budget': (context) => EditBudgetPage(),
         '/edit-budget-category': (context) => EditBudgetCategoryPage(),
       },

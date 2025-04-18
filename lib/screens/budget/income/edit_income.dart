@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:snapwise/screens/budget/budget_controller.dart';
+import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
 class IncomeEditPage extends StatefulWidget {
   const IncomeEditPage({super.key});
@@ -11,8 +14,25 @@ class _IncomeEditPageState extends State<IncomeEditPage> {
   bool receiveAlert = false;
   double alertPercentage = 80.0;
 
-
   final TextEditingController amountController = TextEditingController();
+  final _budgetController = Get.put(BudgetController());
+
+  @override
+  void initState() {
+    super.initState();
+    fetchIncome();
+  }
+
+  Future<void> fetchIncome() async {
+    await _budgetController.fetchIncome();
+    setState(() {
+      amountController.text =
+          _budgetController.incomeData.value['amount'].toString();
+      alertPercentage =
+          _budgetController.incomeData.value['alertPercentage'] as double;
+      receiveAlert = _budgetController.incomeData.value['receiveAlert'] as bool;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -277,6 +297,7 @@ class _IncomeEditPageState extends State<IncomeEditPage> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
+                        setIncome();
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
@@ -331,6 +352,22 @@ class _IncomeEditPageState extends State<IncomeEditPage> {
         ),
       ),
     );
+  }
+
+  Future<void> setIncome() async {
+    await _budgetController.addOverallBudget(
+      double.parse(amountController.text),
+      alertPercentage,
+      receiveAlert,
+    );
+    if (_budgetController.isSuccess.value == true) {
+      amountController.clear();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
+      );
+      Get.snackbar('Success', 'Income set successfully');
+    }
   }
 }
 

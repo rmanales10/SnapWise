@@ -1,19 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:snapwise/screens/budget/budget_controller.dart';
+import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
-class IncomeInputPage extends StatefulWidget {
-  const IncomeInputPage({super.key});
+class InputIncome extends StatefulWidget {
+  const InputIncome({super.key});
 
   @override
-  State<IncomeInputPage> createState() => _IncomeInputPageState();
+  State<InputIncome> createState() => _InputIncomeState();
 }
 
-class _IncomeInputPageState extends State<IncomeInputPage> {
+class _InputIncomeState extends State<InputIncome> {
+  final _budgetController = Get.put(BudgetController());
   bool receiveAlert = false;
   double alertPercentage = 80.0;
 
-
   String selectedFrequency = 'Monthly';
   final TextEditingController amountController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    fetchIncome();
+  }
+
+  Future<void> fetchIncome() async {
+    await _budgetController.fetchIncome();
+    setState(() {
+      amountController.text =
+          _budgetController.incomeData.value['amount'].toString() == 'null'
+              ? ''
+              : _budgetController.incomeData.value['amount'].toString();
+      alertPercentage =
+          _budgetController.incomeData.value['alertPercentage'] as double;
+      receiveAlert = _budgetController.incomeData.value['receiveAlert'] as bool;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -278,6 +300,7 @@ class _IncomeInputPageState extends State<IncomeInputPage> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
+                        saveIncome();
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
@@ -309,6 +332,7 @@ class _IncomeInputPageState extends State<IncomeInputPage> {
 
   Widget _buildAmountInput() {
     return TextField(
+      enabled: amountController.text.isNotEmpty ? false : true,
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
       controller: amountController,
       keyboardType: TextInputType.number,
@@ -332,6 +356,22 @@ class _IncomeInputPageState extends State<IncomeInputPage> {
         ),
       ),
     );
+  }
+
+  Future<void> saveIncome() async {
+    await _budgetController.addIncome(
+      double.parse(amountController.text),
+      alertPercentage,
+      receiveAlert,
+    );
+    if (_budgetController.isSuccess.value == true) {
+      amountController.clear();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
+      );
+      Get.snackbar('Success', 'Income saved successfully');
+    }
   }
 }
 
