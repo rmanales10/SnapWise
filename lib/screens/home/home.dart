@@ -31,6 +31,8 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _fetchPhotoUrl();
     controller.fetchTransactions();
+    controller.getTotalBudget();
+    controller.getTotalIncome();
   }
 
   void _fetchPhotoUrl() {
@@ -138,16 +140,20 @@ class _HomePageState extends State<HomePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildBalanceCard(
-                        'assets/money-management 1.png',
-                        'Budget',
-                        'PHP 100000',
+                      Obx(
+                        () => _buildBalanceCard(
+                          'assets/money-management 1.png',
+                          'Budget',
+                          'PHP ${controller.totalBudget}',
+                        ),
                       ),
                       SizedBox(width: isTablet ? 30 : 10),
-                      _buildBalanceCard(
-                        'assets/save-money 1.png',
-                        'Income',
-                        'PHP 11000',
+                      Obx(
+                        () => _buildBalanceCard(
+                          'assets/save-money 1.png',
+                          'Income',
+                          'PHP ${controller.totalIncome}',
+                        ),
                       ),
                     ],
                   ),

@@ -34,11 +34,13 @@ class _ViewExpenseState extends State<ViewExpense> {
   }
 
   Future<void> _fetchData() async {
-    controller.fetchCategories();
-    controller.fetchExpense(widget.expenseId);
-    amountController.text = controller.expenses['amount'].toString();
-    categoryController.text = controller.expenses['category'].toString();
-    base64Image = controller.expenses['base64Image'];
+    await controller.fetchCategories();
+    await controller.fetchExpense(widget.expenseId);
+    setState(() {
+      amountController.text = controller.expenses['amount'].toString();
+      categoryController.text = controller.expenses['category'].toString();
+      base64Image = controller.expenses['base64Image'];
+    });
   }
 
   @override
@@ -166,11 +168,25 @@ class _ViewExpenseState extends State<ViewExpense> {
                             ] else ...[
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
-                                child: Image.memory(
-                                  base64Decode(base64Image!),
-                                  width: 40,
-                                  height: 40,
-                                  fit: BoxFit.cover,
+                                child: Builder(
+                                  builder: (BuildContext context) {
+                                    try {
+                                      return Image.memory(
+                                        base64Decode(base64Image!),
+                                        width: 40,
+                                        height: 40,
+                                        fit: BoxFit.cover,
+                                      );
+                                    } catch (e) {
+                                      // Handle the error (e.g., show a placeholder or error icon)
+                                      return Container(
+                                        width: 40,
+                                        height: 40,
+                                        color: Colors.grey.shade300,
+                                        child: CircularProgressIndicator(),
+                                      );
+                                    }
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 10),

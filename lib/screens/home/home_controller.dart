@@ -13,7 +13,8 @@ class HomeController extends GetxController {
   RxList<Map<String, dynamic>> transactions = <Map<String, dynamic>>[].obs;
   RxList<Map<String, dynamic>> transactionsHistory =
       <Map<String, dynamic>>[].obs;
-  final Rx<Map<String, dynamic>> budgetData = Rx<Map<String, dynamic>>({});
+  RxString totalBudget = '0.0'.obs;
+  RxString totalIncome = '0.0'.obs;
 
   @override
   void onInit() {
@@ -142,6 +143,7 @@ class HomeController extends GetxController {
   Future<void> getTotalBudget() async {
     try {
       final User? user = _auth.currentUser;
+
       if (user == null) {
         throw Exception('User not authenticated');
       }
@@ -149,13 +151,68 @@ class HomeController extends GetxController {
       final DocumentSnapshot budgetDoc =
           await _firestore.collection('overallBudget').doc(user.uid).get();
 
-      if (budgetDoc.exists) {
-        budgetData.value = budgetDoc.data() as Map<String, dynamic>;
+      if (!budgetDoc.exists) {
+        totalBudget.value = '0.00';
+        return;
+      }
+
+      final budgetData = budgetDoc.data() as Map<String, dynamic>;
+      final amount = budgetData['amount'];
+
+      if (amount == null || amount is! num) {
+        totalBudget.value = '0.00';
+        return;
+      }
+
+      double total = amount.toDouble();
+
+      if (total >= 1000) {
+        double inThousands = total / 1000;
+        totalBudget.value = '${inThousands.toStringAsFixed(1)}k';
       } else {
-        budgetData.value = {};
+        totalBudget.value = total.toStringAsFixed(2);
       }
     } catch (e) {
       Get.snackbar('Error', 'Failed to fetch budget: ${e.toString()}');
+      totalBudget.value = '0.00';
+    }
+  }
+
+  Future<void> getTotalIncome() async {
+    try {
+      final User? user = _auth.currentUser;
+
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final DocumentSnapshot budgetDoc =
+          await _firestore.collection('income').doc(user.uid).get();
+
+      if (!budgetDoc.exists) {
+        totalIncome.value = '0.00';
+        return;
+      }
+
+      final budgetData = budgetDoc.data() as Map<String, dynamic>;
+      final amount = budgetData['amount'];
+
+      if (amount == null || amount is! num) {
+        totalIncome.value = '0.00';
+        return;
+      }
+
+      double total = amount.toDouble();
+
+      if (total >= 1000) {
+        double inThousands = total / 1000;
+        totalIncome.value = '${inThousands.toStringAsFixed(1)}k';
+      } else {
+        totalIncome.value = total.toStringAsFixed(2);
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to fetch budget: ${e.toString()}');
+      totalIncome.value = '0.00';
     }
   }
 }
