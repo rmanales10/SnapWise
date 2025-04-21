@@ -9,7 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:snapwise/screens/expense/expense_controller.dart';
 import 'package:snapwise/screens/expense/gemini_ai.dart';
 import 'package:snapwise/screens/expense/ocr_controller.dart';
-import 'package:snapwise/screens/home/home_controller.dart';
+import 'package:snapwise/screens/home/home_screens/home_controller.dart';
 import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
 class ExpenseManualPage extends StatefulWidget {

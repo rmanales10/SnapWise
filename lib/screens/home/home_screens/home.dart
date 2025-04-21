@@ -4,7 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:snapwise/screens/expense/view_expense.dart';
-import 'package:snapwise/screens/home/home_controller.dart';
+import 'package:snapwise/screens/home/home_screens/home_controller.dart';
 import 'package:snapwise/screens/widget/bottomnavbar.dart';
 import 'package:snapwise/screens/widget/graph.dart';
 
@@ -17,6 +17,23 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  double _calculateBalance(String income, String spent) {
+    double incomeValue = _parseFormattedAmount(income);
+    double spentValue = _parseFormattedAmount(spent);
+    return incomeValue - spentValue;
+  }
+
+  double _parseFormattedAmount(String amount) {
+    amount = amount.replaceAll('\$', '').replaceAll('PHP', '').trim();
+    if (amount.endsWith('k')) {
+      return double.parse(amount.substring(0, amount.length - 1)) * 1000;
+    } else if (amount.endsWith('M')) {
+      return double.parse(amount.substring(0, amount.length - 1)) * 1000000;
+    } else {
+      return double.parse(amount);
+    }
+  }
+
   final HomeController controller = Get.put(HomeController());
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -163,13 +180,18 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 5),
-            Text(
-              'PHP 9,400',
-              style: TextStyle(
-                fontSize: isTablet ? 32 : 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Obx(() {
+              String income = controller.totalIncome.value;
+              String spent = controller.getTotalSpent();
+              double balance = _calculateBalance(income, spent);
+              return Text(
+                '₱ ${balance.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: isTablet ? 32 : 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              );
+            }),
             SizedBox(height: isTablet ? 20 : 10),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),

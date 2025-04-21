@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:snapwise/screens/home/home_controller.dart';
+import 'package:snapwise/screens/home/home_screens/home_controller.dart';
 
 class TransactionHistoryPage extends StatefulWidget {
   const TransactionHistoryPage({super.key});
@@ -10,7 +10,7 @@ class TransactionHistoryPage extends StatefulWidget {
 }
 
 class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
-  final HomeController controller = Get.find<HomeController>();
+  final HomeController controller = Get.put(HomeController());
 
   bool isSelecting = false;
   List<int> selectedIndices = [];

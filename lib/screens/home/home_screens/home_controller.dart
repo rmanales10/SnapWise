@@ -126,13 +126,16 @@ class HomeController extends GetxController {
   }
 
   String getTotalSpent() {
-    double total = transactions.fold(0.0, (sum, transaction) {
+    double total = transactionsHistory.fold(0.0, (sum, transaction) {
       // Assuming 'amount' is stored as a string with '-' prefix
       String amountStr = transaction['amount'].replaceAll('-', '');
       return sum + double.parse(amountStr);
     });
 
-    if (total >= 1000) {
+    if (total >= 1000000) {
+      double inMillions = total / 1000000;
+      return '${inMillions.toStringAsFixed(1)}M';
+    } else if (total >= 1000) {
       double inThousands = total / 1000;
       return '${inThousands.toStringAsFixed(1)}k';
     } else {
@@ -166,7 +169,10 @@ class HomeController extends GetxController {
 
       double total = amount.toDouble();
 
-      if (total >= 1000) {
+      if (total >= 1000000) {
+        double inMillions = total / 1000000;
+        totalBudget.value = '${inMillions.toStringAsFixed(1)}M';
+      } else if (total >= 1000) {
         double inThousands = total / 1000;
         totalBudget.value = '${inThousands.toStringAsFixed(1)}k';
       } else {
@@ -186,16 +192,16 @@ class HomeController extends GetxController {
         throw Exception('User not authenticated');
       }
 
-      final DocumentSnapshot budgetDoc =
+      final DocumentSnapshot incomeDoc =
           await _firestore.collection('income').doc(user.uid).get();
 
-      if (!budgetDoc.exists) {
+      if (!incomeDoc.exists) {
         totalIncome.value = '0.00';
         return;
       }
 
-      final budgetData = budgetDoc.data() as Map<String, dynamic>;
-      final amount = budgetData['amount'];
+      final incomeData = incomeDoc.data() as Map<String, dynamic>;
+      final amount = incomeData['amount'];
 
       if (amount == null || amount is! num) {
         totalIncome.value = '0.00';
@@ -204,14 +210,17 @@ class HomeController extends GetxController {
 
       double total = amount.toDouble();
 
-      if (total >= 1000) {
+      if (total >= 1000000) {
+        double inMillions = total / 1000000;
+        totalIncome.value = '${inMillions.toStringAsFixed(1)}M';
+      } else if (total >= 1000) {
         double inThousands = total / 1000;
         totalIncome.value = '${inThousands.toStringAsFixed(1)}k';
       } else {
         totalIncome.value = total.toStringAsFixed(2);
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch budget: ${e.toString()}');
+      Get.snackbar('Error', 'Failed to fetch income: ${e.toString()}');
       totalIncome.value = '0.00';
     }
   }

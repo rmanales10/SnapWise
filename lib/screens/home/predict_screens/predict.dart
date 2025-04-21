@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:snapwise/screens/home/predict_screens/predict_controller.dart';
 
 class PredictBudgetPage extends StatefulWidget {
   const PredictBudgetPage({super.key});
@@ -9,6 +11,8 @@ class PredictBudgetPage extends StatefulWidget {
 }
 
 class _PredictBudgetPageState extends State<PredictBudgetPage> {
+  final controller = Get.put(PredictController());
+
   double budgetAmount = 15000.0;
   bool isEditing = false;
 
@@ -22,8 +26,6 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
     {'name': 'Entertainment', 'amount': 1000.0, 'icon': Icons.movie},
     {'name': 'Others', 'amount': 1500.0, 'icon': Icons.more_horiz},
   ];
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -108,100 +110,90 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                     ),
                   ),
                   SizedBox(height: isTablet ? 15 : 10),
-                  isEditing
-                      ? Container(
-                        alignment: Alignment.centerRight,
-                        child: SizedBox(
-                          width: isTablet ? 250 : 200,
-                          child: TextField(
-                            textAlign: TextAlign.right,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                vertical: 8,
-                                horizontal: 12,
+                  Obx(
+                    () =>
+                        isEditing
+                            ? Container(
+                              alignment: Alignment.centerRight,
+                              child: SizedBox(
+                                width: isTablet ? 250 : 200,
+                                child: TextField(
+                                  textAlign: TextAlign.right,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 12,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: isTablet ? 32 : 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color.fromARGB(255, 3, 30, 53),
+                                  ),
+                                  controller: TextEditingController(
+                                    text: budgetAmount.toStringAsFixed(2),
+                                  ),
+                                  onChanged: (value) {
+                                    double? newVal = double.tryParse(value);
+                                    if (newVal != null) {
+                                      setState(() {
+                                        budgetAmount = newVal;
+                                      });
+                                    }
+                                  },
+                                ),
                               ),
-                              border: OutlineInputBorder(
-                                borderSide: BorderSide.none,
+                            )
+                            : Text(
+                              'PHP ${controller.totalBudget.value.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontSize: isTablet ? 32 : 28,
+                                fontWeight: FontWeight.bold,
+                                color: const Color.fromARGB(255, 3, 30, 53),
                               ),
-                              filled: true,
-                              fillColor: Colors.white,
                             ),
-                            style: TextStyle(
-                              fontSize: isTablet ? 32 : 28,
-                              fontWeight: FontWeight.bold,
-                              color: const Color.fromARGB(255, 3, 30, 53),
-                            ),
-                            controller: TextEditingController(
-                              text: budgetAmount.toStringAsFixed(2),
-                            ),
-                            onChanged: (value) {
-                              double? newVal = double.tryParse(value);
-                              if (newVal != null) {
-                                setState(() {
-                                  budgetAmount = newVal;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      )
-                      : Text(
-                        'PHP ${budgetAmount.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: isTablet ? 32 : 28,
-                          fontWeight: FontWeight.bold,
-                          color: const Color.fromARGB(255, 3, 30, 53),
-                        ),
-                      ),
+                  ),
                 ],
               ),
             ),
             SizedBox(height: isTablet ? 30 : 20),
-
-            Text(
-              'Budget Categories',
-              style: TextStyle(
-                fontSize: isTablet ? 22 : 18,
-                fontWeight: FontWeight.bold,
+            Obx(
+              () => GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: controller.budgetCategories.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: isTablet ? 3 : 2,
+                  crossAxisSpacing: isTablet ? 20 : 15,
+                  mainAxisSpacing: isTablet ? 20 : 15,
+                  childAspectRatio: isTablet ? 1.5 : 1.8,
+                ),
+                itemBuilder: (context, index) {
+                  final category = controller.budgetCategories[index];
+                  return _buildCategoryCard(
+                    category['name'],
+                    category['amount'],
+                    category['icon'],
+                    (newAmount) {
+                      controller.budgetCategories[index]['amount'] = newAmount;
+                    },
+                  );
+                },
               ),
-            ),
-            SizedBox(height: isTablet ? 20 : 15),
-
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: budgetCategories.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: isTablet ? 3 : 2,
-                crossAxisSpacing: isTablet ? 20 : 15,
-                mainAxisSpacing: isTablet ? 20 : 15,
-                childAspectRatio: isTablet ? 1.5 : 1.8,
-              ),
-              itemBuilder: (context, index) {
-                final category = budgetCategories[index];
-                return _buildCategoryCard(
-                  category['name'],
-                  category['amount'],
-                  category['icon'],
-                  (newAmount) {
-                    setState(() {
-                      budgetCategories[index]['amount'] = newAmount;
-                    });
-                  },
-                );
-              },
             ),
           ],
         ),
       ),
-      // bottomNavigationBar: CustomBottomNavBar(
-      //   currentIndex: _selectedIndex,
-      //   onTap: _onNavItemTapped,
-      // ),
     );
   }
 
@@ -372,6 +364,7 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                         setState(() {
                           isEditing = false;
                         });
+                        controller.predictBudget(controller.totalBudget.value);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color.fromARGB(255, 3, 30, 53),
