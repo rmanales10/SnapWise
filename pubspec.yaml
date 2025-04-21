@@ -49,6 +49,9 @@ dependencies:
   get_storage: ^2.1.1
   google_mlkit_text_recognition: ^0.15.0
   google_generative_ai: ^0.4.6
+  flutter_local_notifications: ^19.1.0
+  firebase_messaging: ^15.2.5
+  firebase_analytics: ^11.4.5
 
 dev_dependencies:
   flutter_test:

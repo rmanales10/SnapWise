@@ -1,4 +1,6 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:snapwise/screens/expense/view_expense.dart';
@@ -16,6 +18,9 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final HomeController controller = Get.put(HomeController());
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
   final _storage = GetStorage();
   RxString photoUrl = ''.obs;
@@ -37,6 +42,39 @@ class _HomePageState extends State<HomePage> {
 
   void _fetchPhotoUrl() {
     photoUrl.value = _storage.read('photoUrl') ?? '';
+  }
+
+  Future<void> sendBudgetExceededNotification({
+    required double spentPercentage,
+    required double remainingBudget,
+  }) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+          'budget_alert_channel',
+          'Budget Alerts',
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        );
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+    );
+
+    await _flutterLocalNotificationsPlugin.show(
+      2, // Use a unique ID
+      'Budget Alert',
+      'You\'ve spent ${(spentPercentage * 100).toStringAsFixed(1)}% of your budget. Remaining: \$${remainingBudget.toStringAsFixed(2)}',
+      platformChannelSpecifics,
+    );
+
+    // Log the event
+    await _analytics.logEvent(
+      name: 'budget_exceeded_notification',
+      parameters: {
+        'spent_percentage': spentPercentage,
+        'remaining_budget': remainingBudget,
+      },
+    );
   }
 
   @override
@@ -141,10 +179,17 @@ class _HomePageState extends State<HomePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       Obx(
-                        () => _buildBalanceCard(
-                          'assets/money-management 1.png',
-                          'Budget',
-                          'PHP ${controller.totalBudget}',
+                        () => GestureDetector(
+                          onTap:
+                              () => sendBudgetExceededNotification(
+                                remainingBudget: 10,
+                                spentPercentage: 10,
+                              ),
+                          child: _buildBalanceCard(
+                            'assets/money-management 1.png',
+                            'Budget',
+                            'PHP ${controller.totalBudget}',
+                          ),
                         ),
                       ),
                       SizedBox(width: isTablet ? 30 : 10),

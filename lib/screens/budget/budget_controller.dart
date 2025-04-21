@@ -1,5 +1,4 @@
-import 'dart:developer';
-
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,12 +14,54 @@ class BudgetController extends GetxController {
   RxList<Map<String, dynamic>> budgetCategories = <Map<String, dynamic>>[].obs;
   RxDouble remainingBudget = 0.0.obs;
   RxDouble remainingBudgetPercentage = 0.0.obs;
+  RxDouble categoryTotalAmount = 0.0.obs;
+  RxDouble remainingIncomePercentage = 0.0.obs;
 
   Future<void> addBudget(
     String category,
     double amount,
     double alertPercentage,
     bool receiveAlert,
+  ) async {
+    String generateRandomBudgetId() {
+      final random = Random();
+      final number = random.nextInt(100000).toString().padLeft(5, '0');
+      return 'budget#$number';
+    }
+
+    final budgetId = generateRandomBudgetId();
+
+    try {
+      if (category.isEmpty || amount <= 0) {
+        throw Exception('Invalid category or amount');
+      }
+
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await _firestore.collection('budget').doc(budgetId).set({
+        'budgetId': budgetId,
+        'userId': user.uid,
+        'category': category,
+        'amount': amount,
+        'alertPercentage': alertPercentage,
+        'receiveAlert': receiveAlert,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      isSuccess.value = true;
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to add expense: ${e.toString()}');
+    }
+  }
+
+  Future<void> setBudget(
+    String category,
+    double amount,
+    double alertPercentage,
+    bool receiveAlert,
+    String budgetId,
   ) async {
     try {
       if (category.isEmpty || amount <= 0) {
@@ -32,17 +73,39 @@ class BudgetController extends GetxController {
         throw Exception('User not authenticated');
       }
 
-      await _firestore.collection('budget').add({
+      await _firestore.collection('budget').doc(budgetId).set({
+        'budgetId': budgetId,
         'userId': user.uid,
         'category': category,
         'amount': amount,
         'alertPercentage': alertPercentage,
         'receiveAlert': receiveAlert,
         'timestamp': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
       isSuccess.value = true;
     } catch (e) {
       Get.snackbar('Error', 'Failed to add expense: ${e.toString()}');
+    }
+  }
+
+  Future<void> deleteBudget(String budgetId) async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await _firestore.collection('budget').doc(budgetId).delete();
+
+      // Refresh the budget categories after deletion
+      await fetchBudgetCategory();
+
+      // Recalculate the remaining budget
+      await calculateRemainingBudget();
+
+      Get.snackbar('Success', 'Budget deleted successfully');
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to delete budget: ${e.toString()}');
     }
   }
 
@@ -157,6 +220,7 @@ class BudgetController extends GetxController {
             querySnapshot.docs.map((doc) {
               final data = doc.data();
               return {
+                'budgetId': data['budgetId'],
                 'id': doc.id,
                 'alertPercentage': data['alertPercentage'],
                 'receiveAlert': data['receiveAlert'],
@@ -170,7 +234,7 @@ class BudgetController extends GetxController {
         budgetCategories.assignAll(fetchBudgetCategories);
       }
     } catch (e) {
-      log('Error fetching transactions: $e');
+      // log('Error fetching transactions: $e');
     }
   }
 
@@ -219,30 +283,104 @@ class BudgetController extends GetxController {
       await fetchOverallBudget();
       double overallBudget = budgetData.value['amount'] ?? 0.0;
 
-      QuerySnapshot expensesSnapshot =
+      // Fetch all budget categories
+      QuerySnapshot budgetSnapshot =
           await _firestore
-              .collection('expenses')
+              .collection('budget')
               .where('userId', isEqualTo: user.uid)
               .get();
 
-      double totalExpenses = expensesSnapshot.docs.fold(0.0, (sum, doc) {
-        return sum + (doc.data() as Map<String, dynamic>)['amount'];
-      });
+      double totalCategoryBudgets = 0.0;
+      Map<String, double> categoryBudgets = {};
+      for (var doc in budgetSnapshot.docs) {
+        String category = doc['category'];
+        double amount = doc['amount'];
+        categoryBudgets[category] = amount;
+        totalCategoryBudgets += amount;
+      }
 
-      remainingBudget.value = overallBudget - totalExpenses;
+      // Calculate remaining budget (overall budget minus sum of category budgets)
+      remainingBudget.value = overallBudget - totalCategoryBudgets;
 
-      // Calculate the percentage
+      // Calculate the percentage of overall budget remaining
       if (overallBudget > 0) {
         remainingBudgetPercentage.value =
-            (remainingBudget.value / overallBudget);
+            (remainingBudget.value / overallBudget) == -1
+                ? 0
+                : remainingBudget.value / overallBudget;
       } else {
         remainingBudgetPercentage.value = 0;
       }
 
-      print('Remaining Budget: ${remainingBudget.value}');
-      print('Remaining Budget Percentage: ${remainingBudgetPercentage.value}');
+      // Ensure the percentage is not negative
+      remainingBudgetPercentage.value = remainingBudgetPercentage.value.clamp(
+        0,
+        100,
+      );
+
+      // print('Total Category Budgets: $totalCategoryBudgets');
+      // print('Overall Budget: $overallBudget');
+      // print('Remaining Budget: ${remainingBudget.value}');
+      // print('Remaining Budget Percentage: ${remainingBudgetPercentage.value}%');
+      // print('Category Budgets: $categoryBudgets');
     } catch (e) {
-      log('Error calculating remaining budget: $e');
+      // log('Error calculating remaining budget: $e');
+    }
+  }
+
+  Future<double> fetchTotalAmountByCategory(String category) async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        final querySnapshot =
+            await _firestore
+                .collection('expenses')
+                .where('userId', isEqualTo: user.uid)
+                .where('category', isEqualTo: category)
+                .get();
+
+        double totalAmount = 0.0;
+        for (var doc in querySnapshot.docs) {
+          totalAmount += (doc.data()['amount'] as num).toDouble();
+        }
+
+        categoryTotalAmount.value = totalAmount;
+        return totalAmount;
+      }
+      return 0.0;
+    } catch (e) {
+      // log('Error fetching total amount by category: $e');
+      categoryTotalAmount.value = 0.0;
+      return 0.0;
+    }
+  }
+
+  Future<void> calculateIncomeOverallBudgetPercentage() async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Fetch income
+      await fetchIncome();
+      double income = incomeData.value['amount'] ?? 0.0;
+
+      // Fetch overall budget
+      await fetchOverallBudget();
+      double overallBudget = budgetData.value['amount'] ?? 0.0;
+
+      if (overallBudget == 0) {
+        remainingIncomePercentage.value = 0.0; // Avoid division by zero
+      }
+
+      remainingIncomePercentage.value =
+          ((income - overallBudget) / overallBudget) == -1
+              ? 0.0
+              : ((income - overallBudget) / overallBudget);
+    } catch (e) {
+      // log('Error calculating income-overall budget percentage: $e');
+      remainingIncomePercentage.value = 0.0;
     }
   }
 }

@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:snapwise/screens/budget/budget_controller.dart';
+import 'package:snapwise/screens/budget/budget_notification.dart';
+import 'package:snapwise/screens/budget/edit_budget_category.dart';
 import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
 class BudgetPage extends StatefulWidget {
@@ -17,7 +19,7 @@ class _BudgetPageState extends State<BudgetPage> {
   RxDouble overallBudget = 0.0.obs;
   RxDouble income = 0.0.obs;
   RxDouble remainingBudgetPercentage = 0.0.obs;
-
+  final _budgetNotification = Get.put(BudgetNotification());
   final _budgetController = Get.put(BudgetController());
   @override
   void initState() {
@@ -30,10 +32,7 @@ class _BudgetPageState extends State<BudgetPage> {
     await _budgetController.fetchOverallBudget();
     await _budgetController.fetchIncome();
     await _budgetController.calculateRemainingBudget();
-    overallBudget.value = _budgetController.budgetData.value['amount'];
-    income.value = _budgetController.incomeData.value['amount'];
-    remainingBudgetPercentage.value =
-        _budgetController.remainingBudgetPercentage.value;
+    await _budgetController.calculateIncomeOverallBudgetPercentage();
   }
 
   final List<Category> categories = [
@@ -137,9 +136,9 @@ class _BudgetPageState extends State<BudgetPage> {
                   return CircularPercentIndicator(
                     radius: isTablet ? 100.0 : 80.0,
                     lineWidth: 20.0,
-                    percent: remainingBudgetPercentage.value,
+                    percent: _budgetController.remainingBudgetPercentage.value,
                     center: Text(
-                      overallBudget.value.toString(),
+                      _budgetController.budgetData.value['amount'].toString(),
 
                       style: TextStyle(
                         fontSize: isTablet ? 32 : 24,
@@ -154,10 +153,15 @@ class _BudgetPageState extends State<BudgetPage> {
                 : CircularPercentIndicator(
                   radius: isTablet ? 100.0 : 80.0,
                   lineWidth: 20.0,
-                  percent: 0.75,
+                  percent: _budgetController.remainingBudgetPercentage.value
+                      .clamp(0.0, 1.0),
                   center: Obx(
                     () => Text(
-                      income.toString(),
+                      _budgetController.incomeData.value['amount'].toString() ==
+                              'null'
+                          ? '0'
+                          : _budgetController.incomeData.value['amount']
+                              .toString(),
                       style: TextStyle(
                         fontSize: isTablet ? 32 : 24,
                         fontWeight: FontWeight.bold,
@@ -282,35 +286,62 @@ class _BudgetPageState extends State<BudgetPage> {
                   return Column(
                     children:
                         _budgetController.budgetCategories.map((category) {
-                          return isbudgetTab
-                              ? _buildCategoryItem1(
-                                isTablet,
-                                icon: category['icon'],
-                                category: category['title'],
-                                amountSpent: double.parse(
-                                  category['amount'].toString(),
+                          return FutureBuilder<double>(
+                            future: _budgetController
+                                .fetchTotalAmountByCategory(
+                                  category['title'].toString(),
                                 ),
-                                totalBudget: double.parse(
-                                  overallBudget.value.toString(),
-                                ),
-                                color: category['color'] ?? Colors.grey,
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return SizedBox.shrink(); // Or a placeholder widget
+                              } else if (snapshot.hasError) {
+                                return Text('Error: ${snapshot.error}');
+                              } else {
+                                double amountSpent = snapshot.data ?? 0.0;
+                                return isbudgetTab
+                                    ? _buildCategoryItem1(
+                                      isTablet,
+                                      id: category['budgetId'],
+                                      icon: category['icon'],
+                                      category: category['title'],
+                                      amountSpent: amountSpent,
+                                      totalBudget: double.parse(
+                                        category['amount'].toString(),
+                                      ),
+                                      color: category['color'] ?? Colors.grey,
+                                      exceeded:
+                                          (amountSpent /
+                                                  double.parse(
+                                                    category['amount']
+                                                        .toString(),
+                                                  )) *
+                                              100 >=
+                                          double.parse(
+                                            category['alertPercentage']
+                                                .toString(),
+                                          ),
 
-                                exceeded: false,
-                              )
-                              : _buildCategoryItem2(
-                                isTablet,
-                                icon: category['icon'],
-                                category: category['title'],
-                                amountSpent: double.parse(
-                                  category['amount'].toString(),
-                                ),
-                                totalBudget: double.parse(
-                                  overallBudget.value.toString(),
-                                ),
-                                color: category['color'] ?? Colors.grey,
-
-                                exceeded: false,
-                              );
+                                      alertPercentage: double.parse(
+                                        category['alertPercentage'].toString(),
+                                      ),
+                                      receiveAlert:
+                                          category['receiveAlert'] ?? false,
+                                    )
+                                    : _buildCategoryItem2(
+                                      isTablet,
+                                      icon: category['icon'],
+                                      category: category['title'],
+                                      amountSpent: amountSpent,
+                                      totalBudget: double.parse(
+                                        category['amount'].toString(),
+                                      ),
+                                      color: category['color'] ?? Colors.grey,
+                                      exceeded: false,
+                                    );
+                              }
+                            },
+                          );
                         }).toList(),
                   );
                 }),
@@ -328,15 +359,27 @@ class _BudgetPageState extends State<BudgetPage> {
 
   Widget _buildCategoryItem1(
     bool isTablet, {
+    required String id,
     required IconData icon,
     required String category,
     required double amountSpent,
     required double totalBudget,
     required Color color,
     bool exceeded = false,
+    required double alertPercentage,
+    required bool receiveAlert,
   }) {
     final percent = (amountSpent / totalBudget).clamp(0.0, 1.0);
     final remaining = totalBudget - amountSpent;
+
+    if (receiveAlert) {
+      if (alertPercentage >= percent) {
+        _budgetNotification.sendBudgetExceededNotification(
+          spentPercentage: percent,
+          remainingBudget: remaining,
+        );
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10),
@@ -413,7 +456,14 @@ class _BudgetPageState extends State<BudgetPage> {
                     () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => BottomNavBar(initialIndex: 6),
+                        builder:
+                            (context) => EditBudgetCategoryPage(
+                              budgetId: id,
+                              alertPercentage: alertPercentage,
+                              amount: totalBudget,
+                              category: category,
+                              receiveAlert: receiveAlert,
+                            ),
                       ),
                     ),
                 child: Container(

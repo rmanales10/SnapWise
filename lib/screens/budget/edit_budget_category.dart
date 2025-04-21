@@ -1,24 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:snapwise/screens/budget/budget_controller.dart';
+import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
+// ignore: must_be_immutable
 class EditBudgetCategoryPage extends StatefulWidget {
-  const EditBudgetCategoryPage({super.key});
+  final String budgetId;
+  final String category;
+  final double amount;
+  bool receiveAlert;
+  double alertPercentage;
+
+  EditBudgetCategoryPage({
+    super.key,
+    this.budgetId = '',
+    this.category = "Shopping",
+    this.amount = 0.0,
+    this.receiveAlert = false,
+    this.alertPercentage = 80.0,
+  });
 
   @override
   State<EditBudgetCategoryPage> createState() => _EditBudgetCategoryPageState();
 }
 
 class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
-
   bool isOverall = true;
   bool isdelete = true;
-  bool receiveAlert = false;
-  double alertPercentage = 80.0;
+  final _budgetController = Get.put(BudgetController());
   final TextEditingController amountController = TextEditingController();
   final TextEditingController categoryController = TextEditingController(
     text: "Shopping",
   );
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
 
-
+  void _fetch() {
+    setState(() {
+      amountController.text = widget.amount.toString();
+      categoryController.text = widget.category;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -137,10 +162,10 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
                         Transform.scale(
                           scale: 0.8, // Increase size (e.g. 0.8 for smaller)
                           child: Switch(
-                            value: receiveAlert,
+                            value: widget.receiveAlert,
                             onChanged: (value) {
                               setState(() {
-                                receiveAlert = value;
+                                widget.receiveAlert = value;
                               });
                             },
                             activeTrackColor: const Color.fromARGB(
@@ -175,13 +200,13 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
                         thumbColor: Colors.white,
                       ),
                       child: Slider(
-                        value: alertPercentage,
+                        value: widget.alertPercentage,
                         min: 0,
                         max: 100,
-                        label: "${alertPercentage.round()}%",
+                        label: "${widget.alertPercentage.round()}%",
                         onChanged: (value) {
                           setState(() {
-                            alertPercentage = value;
+                            widget.alertPercentage = value;
                           });
                         },
                       ),
@@ -511,6 +536,7 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
+                        isdelete ? deleteBudget() : setBudgetCategory();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color.fromARGB(255, 3, 30, 53),
@@ -564,6 +590,35 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
         ),
       ),
     );
+  }
+
+  Future<void> deleteBudget() async {
+    await _budgetController.deleteBudget(widget.budgetId);
+    Navigator.pushReplacement(
+      // ignore: use_build_context_synchronously
+      context,
+      MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
+    );
+  }
+
+  Future<void> setBudgetCategory() async {
+    await _budgetController.setBudget(
+      categoryController.text,
+      double.parse(amountController.text),
+      widget.alertPercentage,
+      widget.receiveAlert,
+      widget.budgetId,
+    );
+    if (_budgetController.isSuccess.value == true) {
+      categoryController.clear();
+      amountController.clear();
+      Navigator.pushReplacement(
+        // ignore: use_build_context_synchronously
+        context,
+        MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
+      );
+      Get.snackbar('Success', 'Budget added successfully');
+    }
   }
 }
 

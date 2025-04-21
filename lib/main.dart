@@ -20,11 +20,21 @@ import 'package:flutter/material.dart';
 import 'package:snapwise/screens/auth_screens/register/register.dart';
 import 'package:snapwise/screens/auth_screens/register/success.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:snapwise/services/firebase_options.dart';
+import 'package:snapwise/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize Firebase Messaging
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+
+  // Retrieve and print the FCM token
+  String? token = await notificationService.getToken();
+  print('FCM Token: $token');
+
   runApp(const MyApp());
 }
 
@@ -56,7 +66,7 @@ class MyApp extends StatelessWidget {
         '/edit-income': (context) => IncomeEditPage(),
         '/create-budget': (context) => CreateBudget(),
         '/edit-budget': (context) => EditBudgetPage(),
-        '/edit-budget-category': (context) => EditBudgetCategoryPage(),
+        // '/edit-budget-category': (context) => EditBudgetCategoryPage(),
       },
     );
   }
