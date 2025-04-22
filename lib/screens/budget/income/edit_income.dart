@@ -355,7 +355,7 @@ class _IncomeEditPageState extends State<IncomeEditPage> {
   }
 
   Future<void> setIncome() async {
-    await _budgetController.addOverallBudget(
+    await _budgetController.addIncome(
       double.parse(amountController.text),
       alertPercentage,
       receiveAlert,

@@ -126,6 +126,7 @@ class HomeController extends GetxController {
   }
 
   String getTotalSpent() {
+    // ignore: avoid_types_as_parameter_names
     double total = transactionsHistory.fold(0.0, (sum, transaction) {
       // Assuming 'amount' is stored as a string with '-' prefix
       String amountStr = transaction['amount'].replaceAll('-', '');

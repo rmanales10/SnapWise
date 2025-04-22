@@ -55,7 +55,6 @@ class _ViewExpenseState extends State<ViewExpense> {
         height: double.infinity,
         child: Stack(
           children: [
-            // Header background
             Container(
               height: isTablet ? 400 : 250,
               width: double.infinity,
@@ -73,6 +72,16 @@ class _ViewExpenseState extends State<ViewExpense> {
                   Stack(
                     alignment: Alignment.center,
                     children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                       Align(
                         alignment: Alignment.center,
                         child: Text(

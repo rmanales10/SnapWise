@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:snapwise/screens/expense/view_expense.dart';
 import 'package:snapwise/screens/home/home_screens/home_controller.dart';
 
 class TransactionHistoryPage extends StatefulWidget {
@@ -15,23 +16,6 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
   bool isSelecting = false;
   List<int> selectedIndices = [];
   bool get isTablet => MediaQuery.of(context).size.shortestSide > 600;
-
-  List<Map<String, dynamic>> transactions = [
-    {
-      "icon": Icons.shopping_bag,
-      "title": "Shopping",
-      "date": "Jan 12, 2022",
-      "amount": "- 150.00",
-      "color": Colors.orange,
-    },
-    {
-      "icon": Icons.restaurant,
-      "title": "Food",
-      "date": "Jan 16, 2022",
-      "amount": "- 11.99",
-      "color": Colors.red,
-    },
-  ];
 
   void _showConfirmation(BuildContext context) {
     final double screenWidth = MediaQuery.of(context).size.width;
@@ -165,57 +149,66 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
           padding: EdgeInsets.only(bottom: isTablet ? 15 : 10),
           child: Stack(
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(isTablet ? 15 : 10),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    vertical: isTablet ? 15 : 10,
-                    horizontal: isTablet ? 20 : 15,
+              GestureDetector(
+                onTap:
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ViewExpense(expenseId: tx['id']),
+                      ),
+                    ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(isTablet ? 15 : 10),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            tx["icon"],
-                            color: Colors.orange,
-                            size: isTablet ? 36 : 30,
-                          ),
-                          SizedBox(width: isTablet ? 15 : 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tx["title"],
-                                style: TextStyle(
-                                  fontSize: isTablet ? 20 : 16,
-                                  fontWeight: FontWeight.bold,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: isTablet ? 15 : 10,
+                      horizontal: isTablet ? 20 : 15,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              tx["icon"],
+                              color: Colors.orange,
+                              size: isTablet ? 36 : 30,
+                            ),
+                            SizedBox(width: isTablet ? 15 : 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  tx["title"],
+                                  style: TextStyle(
+                                    fontSize: isTablet ? 20 : 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                tx["date"],
-                                style: TextStyle(
-                                  color: Colors.black45,
-                                  fontSize: isTablet ? 16 : 14,
+                                Text(
+                                  tx["date"],
+                                  style: TextStyle(
+                                    color: Colors.black45,
+                                    fontSize: isTablet ? 16 : 14,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      Text(
-                        tx["amount"],
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
-                          fontSize: isTablet ? 18 : 16,
+                              ],
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        Text(
+                          tx["amount"],
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: isTablet ? 18 : 16,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

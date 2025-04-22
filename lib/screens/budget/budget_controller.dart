@@ -205,6 +205,33 @@ class BudgetController extends GetxController {
     }
   }
 
+  Future<void> totalOverallIncome() async {
+    try {
+      await fetchIncome();
+      double income = incomeData.value['amount'] ?? 0.0;
+      double totalExpenses = await fetchTotalExpenses();
+
+      if (income <= 0) {
+        remainingIncomePercentage.value = 0.0;
+      } else {
+        // Calculate the percentage of income spent as a decimal
+        double percentageSpent = totalExpenses / income;
+
+        // Calculate the remaining percentage as a decimal
+        remainingIncomePercentage.value = 1.0 - percentageSpent;
+
+        // Ensure the percentage is between 0 and 1
+        remainingIncomePercentage.value = remainingIncomePercentage.value.clamp(
+          0.0,
+          1.0,
+        );
+      }
+    } catch (e) {
+      // Handle any errors
+      remainingIncomePercentage.value = 0.0;
+    }
+  }
+
   Future<void> fetchBudgetCategory() async {
     try {
       final user = _auth.currentUser;
@@ -355,32 +382,90 @@ class BudgetController extends GetxController {
     }
   }
 
-  Future<void> calculateIncomeOverallBudgetPercentage() async {
+  Future<double> fetchTotalExpenses() async {
     try {
       final User? user = _auth.currentUser;
       if (user == null) {
         throw Exception('User not authenticated');
       }
 
-      // Fetch income
-      await fetchIncome();
-      double income = incomeData.value['amount'] ?? 0.0;
+      final QuerySnapshot expensesSnapshot =
+          await _firestore
+              .collection('expenses')
+              .where('userId', isEqualTo: user.uid)
+              .get();
 
-      // Fetch overall budget
-      await fetchOverallBudget();
-      double overallBudget = budgetData.value['amount'] ?? 0.0;
-
-      if (overallBudget == 0) {
-        remainingIncomePercentage.value = 0.0; // Avoid division by zero
+      double totalExpenses = 0.0;
+      for (var doc in expensesSnapshot.docs) {
+        totalExpenses +=
+            (doc.data() as Map<String, dynamic>)['amount'] as double;
       }
 
-      remainingIncomePercentage.value =
-          ((income - overallBudget) / overallBudget) == -1
-              ? 0.0
-              : ((income - overallBudget) / overallBudget);
+      return totalExpenses;
     } catch (e) {
-      // log('Error calculating income-overall budget percentage: $e');
-      remainingIncomePercentage.value = 0.0;
+      // log('Error fetching total expenses: $e');
+      return 0.0;
+    }
+  }
+
+  Future<void> addNotification(String category) async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      await _firestore.collection('notification').doc(category).set({
+        'userId': user.uid,
+        'category': category,
+        'timestamp': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      isSuccess.value = true;
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to add notification: ${e.toString()}');
+    }
+  }
+
+  final RxMap<String, double> expensesByCategory = <String, double>{}.obs;
+
+  Future<void> fetchExpensesByCategory() async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final QuerySnapshot expensesSnapshot =
+          await _firestore
+              .collection('expenses')
+              .where('userId', isEqualTo: user.uid)
+              .get();
+
+      Map<String, double> categoryTotals = {};
+
+      for (var doc in expensesSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final category = data['category'] as String;
+        final amount = (data['amount'] as num).toDouble();
+
+        if (categoryTotals.containsKey(category)) {
+          categoryTotals[category] = categoryTotals[category]! + amount;
+        } else {
+          categoryTotals[category] = amount;
+        }
+      }
+
+      // Sort the map by total amount in descending order
+      var sortedCategories =
+          categoryTotals.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+
+      // Update the RxMap
+      expensesByCategory.assignAll(Map.fromEntries(sortedCategories));
+      print(expensesByCategory);
+    } catch (e) {
+      print('Error fetching expenses by category: $e');
+      expensesByCategory.clear();
     }
   }
 }

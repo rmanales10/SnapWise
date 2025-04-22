@@ -154,14 +154,7 @@ class _HomePageState extends State<HomePage> {
                     }),
                   ),
                   GestureDetector(
-                    onTap:
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => BottomNavBar(initialIndex: 11),
-                          ),
-                        ),
+                    onTap: () => Navigator.pushNamed(context, '/notification'),
                     child: Icon(
                       Icons.notifications,
                       color: const Color.fromARGB(255, 3, 30, 53),

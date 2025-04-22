@@ -32,7 +32,8 @@ class _BudgetPageState extends State<BudgetPage> {
     await _budgetController.fetchOverallBudget();
     await _budgetController.fetchIncome();
     await _budgetController.calculateRemainingBudget();
-    await _budgetController.calculateIncomeOverallBudgetPercentage();
+    await _budgetController.totalOverallIncome();
+    await _budgetController.fetchExpensesByCategory();
   }
 
   final List<Category> categories = [
@@ -138,7 +139,11 @@ class _BudgetPageState extends State<BudgetPage> {
                     lineWidth: 20.0,
                     percent: _budgetController.remainingBudgetPercentage.value,
                     center: Text(
-                      _budgetController.budgetData.value['amount'].toString(),
+                      _budgetController.budgetData.value['amount'].toString() ==
+                              'null'
+                          ? '0'
+                          : _budgetController.budgetData.value['amount']
+                              .toString(),
 
                       style: TextStyle(
                         fontSize: isTablet ? 32 : 24,
@@ -153,8 +158,7 @@ class _BudgetPageState extends State<BudgetPage> {
                 : CircularPercentIndicator(
                   radius: isTablet ? 100.0 : 80.0,
                   lineWidth: 20.0,
-                  percent: _budgetController.remainingBudgetPercentage.value
-                      .clamp(0.0, 1.0),
+                  percent: _budgetController.remainingIncomePercentage.value,
                   center: Obx(
                     () => Text(
                       _budgetController.incomeData.value['amount'].toString() ==
@@ -333,9 +337,10 @@ class _BudgetPageState extends State<BudgetPage> {
                                       icon: category['icon'],
                                       category: category['title'],
                                       amountSpent: amountSpent,
-                                      totalBudget: double.parse(
-                                        category['amount'].toString(),
-                                      ),
+                                      totalBudget:
+                                          _budgetController
+                                              .incomeData
+                                              .value['amount'],
                                       color: category['color'] ?? Colors.grey,
                                       exceeded: false,
                                     );
@@ -378,6 +383,7 @@ class _BudgetPageState extends State<BudgetPage> {
           spentPercentage: percent,
           remainingBudget: remaining,
         );
+        _budgetController.addNotification(category);
       }
     }
 
