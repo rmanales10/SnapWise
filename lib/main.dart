@@ -33,8 +33,8 @@ void main() async {
   await notificationService.initialize();
 
   // Retrieve and print the FCM token
-  String? token = await notificationService.getToken();
-  print('FCM Token: $token');
+  // String? token = await notificationService.getToken();
+  // print('FCM Token: $token');
 
   runApp(const MyApp());
 }
@@ -77,6 +77,7 @@ class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _SplashScreenState createState() => _SplashScreenState();
 }
 
@@ -96,11 +97,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (user != null) {
       // User is logged in, navigate to home
+      // ignore: use_build_context_synchronously
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => BottomNavBar()),
       );
     } else {
       // User is not logged in, navigate to login
+      // ignore: use_build_context_synchronously
       Navigator.of(context).pushReplacementNamed('/login');
     }
   }

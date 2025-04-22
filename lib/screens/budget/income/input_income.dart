@@ -372,6 +372,7 @@ class _InputIncomeState extends State<InputIncome> {
     if (_budgetController.isSuccess.value == true) {
       amountController.clear();
       Navigator.pushReplacement(
+        // ignore: use_build_context_synchronously
         context,
         MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
       );

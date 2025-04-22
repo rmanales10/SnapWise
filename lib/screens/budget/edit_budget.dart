@@ -366,6 +366,7 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
     if (_budgetController.isSuccess.value == true) {
       amountController.clear();
       Navigator.pushReplacement(
+        // ignore: use_build_context_synchronously
         context,
         MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
       );

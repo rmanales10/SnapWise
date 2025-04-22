@@ -388,6 +388,7 @@ class _BudgetPageState extends State<BudgetPage> {
               child: Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
                   color: Colors.red.withOpacity(0.8),
                   shape: BoxShape.circle,
                 ),

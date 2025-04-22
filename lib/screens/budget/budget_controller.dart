@@ -462,9 +462,9 @@ class BudgetController extends GetxController {
 
       // Update the RxMap
       expensesByCategory.assignAll(Map.fromEntries(sortedCategories));
-      print(expensesByCategory);
+      // print(expensesByCategory);
     } catch (e) {
-      print('Error fetching expenses by category: $e');
+      // print('Error fetching expenses by category: $e');
       expensesByCategory.clear();
     }
   }

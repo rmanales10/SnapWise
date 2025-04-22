@@ -344,6 +344,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     // Process the image for OCR
     await _processImage(image, ocrController);
 
+    // ignore: use_build_context_synchronously
     _showImagePreview(context);
   }
 

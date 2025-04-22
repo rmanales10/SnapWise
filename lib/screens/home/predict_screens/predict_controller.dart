@@ -121,6 +121,7 @@ class PredictController extends GetxController {
   void updateTotalBudget() {
     totalBudget.value = budgetCategories.fold(
       0.0,
+      // ignore: avoid_types_as_parameter_names
       (sum, category) => sum + (category['amount'] as double),
     );
   }

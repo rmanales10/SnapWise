@@ -1,8 +1,9 @@
-import 'dart:math';
+import 'dart:developer';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+// ignore: depend_on_referenced_packages
 import 'package:intl/intl.dart';
 
 class GraphController extends GetxController {
@@ -21,7 +22,7 @@ class GraphController extends GetxController {
     try {
       final User? user = _auth.currentUser;
       if (user == null) {
-        print('No user logged in');
+        log('No user logged in');
         return;
       }
 
@@ -44,7 +45,7 @@ class GraphController extends GetxController {
         updateMonthlyExpenses(date, amount);
       }
     } catch (e) {
-      print('Error fetching expenses: $e');
+      log('Error fetching expenses: $e');
     }
   }
 

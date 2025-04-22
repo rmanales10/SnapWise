@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -20,13 +22,13 @@ class NotificationService {
 
     // Configure FCM
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print("onMessage: ${_messageToString(message)}");
+      log("onMessage: ${_messageToString(message)}");
       _showNotification(message);
       _logNotificationReceived(message);
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print("onMessageOpenedApp: ${_messageToString(message)}");
+      log("onMessageOpenedApp: ${_messageToString(message)}");
       _logNotificationOpened(message);
       // Handle notification tapped logic here
     });

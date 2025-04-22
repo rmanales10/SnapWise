@@ -377,6 +377,7 @@ class _ViewExpenseState extends State<ViewExpense> {
     await _processImage(image, ocrController);
 
     // Show the image preview
+    // ignore: use_build_context_synchronously
     _showImagePreview(context);
   }
 

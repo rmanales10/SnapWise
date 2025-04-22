@@ -109,6 +109,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
             _currentIndex == index
                 ? BoxDecoration(
                   shape: BoxShape.circle,
+                  // ignore: deprecated_member_use
                   color: Color.fromARGB(255, 3, 30, 53).withOpacity(0.1),
                 )
                 : null,
