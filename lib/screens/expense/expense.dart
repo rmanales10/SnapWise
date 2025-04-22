@@ -420,13 +420,6 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     Get.snackbar('Error', message);
   }
 
-  List<String> categories = [
-    'Shopping',
-    'Food',
-    'Transport',
-    'Rent',
-    'Entertainment',
-  ];
   Widget _buildCategorySelector() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),

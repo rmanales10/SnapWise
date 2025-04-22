@@ -1,8 +1,10 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/screens/budget/budget_controller.dart';
+import 'package:snapwise/screens/expense/expense_controller.dart';
 import 'package:snapwise/screens/widget/bottomnavbar.dart';
 
 class CreateBudget extends StatefulWidget {
@@ -21,6 +23,7 @@ class _CreateBudgetState extends State<CreateBudget> {
     text: null,
   );
   final _budgetController = Get.put(BudgetController());
+  final _expensecontroller = Get.put(ExpenseController());
 
   @override
   void initState() {
@@ -31,10 +34,6 @@ class _CreateBudgetState extends State<CreateBudget> {
   Future<void> fetchOverallBudget() async {
     await _budgetController.fetchOverallBudget();
     setState(() {
-      // amountController.text =
-      //     _budgetController.budgetData.value['amount'].toString() == 'null'
-      //         ? ''
-      //         : _budgetController.budgetData.value['amount'].toString();
       alertPercentage =
           _budgetController.budgetData.value['alertPercentage'] as double;
       receiveAlert = _budgetController.budgetData.value['receiveAlert'] as bool;
@@ -47,10 +46,7 @@ class _CreateBudgetState extends State<CreateBudget> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      // bottomNavigationBar: CustomBottomNavBar(
-      //   currentIndex: _selectedIndex,
-      //   onTap: _onNavItemTapped,
-      // ),
+
       body: SizedBox(
         width: double.infinity,
         height: double.infinity,
@@ -434,14 +430,6 @@ class _CreateBudgetState extends State<CreateBudget> {
     );
   }
 
-  List<String> categories = [
-    'Shopping',
-    'Food',
-    'Transport',
-    'Rent',
-    'Entertainment',
-  ];
-
   Widget _buildCategorySelector() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -458,7 +446,7 @@ class _CreateBudgetState extends State<CreateBudget> {
         icon: const Icon(Icons.keyboard_arrow_down),
         decoration: const InputDecoration(border: InputBorder.none),
         items: [
-          ...categories.map(
+          ..._expensecontroller.categories.map(
             (value) => DropdownMenuItem(
               value: value,
               child: Text(
@@ -478,13 +466,15 @@ class _CreateBudgetState extends State<CreateBudget> {
 
             if (newCategory != null && newCategory.isNotEmpty) {
               setState(() {
-                categories.add(newCategory);
+                _expensecontroller.categories.add(newCategory);
                 categoryController.text = newCategory;
               });
+              // Force rebuild of dropdown
+              setState(() {});
             }
-          } else {
+          } else if (value != null) {
             setState(() {
-              categoryController.text = value!;
+              categoryController.text = value;
             });
           }
         },
@@ -620,7 +610,10 @@ class _CreateBudgetState extends State<CreateBudget> {
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
       enabled: amountController.text.isNotEmpty ? false : true,
       controller: amountController,
-      keyboardType: TextInputType.number,
+      keyboardType: TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: <TextInputFormatter>[
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
       decoration: InputDecoration(
         hintText: "Amount",
         contentPadding: const EdgeInsets.symmetric(

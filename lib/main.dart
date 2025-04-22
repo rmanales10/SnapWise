@@ -1,7 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/screens/budget/budget.dart';
 import 'package:snapwise/screens/budget/edit_budget.dart';
-import 'package:snapwise/screens/budget/edit_budget_category.dart';
 import 'package:snapwise/screens/budget/income/edit_income.dart';
 import 'package:snapwise/screens/budget/income/input_income.dart';
 import 'package:snapwise/screens/budget/create_budget.dart';
@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:snapwise/screens/auth_screens/register/register.dart';
 import 'package:snapwise/screens/auth_screens/register/success.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:snapwise/screens/widget/bottomnavbar.dart';
 import 'package:snapwise/services/firebase_options.dart';
 import 'package:snapwise/services/notification_service.dart';
 
@@ -76,7 +77,6 @@ class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _SplashScreenState createState() => _SplashScreenState();
 }
 
@@ -84,11 +84,25 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Wait for 5 seconds and navigate to home screen
-    Future.delayed(const Duration(seconds: 5), () {
-      // ignore: use_build_context_synchronously
-      Navigator.pushReplacementNamed(context, '/login');
-    });
+    checkUserLoggedIn();
+  }
+
+  void checkUserLoggedIn() async {
+    // Wait for 2 seconds to show the splash screen
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Check if user is logged in
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      // User is logged in, navigate to home
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => BottomNavBar()),
+      );
+    } else {
+      // User is not logged in, navigate to login
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
   }
 
   @override
@@ -98,12 +112,7 @@ class _SplashScreenState extends State<SplashScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           double logoSize = constraints.maxWidth * 0.4;
-          return Center(
-            child: Image.asset(
-              'assets/logo.png', // Ensure logo.png is in assets folder
-              width: logoSize,
-            ),
-          );
+          return Center(child: Image.asset('assets/logo.png', width: logoSize));
         },
       ),
     );

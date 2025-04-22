@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/screens/budget/budget_controller.dart';
 import 'package:snapwise/screens/widget/bottomnavbar.dart';
@@ -569,7 +570,10 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
     return TextField(
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
       controller: amountController,
-      keyboardType: TextInputType.number,
+      keyboardType: TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: <TextInputFormatter>[
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
       decoration: InputDecoration(
         hintText: "Amount",
         contentPadding: const EdgeInsets.symmetric(

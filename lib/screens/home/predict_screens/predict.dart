@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:snapwise/screens/home/predict_screens/predict_controller.dart';
@@ -11,10 +12,9 @@ class PredictBudgetPage extends StatefulWidget {
 }
 
 class _PredictBudgetPageState extends State<PredictBudgetPage> {
-  final controller = Get.put(PredictController());
-
-  double budgetAmount = 15000.0;
+  final _controller = Get.put(PredictController());
   bool isEditing = false;
+  final budgetAmount = TextEditingController();
 
   bool get isTablet => MediaQuery.of(context).size.shortestSide > 600;
 
@@ -26,6 +26,19 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
     {'name': 'Entertainment', 'amount': 1000.0, 'icon': Icons.movie},
     {'name': 'Others', 'amount': 1500.0, 'icon': Icons.more_horiz},
   ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    await _controller.fetchExistingBudget();
+    setState(() {
+      budgetAmount.text = _controller.totalBudget.value.toStringAsFixed(2);
+      budgetCategories = _controller.budgetCategories.toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,110 +81,111 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(
-          horizontal: isTablet ? 30 : 20,
-          vertical: isTablet ? 25 : 15,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Overall Budget',
-              style: TextStyle(
-                fontSize: isTablet ? 22 : 18,
-                fontWeight: FontWeight.bold,
+      body: Obx(
+        () => SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: isTablet ? 30 : 20,
+            vertical: isTablet ? 25 : 15,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Overall Budget',
+                style: TextStyle(
+                  fontSize: isTablet ? 22 : 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            SizedBox(height: isTablet ? 25 : 15),
+              SizedBox(height: isTablet ? 25 : 15),
 
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(isTablet ? 25 : 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(isTablet ? 20 : 15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'For Next Month',
-                    style: TextStyle(
-                      fontSize: isTablet ? 18 : 16,
-                      color: Colors.grey.shade600,
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(isTablet ? 25 : 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(isTablet ? 20 : 15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
                     ),
-                  ),
-                  SizedBox(height: isTablet ? 15 : 10),
-                  Obx(
-                    () =>
-                        isEditing
-                            ? Container(
-                              alignment: Alignment.centerRight,
-                              child: SizedBox(
-                                width: isTablet ? 250 : 200,
-                                child: TextField(
-                                  textAlign: TextAlign.right,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: const InputDecoration(
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      vertical: 8,
-                                      horizontal: 12,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: isTablet ? 32 : 28,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color.fromARGB(255, 3, 30, 53),
-                                  ),
-                                  controller: TextEditingController(
-                                    text: budgetAmount.toStringAsFixed(2),
-                                  ),
-                                  onChanged: (value) {
-                                    double? newVal = double.tryParse(value);
-                                    if (newVal != null) {
-                                      setState(() {
-                                        budgetAmount = newVal;
-                                      });
-                                    }
-                                  },
-                                ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'For Next Month',
+                      style: TextStyle(
+                        fontSize: isTablet ? 18 : 16,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    SizedBox(height: isTablet ? 15 : 10),
+                    isEditing
+                        ? Container(
+                          alignment: Alignment.centerRight,
+                          child: SizedBox(
+                            width: isTablet ? 250 : 200,
+                            child: TextField(
+                              textAlign: TextAlign.right,
+                              keyboardType: TextInputType.numberWithOptions(
+                                decimal: true,
                               ),
-                            )
-                            : Text(
-                              'PHP ${controller.totalBudget.value.toStringAsFixed(2)}',
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\d*\.?\d*'),
+                                ),
+                              ],
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 12,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderSide: BorderSide.none,
+                                ),
+                                filled: true,
+                                fillColor: Colors.white,
+                              ),
                               style: TextStyle(
                                 fontSize: isTablet ? 32 : 28,
                                 fontWeight: FontWeight.bold,
                                 color: const Color.fromARGB(255, 3, 30, 53),
                               ),
+                              controller: budgetAmount,
                             ),
-                  ),
-                ],
+                          ),
+                        )
+                        : Text(
+                          'PHP ${budgetAmount.value.text}',
+                          style: TextStyle(
+                            fontSize: isTablet ? 32 : 28,
+                            fontWeight: FontWeight.bold,
+                            color: const Color.fromARGB(255, 3, 30, 53),
+                          ),
+                        ),
+                  ],
+                ),
               ),
-            ),
-            SizedBox(height: isTablet ? 30 : 20),
-            Obx(
-              () => GridView.builder(
+              SizedBox(height: isTablet ? 30 : 20),
+
+              Text(
+                'Budget Categories',
+                style: TextStyle(
+                  fontSize: isTablet ? 22 : 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: isTablet ? 20 : 15),
+
+              GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: controller.budgetCategories.length,
+                itemCount: _controller.budgetCategories.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: isTablet ? 3 : 2,
                   crossAxisSpacing: isTablet ? 20 : 15,
@@ -179,19 +193,19 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                   childAspectRatio: isTablet ? 1.5 : 1.8,
                 ),
                 itemBuilder: (context, index) {
-                  final category = controller.budgetCategories[index];
+                  final category = _controller.budgetCategories[index];
                   return _buildCategoryCard(
                     category['name'],
                     category['amount'],
                     category['icon'],
                     (newAmount) {
-                      controller.budgetCategories[index]['amount'] = newAmount;
+                      _controller.updateCategory(category['name'], newAmount);
                     },
                   );
                 },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -360,11 +374,38 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
+                        _controller.predictBudget(
+                          double.parse(budgetAmount.text),
+                        );
+                        double newBudgetAmount = double.parse(
+                          budgetAmount.text,
+                        );
+
+                        // Create a new list of budget categories with updated amounts
+                        List<Map<String, dynamic>> updatedCategories =
+                            _controller.budgetCategories.map((category) {
+                              return {
+                                ...category,
+                                'amount':
+                                    (category['amount'] as double) *
+                                    (newBudgetAmount /
+                                        _controller.totalBudget.value),
+                              };
+                            }).toList();
+
+                        // Update the controller without refreshing the UI
+                        _controller.updateBudgetWithoutRefresh(
+                          newBudgetAmount,
+                          updatedCategories,
+                        );
+
+                        // Close the confirmation dialog
                         Navigator.pop(context);
+
+                        // Exit editing mode
                         setState(() {
                           isEditing = false;
                         });
-                        controller.predictBudget(controller.totalBudget.value);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color.fromARGB(255, 3, 30, 53),

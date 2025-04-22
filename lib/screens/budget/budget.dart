@@ -133,49 +133,9 @@ class _BudgetPageState extends State<BudgetPage> {
 
             const SizedBox(height: 20),
             isbudgetTab
-                ? Obx(() {
-                  return CircularPercentIndicator(
-                    radius: isTablet ? 100.0 : 80.0,
-                    lineWidth: 20.0,
-                    percent: _budgetController.remainingBudgetPercentage.value,
-                    center: Text(
-                      _budgetController.budgetData.value['amount'].toString() ==
-                              'null'
-                          ? '0'
-                          : _budgetController.budgetData.value['amount']
-                              .toString(),
+                ? _buildCircularIndicator(isTablet, true)
+                : _buildCircularIndicator(isTablet, false),
 
-                      style: TextStyle(
-                        fontSize: isTablet ? 32 : 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    progressColor: Colors.orange,
-                    backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                    circularStrokeCap: CircularStrokeCap.round,
-                  );
-                })
-                : CircularPercentIndicator(
-                  radius: isTablet ? 100.0 : 80.0,
-                  lineWidth: 20.0,
-                  percent: _budgetController.remainingIncomePercentage.value,
-                  center: Obx(
-                    () => Text(
-                      _budgetController.incomeData.value['amount'].toString() ==
-                              'null'
-                          ? '0'
-                          : _budgetController.incomeData.value['amount']
-                              .toString(),
-                      style: TextStyle(
-                        fontSize: isTablet ? 32 : 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  progressColor: Colors.orange,
-                  backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                  circularStrokeCap: CircularStrokeCap.round,
-                ),
             const SizedBox(height: 20),
             Container(
               width: 350,
@@ -287,24 +247,24 @@ class _BudgetPageState extends State<BudgetPage> {
             Expanded(
               child: SingleChildScrollView(
                 child: Obx(() {
-                  return Column(
-                    children:
-                        _budgetController.budgetCategories.map((category) {
-                          return FutureBuilder<double>(
-                            future: _budgetController
-                                .fetchTotalAmountByCategory(
-                                  category['title'].toString(),
-                                ),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return SizedBox.shrink(); // Or a placeholder widget
-                              } else if (snapshot.hasError) {
-                                return Text('Error: ${snapshot.error}');
-                              } else {
-                                double amountSpent = snapshot.data ?? 0.0;
-                                return isbudgetTab
-                                    ? _buildCategoryItem1(
+                  return isbudgetTab
+                      ? Column(
+                        children:
+                            _budgetController.budgetCategories.map((category) {
+                              return FutureBuilder<double>(
+                                future: _budgetController
+                                    .fetchTotalAmountByCategory(
+                                      category['title'].toString(),
+                                    ),
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return SizedBox.shrink();
+                                  } else if (snapshot.hasError) {
+                                    return Text('Error: ${snapshot.error}');
+                                  } else {
+                                    double amountSpent = snapshot.data ?? 0.0;
+                                    return _buildCategoryItem1(
                                       isTablet,
                                       id: category['budgetId'],
                                       icon: category['icon'],
@@ -325,40 +285,124 @@ class _BudgetPageState extends State<BudgetPage> {
                                             category['alertPercentage']
                                                 .toString(),
                                           ),
-
                                       alertPercentage: double.parse(
                                         category['alertPercentage'].toString(),
                                       ),
                                       receiveAlert:
                                           category['receiveAlert'] ?? false,
-                                    )
-                                    : _buildCategoryItem2(
-                                      isTablet,
-                                      icon: category['icon'],
-                                      category: category['title'],
-                                      amountSpent: amountSpent,
-                                      totalBudget:
-                                          _budgetController
-                                              .incomeData
-                                              .value['amount'],
-                                      color: category['color'] ?? Colors.grey,
-                                      exceeded: false,
                                     );
-                              }
-                            },
-                          );
-                        }).toList(),
-                  );
+                                  }
+                                },
+                              );
+                            }).toList(),
+                      )
+                      : Column(
+                        children:
+                            _budgetController.expensesByCategory.entries.map((
+                              entry,
+                            ) {
+                              String category = entry.key;
+                              double amountSpent = entry.value;
+                              return _buildCategoryItem2(
+                                isTablet,
+                                icon: _getCategoryIcon(category),
+                                category: category,
+                                amountSpent: amountSpent,
+                                totalBudget:
+                                    _budgetController
+                                        .incomeData
+                                        .value['amount'] ??
+                                    0.0,
+                                color: _getCategoryColor(category),
+                                exceeded: false,
+                                percentageOfIncome:
+                                    _budgetController
+                                                    .incomeData
+                                                    .value['amount'] !=
+                                                null &&
+                                            _budgetController
+                                                    .incomeData
+                                                    .value['amount'] !=
+                                                0
+                                        ? (amountSpent /
+                                                _budgetController
+                                                    .incomeData
+                                                    .value['amount'] *
+                                                100)
+                                            .toStringAsFixed(1)
+                                        : '0.0',
+                              );
+                            }).toList(),
+                      );
                 }),
               ),
             ),
           ],
         ),
       ),
-      // bottomNavigationBar: CustomBottomNavBar(
-      //   currentIndex: _selectedIndex,
-      //   onTap: _onNavItemTapped,
-      // ),
+    );
+  }
+
+  Widget _buildCircularIndicator(bool isTablet, bool isBudget) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        CircularPercentIndicator(
+          radius: isTablet ? 100.0 : 80.0,
+          lineWidth: 20.0,
+          percent:
+              isBudget
+                  ? _budgetController.remainingBudgetPercentage.value
+                  : _budgetController.remainingIncomePercentage.value,
+          center: Obx(() {
+            String amount =
+                isBudget
+                    ? _budgetController.budgetData.value['amount'].toString()
+                    : _budgetController.incomeData.value['amount'].toString();
+            return Text(
+              amount == 'null' ? '0' : amount,
+              style: TextStyle(
+                fontSize: isTablet ? 32 : 24,
+                fontWeight: FontWeight.bold,
+              ),
+            );
+          }),
+          progressColor: Colors.orange,
+          backgroundColor: const Color.fromARGB(255, 3, 30, 53),
+          circularStrokeCap: CircularStrokeCap.round,
+        ),
+        Obx(() {
+          double alertPercentage =
+              isBudget
+                  ? _budgetController.budgetData.value['alertPercentage']
+                  : _budgetController.incomeData.value['alertPercentage'];
+          double percentage =
+              isBudget
+                  ? _budgetController.remainingBudgetPercentage.value
+                  : _budgetController.remainingIncomePercentage.value;
+          double remainingPercentage = (1 - percentage) * 100;
+          if (remainingPercentage >= alertPercentage) {
+            return Positioned(
+              top: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.8),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.warning,
+                  color: Colors.white,
+                  size: isTablet ? 24 : 20,
+                ),
+              ),
+            );
+          } else {
+            return SizedBox.shrink();
+          }
+        }),
+      ],
     );
   }
 
@@ -506,6 +550,7 @@ class _BudgetPageState extends State<BudgetPage> {
     required double totalBudget,
     required Color color,
     bool exceeded = false,
+    required String percentageOfIncome,
   }) {
     final percent = (amountSpent / totalBudget).clamp(0.0, 1.0);
 
@@ -542,17 +587,14 @@ class _BudgetPageState extends State<BudgetPage> {
                 ),
               ),
               const Spacer(),
-              if (exceeded)
-                const Icon(Icons.error, color: Colors.red, size: 25),
-              if (!exceeded)
-                Text(
-                  "${(percent * 100).toStringAsFixed(0)} %",
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
+              Text(
+                "$percentageOfIncome% of income",
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
+              ),
               const SizedBox(width: 10),
             ],
           ),
@@ -567,6 +609,44 @@ class _BudgetPageState extends State<BudgetPage> {
         ],
       ),
     );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    // Implement this method to return the appropriate icon for each category
+    // For example:
+    switch (category.toLowerCase()) {
+      case 'shopping':
+        return LucideIcons.shoppingBag;
+      case 'food':
+        return LucideIcons.utensils;
+      case 'transport':
+        return LucideIcons.train;
+      case 'rent':
+        return LucideIcons.home;
+      case 'entertainment':
+        return Icons.movie;
+      default:
+        return LucideIcons.dollarSign;
+    }
+  }
+
+  Color _getCategoryColor(String category) {
+    // Implement this method to return the appropriate color for each category
+    // For example:
+    switch (category.toLowerCase()) {
+      case 'shopping':
+        return Colors.blue;
+      case 'food':
+        return Colors.green;
+      case 'transport':
+        return Colors.orange;
+      case 'rent':
+        return Colors.purple;
+      case 'entertainment':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 }
 

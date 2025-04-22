@@ -52,13 +52,13 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _fetchPhotoUrl();
-    controller.fetchTransactions();
-    controller.getTotalBudget();
-    controller.getTotalIncome();
   }
 
-  void _fetchPhotoUrl() {
+  Future<void> _fetchPhotoUrl() async {
     photoUrl.value = _storage.read('photoUrl') ?? '';
+    controller.fetchTransactions();
+    controller.getTotalBudget();
+    controller.getTotalIncome();  
   }
 
   Future<void> sendBudgetExceededNotification({

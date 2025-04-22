@@ -42,4 +42,40 @@ class BudgetNotification extends GetxController {
       },
     );
   }
+
+  Future<void> sendIncomeRemaining({
+    required double spentPercentage,
+    required double remainingBudget,
+  }) async {
+    // Schedule the notification to be shown after 5 minutes
+    // await Future.delayed(const Duration(minutes: 5));
+
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+          'income_alert_channel',
+          'Income Alerts',
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        );
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+    );
+    spentPercentage = spentPercentage * 100;
+    await _flutterLocalNotificationsPlugin.show(
+      2, // Use a unique ID
+      'Income Alert',
+      'You\'ve spent ${spentPercentage.toStringAsFixed(2)}% of your income. Remaining: $remainingBudget',
+      platformChannelSpecifics,
+    );
+
+    // Log the event
+    await _analytics.logEvent(
+      name: 'income_remaining_notification',
+      parameters: {
+        'spent_percentage': spentPercentage,
+        'remaining_income': remainingBudget,
+      },
+    );
+  }
 }
