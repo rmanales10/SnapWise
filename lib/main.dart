@@ -1,28 +1,31 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:snapwise/screens/budget/budget.dart';
-import 'package:snapwise/screens/budget/edit_budget.dart';
-import 'package:snapwise/screens/budget/income/edit_income.dart';
-import 'package:snapwise/screens/budget/income/input_income.dart';
-import 'package:snapwise/screens/budget/create_budget.dart';
-import 'package:snapwise/screens/expense/expense.dart';
-import 'package:snapwise/screens/auth_screens/forgot_password/forgot.dart';
-import 'package:snapwise/screens/history/records.dart';
-import 'package:snapwise/screens/home/home_screens/home.dart';
-import 'package:snapwise/screens/home/predict_screens/predict.dart';
-import 'package:snapwise/screens/auth_screens/login/login.dart';
-import 'package:snapwise/screens/notification/notification.dart';
-import 'package:snapwise/screens/profile/about.dart';
-import 'package:snapwise/screens/profile/notification.dart';
-import 'package:snapwise/screens/profile/profile.dart';
-import 'package:snapwise/screens/profile/setting.dart';
+import 'package:snapwise/admin/activity_log.dart';
+import 'package:snapwise/admin/login.dart';
+import 'package:snapwise/user/screens/budget/budget.dart';
+import 'package:snapwise/user/screens/budget/edit_budget.dart';
+import 'package:snapwise/user/screens/budget/income/edit_income.dart';
+import 'package:snapwise/user/screens/budget/income/input_income.dart';
+import 'package:snapwise/user/screens/budget/create_budget.dart';
+import 'package:snapwise/user/screens/expense/expense.dart';
+import 'package:snapwise/user/screens/auth_screens/forgot_password/forgot.dart';
+import 'package:snapwise/user/screens/history/records.dart';
+import 'package:snapwise/user/screens/home/home_screens/home.dart';
+import 'package:snapwise/user/screens/home/predict_screens/predict.dart';
+import 'package:snapwise/user/screens/auth_screens/login/login.dart';
+import 'package:snapwise/user/screens/notification/notification.dart';
+import 'package:snapwise/user/screens/profile/about.dart';
+import 'package:snapwise/user/screens/profile/notification.dart';
+import 'package:snapwise/user/screens/profile/profile.dart';
+import 'package:snapwise/user/screens/profile/setting.dart';
 import 'package:flutter/material.dart';
-import 'package:snapwise/screens/auth_screens/register/register.dart';
-import 'package:snapwise/screens/auth_screens/register/success.dart';
+import 'package:snapwise/user/screens/auth_screens/register/register.dart';
+import 'package:snapwise/user/screens/auth_screens/register/success.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:snapwise/screens/widget/bottomnavbar.dart';
-import 'package:snapwise/services/firebase_options.dart';
-import 'package:snapwise/services/notification_service.dart';
+import 'package:snapwise/user/screens/widget/bottomnavbar.dart';
+import 'package:snapwise/user/services/firebase_options.dart';
+import 'package:snapwise/user/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,11 +39,11 @@ void main() async {
   // String? token = await notificationService.getToken();
   // print('FCM Token: $token');
 
-  runApp(const MyApp());
+  runApp(kIsWeb ? AdminScreen() : UserScreen());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class UserScreen extends StatelessWidget {
+  const UserScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +72,21 @@ class MyApp extends StatelessWidget {
         '/edit-budget': (context) => EditBudgetPage(),
         // '/edit-budget-category': (context) => EditBudgetCategoryPage(),
       },
+    );
+  }
+}
+
+class AdminScreen extends StatelessWidget {
+  const AdminScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GetMaterialApp(
+      initialRoute: '/',
+      getPages: [
+        GetPage(name: '/', page: () => AdminLoginScreen()),
+        GetPage(name: '/activity-log', page: () => ActivityLogsScreen()),
+      ],
     );
   }
 }
