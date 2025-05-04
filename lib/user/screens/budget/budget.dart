@@ -269,7 +269,10 @@ class _BudgetPageState extends State<BudgetPage> {
                                       id: category['budgetId'],
                                       icon: category['icon'],
                                       category: category['title'],
-                                      amountSpent: amountSpent,
+                                      amountSpent: double.parse(
+                                        amountSpent.toStringAsFixed(2),
+                                      ),
+
                                       totalBudget: double.parse(
                                         category['amount'].toString(),
                                       ),
@@ -324,12 +327,13 @@ class _BudgetPageState extends State<BudgetPage> {
                                                     .incomeData
                                                     .value['amount'] !=
                                                 0
-                                        ? (amountSpent /
+                                        ? ((amountSpent /
                                                 _budgetController
                                                     .incomeData
                                                     .value['amount'] *
                                                 100)
-                                            .toStringAsFixed(1)
+                                            .clamp(0.0, 100.0)
+                                            .toStringAsFixed(1))
                                         : '0.0',
                               );
                             }).toList(),
@@ -341,6 +345,18 @@ class _BudgetPageState extends State<BudgetPage> {
         ),
       ),
     );
+  }
+
+  String formatLargeNumber(double value) {
+    if (value >= 1000000000) {
+      return '${(value / 1000000000).toStringAsFixed(1)}B';
+    } else if (value >= 1000000) {
+      return '${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value >= 100000) {
+      return '${(value / 1000).toStringAsFixed(1)}k';
+    } else {
+      return value.toStringAsFixed(2);
+    }
   }
 
   Widget _buildCircularIndicator(bool isTablet, bool isBudget) {
@@ -357,8 +373,10 @@ class _BudgetPageState extends State<BudgetPage> {
           center: Obx(() {
             String amount =
                 isBudget
-                    ? _budgetController.remainingBudget.value.toString()
-                    : _budgetController.remainingIncome.value.toString();
+                    ? formatLargeNumber(_budgetController.remainingBudget.value)
+                    : formatLargeNumber(
+                      _budgetController.remainingIncome.value,
+                    );
             return Text(
               amount == 'null' ? '0' : amount,
               style: TextStyle(

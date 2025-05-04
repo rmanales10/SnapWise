@@ -329,6 +329,7 @@ class BudgetController extends GetxController {
       }
 
       // Calculate remaining budget (overall budget minus sum of category budgets)
+
       remainingBudget.value = overallBudget - totalCategoryBudgets;
 
       // Calculate the percentage of overall budget remaining

@@ -1,5 +1,5 @@
 // ignore_for_file: use_key_in_widget_constructors, library_private_types_in_public_api
-
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:get/get.dart';
@@ -47,10 +47,20 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
     });
   }
 
+  (double, String) calculateScale(double maxValue) {
+    if (maxValue <= 1000) return (1, '');
+    if (maxValue <= 1000000) return (1000, 'K');
+    return (1000000, 'M');
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-
+    final maxValue =
+        isDaily
+            ? graphController.getCurrentMonthExpenses().reduce(max)
+            : graphController.getMonthlyExpensesForLastYear().reduce(max);
+    final (scale, suffix) = calculateScale(maxValue);
     return Column(
       children: [
         Padding(
@@ -78,7 +88,7 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 20),
                           child: Text(
-                            '${(200 * index / 4).toInt()}',
+                            '${((maxValue * index / 4) / scale).toStringAsFixed(1)}$suffix',
                             style: TextStyle(
                               color: Colors.grey.shade700,
                               fontSize: 10,
