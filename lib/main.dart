@@ -15,10 +15,10 @@ import 'package:snapwise/user/screens/home/home_screens/home.dart';
 import 'package:snapwise/user/screens/home/predict_screens/predict.dart';
 import 'package:snapwise/user/screens/auth_screens/login/login.dart';
 import 'package:snapwise/user/screens/notification/notification.dart';
-import 'package:snapwise/user/screens/profile/about.dart';
-import 'package:snapwise/user/screens/profile/notification.dart';
+import 'package:snapwise/user/screens/profile/settings/about.dart';
+import 'package:snapwise/user/screens/profile/settings/notification.dart';
 import 'package:snapwise/user/screens/profile/profile.dart';
-import 'package:snapwise/user/screens/profile/setting.dart';
+import 'package:snapwise/user/screens/profile/settings/setting.dart';
 import 'package:flutter/material.dart';
 import 'package:snapwise/user/screens/auth_screens/register/register.dart';
 import 'package:snapwise/user/screens/auth_screens/register/success.dart';
@@ -51,6 +51,14 @@ class UserScreen extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.blue),
       home: SplashScreen(),
+      defaultTransition: Transition.fade,
+      enableLog: true,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(1.0)),
+          child: child!,
+        );
+      },
       routes: {
         '/login': (context) => LoginPage(),
         '/register': (context) => RegisterPage(),
@@ -83,6 +91,14 @@ class AdminScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       initialRoute: '/',
+      defaultTransition: Transition.fade,
+      enableLog: true,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(1.0)),
+          child: child!,
+        );
+      },
       getPages: [
         GetPage(name: '/', page: () => AdminLoginScreen()),
         GetPage(name: '/activity-log', page: () => ActivityLogsScreen()),

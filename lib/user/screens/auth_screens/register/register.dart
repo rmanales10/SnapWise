@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/user/screens/auth_screens/register/register_controller.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:snapwise/user/screens/auth_screens/verify/verify_screen.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -14,6 +16,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  String _phoneNumber = '';
   bool _showPassword = false;
   bool _acceptTerms = false;
 
@@ -124,6 +127,43 @@ class _RegisterPageState extends State<RegisterPage> {
                       decoration: _inputDecoration("Your email"),
                     ),
                     const SizedBox(height: 20),
+
+                    // Phone Number
+                    const Text(
+                      "Phone Number",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    IntlPhoneField(
+                      initialCountryCode: 'PH',
+                      flagsButtonPadding: const EdgeInsets.symmetric(horizontal: 10),
+                      showDropdownIcon: false,
+                      onChanged: (phone) {
+                        _phoneNumber = phone.completeNumber;
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Phone Number',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color.fromARGB(255, 3, 30, 53)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color.fromARGB(255, 3, 30, 53)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color.fromARGB(255, 3, 30, 53)),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      cursorColor: const Color.fromARGB(255, 3, 30, 53),
+                      keyboardType: TextInputType.phone,
+                    ),
+              
 
                     // Password
                     const Text(
@@ -294,10 +334,10 @@ class _RegisterPageState extends State<RegisterPage> {
             child: const Text(
               'Welcome to Snapwise!\n\n'
               '1. Use of Service: Use Snapwise responsibly and lawfully.\n'
-              '2. Account Responsibility: You’re responsible for your account activity.\n'
+              '2. Account Responsibility: You\'re responsible for your account activity.\n'
               '3. Content Ownership: You own what you upload. We just store it.\n'
               '4. Termination: We can suspend accounts that break the rules.\n'
-              '5. Updates: Terms may change. We’ll let you know.\n'
+              '5. Updates: Terms may change. We\'ll let you know.\n'
               'Questions? Email us at support@snapwise.app.',
               textAlign: TextAlign.left,
             ),
@@ -367,23 +407,24 @@ class _RegisterPageState extends State<RegisterPage> {
 
   // In your form submission:
   void onSubmit() async {
-    _controller.username = _usernameController.text;
     _controller.email = _emailController.text;
+    _controller.username = _usernameController.text;
     _controller.password = _passwordController.text;
+    _controller.phoneNumber = _phoneNumber;
 
     bool success = await _controller.register();
     if (success) {
-      Get.snackbar('Success', 'Registered successfully!');
       // ignore: use_build_context_synchronously
-      Navigator.pushNamed(context, '/success');
-      _controller.clearData();
-    } else {
-      Get.snackbar(
-        'Failed',
-        _controller.errorMessage.value,
-        colorText: Colors.white,
+      Navigator.push(
+        context, 
+        MaterialPageRoute(
+          builder: (context) => VerifyScreen(
+            email: _emailController.text,
+            username: _usernameController.text,
+            password: _passwordController.text,
+          )
+        )
       );
-      return;
     }
   }
 }

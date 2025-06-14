@@ -139,6 +139,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const Divider(height: 1),
                   _buildMenuButton(
+                    Icons.star,
+                    'Favorites',
+                    Colors.yellow.withOpacity(0.3),
+                     Colors.yellow.shade700,
+                    () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => BottomNavBar(initialIndex: 14),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  _buildMenuButton(
                     Icons.settings,
                     'Settings',
                     Colors.purple.shade100,

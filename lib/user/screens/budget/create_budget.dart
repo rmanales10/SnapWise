@@ -33,6 +33,7 @@ class _CreateBudgetState extends State<CreateBudget> {
 
   Future<void> fetchOverallBudget() async {
     await _budgetController.fetchOverallBudget();
+    await _budgetController.fetchIncome();
     setState(() {
       alertPercentage =
           _budgetController.budgetData.value['alertPercentage'] == null
@@ -398,11 +399,41 @@ class _CreateBudgetState extends State<CreateBudget> {
                       onPressed: () {
                         if (categoryController.text.isNotEmpty &&
                             amountController.text.isNotEmpty) {
-                          setBudgetCategory();
+                          double remainingBudget =
+                              _budgetController.budgetData.value['amount']
+                                  ?.toDouble() ??
+                              0.0;
+                          double newAmount = double.parse(
+                            amountController.text,
+                          );
+                          double totalCategoryBudget =
+                              _budgetController.totalCategoryBudget.toDouble();
+
+                          if (totalCategoryBudget + newAmount >
+                              remainingBudget) {
+                            Get.snackbar(
+                              '⚠️ Warning',
+                              'Insufficient Budget Balance. The total of all category budgets cannot exceed the overall budget.',
+                              colorText: Colors.black,
+                              backgroundColor: Colors.amber.shade100,
+                            );
+                          } else {
+                            setBudgetCategory();
+                          }
                         }
                         if (amountController.text.isNotEmpty &&
                             categoryController.text.isEmpty) {
-                          setOverallBudget();
+                          if (_budgetController.incomeData.value['amount'] <
+                              double.parse(amountController.text)) {
+                            Get.snackbar(
+                              '⚠️ Warning',
+                              'Insufficient Income Balance Your current income balance is not sufficient to proceed. Please add funds or adjust your budget amount.',
+                              colorText: Colors.black,
+                              backgroundColor: Colors.amber.shade100,
+                            );
+                          } else {
+                            setOverallBudget();
+                          }
                         }
                         Navigator.pop(context);
                       },

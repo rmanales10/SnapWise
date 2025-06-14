@@ -13,9 +13,12 @@ import 'package:snapwise/user/screens/history/records.dart';
 import 'package:snapwise/user/screens/home/home_screens/home.dart';
 import 'package:snapwise/user/screens/home/home_screens/home_controller.dart';
 import 'package:snapwise/user/screens/home/predict_screens/predict.dart';
-import 'package:snapwise/user/screens/profile/notification.dart';
+import 'package:snapwise/user/screens/profile/favorites/add_favorites.dart';
+import 'package:snapwise/user/screens/profile/favorites/favorite_history.dart';
+import 'package:snapwise/user/screens/profile/favorites/favorite_screen.dart';
+import 'package:snapwise/user/screens/profile/settings/notification.dart';
 import 'package:snapwise/user/screens/profile/profile.dart';
-import 'package:snapwise/user/screens/profile/setting.dart';
+import 'package:snapwise/user/screens/profile/settings/setting.dart';
 
 class BottomNavBar extends StatefulWidget {
   final int initialIndex;
@@ -60,6 +63,9 @@ class _BottomNavBarState extends State<BottomNavBar> {
     InputIncome(),
     NotificationSettingsPage(),
     ExpenseManualPage(),
+    FavoriteHistory(),
+    FavoriteScreen(),
+    AddFavoritesScreen()
   ];
 
   @override
@@ -73,7 +79,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
         child: FloatingActionButton(
           onPressed: () {
             setState(() {
-              _currentIndex = body.length - 1;
+              _currentIndex = 12;
               expenseController.fetchCategories();
             });
           },

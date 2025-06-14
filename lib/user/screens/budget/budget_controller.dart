@@ -17,6 +17,7 @@ class BudgetController extends GetxController {
   RxDouble remainingBudgetPercentage = 0.0.obs;
   RxDouble categoryTotalAmount = 0.0.obs;
   RxDouble remainingIncomePercentage = 0.0.obs;
+  RxDouble totalCategoryBudget = 0.0.obs;
 
   Future<void> addBudget(
     String category,
@@ -319,18 +320,18 @@ class BudgetController extends GetxController {
               .where('userId', isEqualTo: user.uid)
               .get();
 
-      double totalCategoryBudgets = 0.0;
+      totalCategoryBudget.value = 0.0;
       Map<String, double> categoryBudgets = {};
       for (var doc in budgetSnapshot.docs) {
         String category = doc['category'];
         double amount = doc['amount'];
         categoryBudgets[category] = amount;
-        totalCategoryBudgets += amount;
+        totalCategoryBudget.value += amount;
       }
 
       // Calculate remaining budget (overall budget minus sum of category budgets)
 
-      remainingBudget.value = overallBudget - totalCategoryBudgets;
+      remainingBudget.value = overallBudget - totalCategoryBudget.value;
 
       // Calculate the percentage of overall budget remaining
       if (overallBudget > 0) {

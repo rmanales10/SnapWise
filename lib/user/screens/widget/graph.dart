@@ -186,7 +186,6 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                       ),
                                     );
                                   },
-                                  tooltipRoundedRadius: 8,
                                   tooltipPadding: const EdgeInsets.all(8),
                                   tooltipMargin: 8,
                                 ),

@@ -26,6 +26,7 @@ class ExpenseController extends GetxController {
     String category,
     double amount,
     String base64Image,
+    String date,
   ) async {
     try {
       if (category.isEmpty || amount <= 0) {
@@ -42,6 +43,7 @@ class ExpenseController extends GetxController {
         'category': category,
         'amount': amount,
         'base64Image': base64Image,
+        'date': date,
         'timestamp': FieldValue.serverTimestamp(),
       });
       isSuccess.value = true;
@@ -116,19 +118,20 @@ class ExpenseController extends GetxController {
       rethrow;
     }
   }
+
   Future<void> deleteExpense(String expenseId) async {
     try {
       final User? user = _auth.currentUser;
       if (user == null) {
         throw Exception('User not authenticated');
       }
-  
+
       // Delete the expense document from Firestore
       await _firestore.collection('expenses').doc(expenseId).delete();
-  
+
       // Remove the expense from the local expenses map if it exists
       expenses.remove(expenseId);
-  
+
       isSuccess.value = true;
       Get.snackbar('Success', 'Expense deleted successfully');
     } catch (e) {

@@ -298,7 +298,17 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        setOverallBudget();
+                        if (_budgetController.incomeData.value['amount'] <
+                            double.parse(amountController.text)) {
+                          Get.snackbar(
+                            '⚠️ Warning',
+                            'Insufficient Income Balance Your current income balance is not sufficient to proceed. Please add funds or adjust your budget amount.',
+                            colorText: Colors.black,
+                            backgroundColor: Colors.amber.shade100,
+                          );
+                        } else {
+                          setOverallBudget();
+                        }
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(

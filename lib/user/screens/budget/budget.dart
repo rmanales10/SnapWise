@@ -28,12 +28,14 @@ class _BudgetPageState extends State<BudgetPage> {
   }
 
   Future<void> fetchData() async {
-    await _budgetController.fetchBudgetCategory();
-    await _budgetController.fetchOverallBudget();
-    await _budgetController.fetchIncome();
-    await _budgetController.calculateRemainingBudget();
-    await _budgetController.totalOverallIncome();
-    await _budgetController.fetchExpensesByCategory();
+    await Future.wait([
+      _budgetController.fetchBudgetCategory(),
+      _budgetController.fetchOverallBudget(),
+      _budgetController.fetchIncome(),
+      _budgetController.calculateRemainingBudget(),
+      _budgetController.totalOverallIncome(),
+      _budgetController.fetchExpensesByCategory(),
+    ]);
   }
 
   final List<Category> categories = [

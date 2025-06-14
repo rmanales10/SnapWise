@@ -1,14 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:snapwise/user/screens/expense/expense_controller.dart';
 import 'package:snapwise/user/screens/expense/gemini_ai.dart';
-import 'package:snapwise/user/screens/expense/ocr_controller.dart';
 import 'package:snapwise/user/screens/home/home_screens/home_controller.dart';
 import 'package:snapwise/user/screens/widget/bottomnavbar.dart';
 
@@ -22,16 +18,17 @@ class ExpenseManualPage extends StatefulWidget {
 class _ExpenseManualPageState extends State<ExpenseManualPage> {
   String? base64Image;
   final ImagePicker picker = ImagePicker();
-  final OcrController ocrController = Get.put(OcrController());
   final GeminiAi aiController = Get.put(GeminiAi());
   final controller = Get.put(ExpenseController());
   final homeController = Get.put(HomeController());
   final TextEditingController amountController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
+  final TextEditingController dateController = TextEditingController();
   @override
   void initState() {
     super.initState();
     controller.fetchCategories();
+    dateController.text = DateTime.now().toString().split(' ')[0];
   }
 
   @override
@@ -98,6 +95,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
                     _buildCategorySelector(),
                     const SizedBox(height: 20),
                     _buildAmountInput(),
+                    const SizedBox(height: 20),
+                    _buildDateInput(),
                     const SizedBox(height: 20),
                     Row(
                       children: [
@@ -331,47 +330,201 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
   }
 
   Future<void> _processAndDisplayImage(XFile image) async {
-    // Read the file as bytes
-    Uint8List imageBytes = await image.readAsBytes();
+    try {
+      // Read the file as bytes
+      Uint8List imageBytes = await image.readAsBytes();
 
-    // Convert to base64
-    String base64String = base64Encode(imageBytes);
+      // Convert to base64
+      String base64String = base64Encode(imageBytes);
 
-    setState(() {
-      base64Image = base64String;
-    });
+      // Update the base64Image first
+      setState(() {
+        base64Image = base64String;
+      });
 
-    // Process the image for OCR
-    await _processImage(image, ocrController);
+      // Process with AI
+      Map<String, String>? expenseDetails = await aiController
+          .extractExpenseDetails(base64String);
 
-    // ignore: use_build_context_synchronously
-    _showImagePreview(context);
+      await controller.fetchCategories();
+      await controller.addCategory(expenseDetails['category'] ?? '');
+
+      setState(() {
+        categoryController.text = expenseDetails['category'] ?? '';
+        amountController.text = expenseDetails['amount'] ?? '';
+        dateController.text =
+            expenseDetails['date'] ?? DateTime.now().toString().split(' ')[0];
+      });
+
+      if (expenseDetails['category']?.isEmpty == true ||
+          expenseDetails['amount']?.isEmpty == true ||
+          expenseDetails['date']?.isEmpty == true) {
+        _showErrorSnackbar(
+          'Failed to extract some expense details. Please check and enter manually if needed.',
+        );
+      }
+
+      // Show image preview
+      // ignore: use_build_context_synchronously
+      _showImagePreview(context);
+    } catch (e) {
+      _showErrorSnackbar(
+        'Error processing the image. Please try again or enter details manually.',
+      );
+    }
   }
 
   void _showImagePreview(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: screenHeight * 0.7,
+              maxWidth: isTablet ? 500 : double.infinity,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-
               children: [
-                Image.memory(base64Decode(base64Image!)),
-                const SizedBox(height: 20),
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 3, 30, 53),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Receipt Preview',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ),
 
-                Text('Extracted Text: '),
-                Text('Category: ${categoryController.text}'),
-                Text('Amount: ${amountController.text}'),
+                // Image Preview
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          constraints: BoxConstraints(
+                            maxHeight: screenHeight * 0.4,
+                          ),
+                          margin: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.3),
+                                spreadRadius: 2,
+                                blurRadius: 5,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.memory(
+                              base64Decode(base64Image!),
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
 
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: Text('Close'),
+                        // Extracted Details
+                        Container(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.grey.shade300,
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Extracted Details',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color.fromARGB(255, 3, 30, 53),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildDetailRow(
+                                'Category',
+                                categoryController.text,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildDetailRow('Amount', amountController.text),
+                              const SizedBox(height: 8),
+                              _buildDetailRow('Date', dateController.text),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Action Buttons
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color.fromARGB(
+                              255,
+                              3,
+                              30,
+                              53,
+                            ),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -381,44 +534,40 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     );
   }
 
-  Future<void> _processImage(XFile image, OcrController ocrController) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final String fileName = path.basename(image.path);
-    final String localPath = path.join(directory.path, fileName);
-    final File localImage = File(localPath);
-    await localImage.writeAsBytes(await image.readAsBytes());
-
-    try {
-      // First, extract the text from the image
-      String extractedText = await ocrController.extractTextFromImage(
-        localImage.path,
-      );
-
-      // Then, use the AI to identify expense details from the extracted text
-      Map<String, String> expenseDetails = await ocrController
-          .identifyExpenseDetails(extractedText);
-
-      setState(() async {
-        controller.fetchCategories();
-        await controller.addCategory(expenseDetails['category'] ?? '');
-        categoryController.text = expenseDetails['category'] ?? '';
-        amountController.text = expenseDetails['amount'] ?? '';
-
-        if (categoryController.text.isEmpty || amountController.text.isEmpty) {
-          _showErrorSnackbar(
-            'Failed to extract expense details. Please enter manually.',
-          );
-        }
-      });
-    } catch (e) {
-      _showErrorSnackbar(
-        'Error processing the image. Please try again or enter details manually.',
-      );
-    }
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Text(':', style: TextStyle(fontSize: 14, color: Colors.grey)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value.isEmpty ? 'Not detected' : value,
+            style: TextStyle(
+              fontSize: 14,
+              color: value.isEmpty ? Colors.grey : Colors.black,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _showErrorSnackbar(String message) {
-    Get.snackbar('Error', message);
+    Get.snackbar('Error', message, colorText: Colors.white);
   }
 
   Widget _buildCategorySelector() {
@@ -730,11 +879,53 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     );
   }
 
+  Widget _buildDateInput() {
+    return TextField(
+      cursorColor: const Color.fromARGB(255, 3, 30, 53),
+      controller: dateController,
+      readOnly: true,
+      onTap: () async {
+        final DateTime? picked = await showDatePicker(
+          context: context,
+          initialDate: DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime.now(),
+        );
+        if (picked != null) {
+          setState(() {
+            dateController.text = picked.toString().split(' ')[0];
+          });
+        }
+      },
+      decoration: InputDecoration(
+        hintText: "Date",
+        suffixIcon: Icon(Icons.calendar_today, color: Colors.grey.shade600),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+      ),
+    );
+  }
+
   Future<void> _addExpense() async {
     await controller.addExpense(
       categoryController.text,
       double.parse(amountController.text),
       base64Image ?? 'No Image',
+      dateController.text,
     );
     if (controller.isSuccess.value == true) {
       homeController.fetchTransactions();

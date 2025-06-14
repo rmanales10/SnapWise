@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/admin/controller.dart';
@@ -80,7 +82,7 @@ class Sidebar extends StatelessWidget {
                     ),
                     onBackgroundImageError: (error, stackTrace) {
                       // Optional: Handle image loading errors
-                      print('Failed to load avatar image: $error');
+                      log('Failed to load avatar image: $error');
                     },
                   ),
                 ),

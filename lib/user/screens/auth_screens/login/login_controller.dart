@@ -51,7 +51,13 @@ class LoginController extends GetxController {
 
       _isLoading.value = false;
 
-      if (userCredential.user != null && !userCredential.user!.emailVerified) {
+      // Check if user exists in Firestore and is verified
+      DocumentSnapshot userDoc = await _firestore
+          .collection('users')
+          .doc(userCredential.user?.uid)
+          .get();
+
+      if (!userDoc.exists || userDoc.get('isVerified') != true) {
         Get.snackbar('Warning', 'Please verify your email before logging in');
         await _auth.signOut();
         return false;
@@ -224,9 +230,9 @@ class LoginController extends GetxController {
       // Store locally
       await _storage.write('extendedUserInfo', userData);
 
-      print('Extended user info stored successfully');
+      log('Extended user info stored successfully');
     } catch (e) {
-      print('Error storing extended user info: $e');
+      log('Error storing extended user info: $e');
       Get.snackbar('Error', 'Failed to store user information');
     }
   }
