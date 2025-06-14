@@ -1,4 +1,4 @@
-import 'dart:developer';
+
 import 'dart:async';
 
 import 'package:get/get.dart';
@@ -111,7 +111,6 @@ class FavoriteController extends GetxController {
 
       final data = doc.data() as Map<String, dynamic>;
       final totalAmount = (data['totalAmount'] ?? 0.0).toDouble();
-      final amountToPay = (data['amountToPay'] ?? 0.0).toDouble();
       final currentPaidAmount = (data['paidAmount'] ?? 0.0).toDouble();
       final newPaidAmount = currentPaidAmount + paidAmount;
 
