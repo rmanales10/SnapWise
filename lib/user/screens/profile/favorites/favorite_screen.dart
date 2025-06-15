@@ -27,24 +27,6 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter bills based on selected tab and search query
-    final filteredBills =
-        controller.favorites.where((bill) {
-          final matchesTab = bill['status'] == statusTabs[selectedTab];
-          final matchesSearch = bill['title'].toString().toLowerCase().contains(
-            _searchQuery.toLowerCase(),
-          );
-          return matchesTab && matchesSearch;
-        }).toList();
-
-    // Calculate totals
-    double totalAmount = 0;
-    double totalPaid = 0;
-    for (var bill in controller.favorites) {
-      totalAmount += (bill['totalAmount'] ?? 0).toDouble();
-      totalPaid += (bill['paidAmount'] ?? 0).toDouble();
-    }
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -70,80 +52,101 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _summaryCard(
-                  'Total\nPayment',
-                  'PHP ${totalAmount.toStringAsFixed(2)}',
-                ),
-                _summaryCard(
-                  'Total Paid\nPayment',
-                  'PHP ${totalPaid.toStringAsFixed(2)}',
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _searchBar(),
-            const SizedBox(height: 16),
-            _tabBar(),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'All your upcoming payments Displayed here',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.add_box_outlined),
-                      onPressed:
-                          () => Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) => BottomNavBar(initialIndex: 15),
-                            ),
-                          ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.history_rounded),
-                      onPressed:
-                          () => Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) => BottomNavBar(initialIndex: 13),
-                            ),
-                          ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (filteredBills.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Center(
-                  child: Text(
-                    'No bills found.',
-                    style: TextStyle(color: Colors.grey),
+      body: Obx(() {
+        // Filter bills based on selected tab and search query
+        final filteredBills =
+            controller.favorites.where((bill) {
+              final matchesTab = bill['status'] == statusTabs[selectedTab];
+              final matchesSearch = bill['title']
+                  .toString()
+                  .toLowerCase()
+                  .contains(_searchQuery.toLowerCase());
+              return matchesTab && matchesSearch;
+            }).toList();
+
+        // Calculate totals
+        double totalAmount = 0;
+        double totalPaid = 0;
+        for (var bill in controller.favorites) {
+          totalAmount += (bill['totalAmount'] ?? 0).toDouble();
+          totalPaid += (bill['paidAmount'] ?? 0).toDouble();
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _summaryCard(
+                    'Total\nPayment',
+                    'PHP ${totalAmount.toStringAsFixed(2)}',
                   ),
-                ),
-              )
-            else
-              ...filteredBills.map((bill) => _billCard(bill)),
-          ],
-        ),
-      ),
+                  _summaryCard(
+                    'Total Paid\nPayment',
+                    'PHP ${totalPaid.toStringAsFixed(2)}',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _searchBar(),
+              const SizedBox(height: 16),
+              _tabBar(),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'All your upcoming payments Displayed here',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.add_box_outlined),
+                        onPressed:
+                            () => Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => BottomNavBar(initialIndex: 15),
+                              ),
+                            ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.history_rounded),
+                        onPressed:
+                            () => Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => BottomNavBar(initialIndex: 13),
+                              ),
+                            ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (filteredBills.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Center(
+                    child: Text(
+                      'No bills found.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                )
+              else
+                ...filteredBills.map((bill) => _billCard(bill)),
+            ],
+          ),
+        );
+      }),
     );
   }
 
@@ -357,6 +360,22 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
     double amountToPay = (bill['amountToPay'] ?? 0).toDouble();
     double remaining = totalAmount - amountToPay;
 
+    // Check if paid today
+    bool paidToday = false;
+    if ((bill['paymentHistory'] as List?)?.isNotEmpty ?? false) {
+      paidToday = (bill['paymentHistory'] as List).any((payment) {
+        final paymentDateRaw = payment['timestamp'];
+        final paymentDate =
+            paymentDateRaw is Timestamp
+                ? paymentDateRaw.toDate()
+                : paymentDateRaw as DateTime;
+        final now = DateTime.now();
+        return paymentDate.year == now.year &&
+            paymentDate.month == now.month &&
+            paymentDate.day == now.day;
+      });
+    }
+
     showDialog(
       context: context,
       builder: (context) {
@@ -563,7 +582,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          _getPaymentTimeText(bill['paidAt']),
+                          'Fully Paid',
                           style: TextStyle(
                             color: Colors.green.shade700,
                             fontWeight: FontWeight.bold,
@@ -574,13 +593,16 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                     )
                   else
                     ElevatedButton(
-                      onPressed: () async {
-                        await controller.updatePaymentStatus(
-                          bill['id'],
-                          bill['amountToPay'] ?? 0.0,
-                        );
-                        Navigator.pop(context);
-                      },
+                      onPressed:
+                          paidToday
+                              ? null
+                              : () async {
+                                await controller.updatePaymentStatus(
+                                  bill['id'],
+                                  bill['amountToPay'] ?? 0.0,
+                                );
+                                Navigator.pop(context);
+                              },
                       style: ElevatedButton.styleFrom(
                         minimumSize: Size(double.infinity, 50),
                         backgroundColor: Colors.green.shade500,
@@ -591,12 +613,66 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                         elevation: 0,
                       ),
                       child: Text(
-                        'Pay Now',
+                        paidToday ? 'Already Paid Today' : 'Pay Now',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
+                      ),
+                    ),
+                  SizedBox(height: 15),
+                  if ((bill['paymentHistory'] as List?)?.isNotEmpty ?? false)
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Color(0xFFF8F9FE),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Payment History',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Color(0xFF2B2E4A),
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          ...(bill['paymentHistory'] as List).map((payment) {
+                            final paymentDateRaw = payment['timestamp'];
+                            final paymentDate =
+                                paymentDateRaw is Timestamp
+                                    ? paymentDateRaw.toDate()
+                                    : paymentDateRaw as DateTime;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _getPaymentTimeText(paymentDate),
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    formatter.format(payment['amount']),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Color(0xFF2B2E4A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ],
                       ),
                     ),
                   SizedBox(height: 15),
@@ -627,7 +703,8 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
-                            controller.deleteFavorite(bill['id']);
+                            await controller.deleteFavorite(bill['id']);
+                            await controller.setupFavoritesStream();
                             Get.snackbar(
                               'Success',
                               'Favorite deleted successfully',
@@ -679,10 +756,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
     );
   }
 
-  String _getPaymentTimeText(dynamic paidAt) {
-    if (paidAt == null) return 'Payment date not available';
-
-    final paymentDate = (paidAt as Timestamp).toDate();
+  String _getPaymentTimeText(DateTime paymentDate) {
     final now = DateTime.now();
     final difference = now.difference(paymentDate);
 

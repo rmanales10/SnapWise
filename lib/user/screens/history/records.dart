@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/user/screens/expense/view_expense.dart';
 import 'package:snapwise/user/screens/home/home_screens/home_controller.dart';
+import 'package:snapwise/user/screens/profile/favorites/favorite_controller.dart';
+import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TransactionHistoryPage extends StatefulWidget {
   const TransactionHistoryPage({super.key});
@@ -12,6 +15,12 @@ class TransactionHistoryPage extends StatefulWidget {
 
 class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
   final HomeController controller = Get.put(HomeController());
+  final FavoriteController favoriteController = Get.put(FavoriteController());
+  final formatter = NumberFormat.currency(
+    locale: 'en_PH',
+    symbol: 'PHP ',
+    decimalDigits: 2,
+  );
 
   bool isSelecting = false;
   List<int> selectedIndices = [];
@@ -36,16 +45,130 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
         ),
       ),
       body: Obx(
-        () =>
-            controller.transactionsHistory.isEmpty
-                ? Center(
-                  child: Text(
-                    "There are no transactions for now",
-                    style: TextStyle(fontSize: isTablet ? 20 : 16),
+        () => SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Payments Made Today',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ),
+              _buildTodayPayments(),
+
+              controller.transactionsHistory.isEmpty
+                  ? Center(
+                    child: Text(
+                      "There are no transactions for now",
+                      style: TextStyle(fontSize: isTablet ? 20 : 16),
+                    ),
+                  )
+                  : Column(
+                    children: [
+                      SizedBox(height: 10),
+                      SizedBox(
+                        height: 500, // adjust as needed
+                        child: _buildTransactionsList(),
+                      ),
+                    ],
                   ),
-                )
-                : Column(children: [Expanded(child: _buildTransactionsList())]),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _buildTodayPayments() {
+    final todayPayments = <Map<String, dynamic>>[];
+
+    for (var fav in favoriteController.favorites) {
+      final title = fav['title'] ?? '';
+      final history = fav['paymentHistory'] as List? ?? [];
+      for (var payment in history) {
+        final paymentDateRaw = payment['timestamp'];
+        final paymentDate =
+            paymentDateRaw is Timestamp
+                ? paymentDateRaw.toDate()
+                : paymentDateRaw as DateTime;
+        final now = DateTime.now();
+        if (paymentDate.year == now.year &&
+            paymentDate.month == now.month &&
+            paymentDate.day == now.day) {
+          todayPayments.add({
+            'title': title,
+            'amount': payment['amount'],
+            'date': paymentDate,
+          });
+        }
+      }
+    }
+
+    if (todayPayments.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Text(
+          'No payments made today.',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: NeverScrollableScrollPhysics(),
+      itemCount: todayPayments.length,
+      itemBuilder: (context, index) {
+        final payment = todayPayments[index];
+        return Container(
+          margin: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.receipt_long, color: Colors.blue, size: 28),
+                    SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          payment['title'],
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.black,
+                          ),
+                        ),
+                        Text(
+                          DateFormat('MMM d, yyyy').format(payment['date']),
+                          style: TextStyle(color: Colors.black45, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Text(
+                  '-${formatter.format(payment['amount']).replaceAll('PHP ', '')}',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -113,7 +236,11 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                           ],
                         ),
                         Text(
-                          tx["amount"],
+                          (() {
+                            final amount =
+                                double.tryParse(tx["amount"].toString()) ?? 0.0;
+                            return '${amount < 0 ? "" : "-"}${formatter.format(amount.abs()).replaceAll('PHP ', "")}';
+                          })(),
                           style: TextStyle(
                             color: Colors.red,
                             fontWeight: FontWeight.bold,

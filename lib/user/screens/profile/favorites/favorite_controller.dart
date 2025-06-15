@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:get/get.dart';
@@ -16,7 +15,7 @@ class FavoriteController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _setupFavoritesStream();
+    setupFavoritesStream();
   }
 
   @override
@@ -25,7 +24,7 @@ class FavoriteController extends GetxController {
     super.onClose();
   }
 
-  void _setupFavoritesStream() {
+  Future<void> setupFavoritesStream() async {
     final User? user = _auth.currentUser;
     if (user == null) return;
 
@@ -114,10 +113,17 @@ class FavoriteController extends GetxController {
       final currentPaidAmount = (data['paidAmount'] ?? 0.0).toDouble();
       final newPaidAmount = currentPaidAmount + paidAmount;
 
+      // Get existing payment history or initialize new one
+      List<Map<String, dynamic>> paymentHistory =
+          List<Map<String, dynamic>>.from(data['paymentHistory'] ?? []);
+
+      // Add new payment to history
+      paymentHistory.add({'amount': paidAmount, 'timestamp': DateTime.now()});
+
       // Update the document with new payment information
       await _firestore.collection('favorites').doc(favoriteId).update({
         'paidAmount': newPaidAmount,
-        'paidAt': FieldValue.serverTimestamp(),
+        'paymentHistory': paymentHistory,
         'status': newPaidAmount >= totalAmount ? 'Paid' : 'Pending',
       });
 
@@ -125,7 +131,7 @@ class FavoriteController extends GetxController {
         'Success',
         newPaidAmount >= totalAmount
             ? 'Payment completed successfully'
-            : 'Partial payment processed. Remaining: ${(totalAmount - newPaidAmount).toStringAsFixed(2)}',
+            : 'Payment processed. Remaining: ${(totalAmount - newPaidAmount).toStringAsFixed(2)}',
       );
     } catch (e) {
       Get.snackbar('Error', 'Failed to process payment: ${e.toString()}');
@@ -135,6 +141,7 @@ class FavoriteController extends GetxController {
   Future<void> deleteFavorite(String favoriteId) async {
     try {
       await _firestore.collection('favorites').doc(favoriteId).delete();
+
       Get.snackbar('Success', 'Favorite deleted successfully');
     } catch (e) {
       Get.snackbar('Error', 'Failed to delete favorite: ${e.toString()}');

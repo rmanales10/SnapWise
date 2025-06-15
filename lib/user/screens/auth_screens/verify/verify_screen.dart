@@ -22,7 +22,8 @@ class VerifyScreenState extends State<VerifyScreen> {
   final _controller = Get.put(RegisterController());
   final TextEditingController _pinController = TextEditingController();
   int _seconds = 30;
-  late final timer;
+  late final dynamic timer;
+
 
   @override
   void initState() {
