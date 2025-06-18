@@ -1,45 +1,48 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:snapwise/admin/activity_log.dart';
-import 'package:snapwise/admin/login.dart';
-import 'package:snapwise/user/screens/budget/budget.dart';
-import 'package:snapwise/user/screens/budget/edit_budget.dart';
-import 'package:snapwise/user/screens/budget/income/edit_income.dart';
-import 'package:snapwise/user/screens/budget/income/input_income.dart';
-import 'package:snapwise/user/screens/budget/create_budget.dart';
-import 'package:snapwise/user/screens/expense/expense.dart';
-import 'package:snapwise/user/screens/auth_screens/forgot_password/forgot.dart';
-import 'package:snapwise/user/screens/history/records.dart';
-import 'package:snapwise/user/screens/home/home_screens/home.dart';
-import 'package:snapwise/user/screens/home/predict_screens/predict.dart';
-import 'package:snapwise/user/screens/auth_screens/login/login.dart';
-import 'package:snapwise/user/screens/notification/notification.dart';
-import 'package:snapwise/user/screens/profile/settings/about.dart';
-import 'package:snapwise/user/screens/profile/settings/notification.dart';
-import 'package:snapwise/user/screens/profile/profile.dart';
-import 'package:snapwise/user/screens/profile/settings/setting.dart';
+import 'package:snapwise/web/landing_page.dart';
+import 'package:snapwise/app/budget/budget.dart';
+import 'package:snapwise/app/budget/edit_budget.dart';
+import 'package:snapwise/app/budget/income/edit_income.dart';
+import 'package:snapwise/app/budget/income/input_income.dart';
+import 'package:snapwise/app/budget/create_budget.dart';
+import 'package:snapwise/app/expense/expense.dart';
+import 'package:snapwise/app/auth_screens/forgot_password/forgot.dart';
+import 'package:snapwise/app/history/records.dart';
+import 'package:snapwise/app/home/home_screens/home.dart';
+import 'package:snapwise/app/home/predict_screens/predict.dart';
+import 'package:snapwise/app/auth_screens/login/login.dart';
+import 'package:snapwise/app/notification/notification.dart';
+import 'package:snapwise/app/profile/settings/about.dart';
+import 'package:snapwise/app/profile/settings/notification.dart';
+import 'package:snapwise/app/profile/profile.dart';
+import 'package:snapwise/app/profile/settings/setting.dart';
 import 'package:flutter/material.dart';
-import 'package:snapwise/user/screens/auth_screens/register/register.dart';
-import 'package:snapwise/user/screens/auth_screens/register/success.dart';
+import 'package:snapwise/app/auth_screens/register/register.dart';
+import 'package:snapwise/app/auth_screens/register/success.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:snapwise/user/screens/widget/bottomnavbar.dart';
-import 'package:snapwise/user/services/firebase_options.dart';
-import 'package:snapwise/user/services/notification_service.dart';
+import 'package:snapwise/app/widget/bottomnavbar.dart';
+import 'package:snapwise/services/firebase_options.dart';
+import 'package:snapwise/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Initialize Firebase Messaging
-  final notificationService = NotificationService();
-  await notificationService.initialize();
+  // Initialize Firebase only if not in web or if web platform is supported
+  if (!kIsWeb || (kIsWeb && Firebase.apps.isEmpty)) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
 
-  // Retrieve and print the FCM token
-  // String? token = await notificationService.getToken();
-  // print('FCM Token: $token');
+  // Initialize Firebase Messaging only if not web
+  if (!kIsWeb) {
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+  }
 
-  runApp(kIsWeb ? AdminScreen() : UserScreen());
+  runApp(kIsWeb ? WebScreen() : UserScreen());
 }
 
 class UserScreen extends StatelessWidget {
@@ -55,7 +58,9 @@ class UserScreen extends StatelessWidget {
       enableLog: true,
       builder: (context, child) {
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(1.0)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(1.0)),
           child: child!,
         );
       },
@@ -84,24 +89,26 @@ class UserScreen extends StatelessWidget {
   }
 }
 
-class AdminScreen extends StatelessWidget {
-  const AdminScreen({super.key});
+class WebScreen extends StatelessWidget {
+  const WebScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
       initialRoute: '/',
       defaultTransition: Transition.fade,
+      debugShowCheckedModeBanner: false,
       enableLog: true,
       builder: (context, child) {
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(1.0)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(1.0)),
           child: child!,
         );
       },
       getPages: [
-        GetPage(name: '/', page: () => AdminLoginScreen()),
-        GetPage(name: '/activity-log', page: () => ActivityLogsScreen()),
+        GetPage(name: '/', page: () => LandingPage()),
       ],
     );
   }
@@ -119,25 +126,24 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    // Reduce splash screen delay for web
     checkUserLoggedIn();
   }
 
   void checkUserLoggedIn() async {
-    // Wait for 2 seconds to show the splash screen
-    await Future.delayed(const Duration(seconds: 2));
+    // Shorter delay for web platform
+    await Future.delayed(Duration(seconds: kIsWeb ? 1 : 2));
 
     // Check if user is logged in
     User? user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
-      // User is logged in, navigate to home
-      // ignore: use_build_context_synchronously
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => BottomNavBar()),
       );
     } else {
-      // User is not logged in, navigate to login
-      // ignore: use_build_context_synchronously
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/login');
     }
   }
@@ -149,7 +155,15 @@ class _SplashScreenState extends State<SplashScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           double logoSize = constraints.maxWidth * 0.4;
-          return Center(child: Image.asset('assets/logo.png', width: logoSize));
+          return Center(
+            child: Image.asset(
+              'assets/logo.png',
+              width: logoSize,
+              // Add cacheWidth for better web performance
+              cacheWidth:
+                  (logoSize * MediaQuery.of(context).devicePixelRatio).toInt(),
+            ),
+          );
         },
       ),
     );
