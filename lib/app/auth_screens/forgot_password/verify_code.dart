@@ -1,52 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
-import 'package:snapwise/app/auth_screens/register/register_controller.dart';
-import 'package:snapwise/app/auth_screens/login/login_controller.dart';
-import 'package:snapwise/app/widget/bottomnavbar.dart';
+import 'package:snapwise/app/auth_screens/forgot_password/forgot_controller.dart';
+import 'package:snapwise/app/auth_screens/forgot_password/forgot_password_screen.dart';
 
-class VerifyScreen extends StatefulWidget {
+class VerifyCode extends StatefulWidget {
   final String email;
-  final String username;
-  final String password;
-  final String phoneNumber;
-  final bool
-      isLoginVerification; // New parameter to distinguish login vs registration
 
-  const VerifyScreen({
+  const VerifyCode({
     super.key,
     required this.email,
-    required this.username,
-    required this.password,
-    required this.phoneNumber,
-    this.isLoginVerification =
-        false, // Default to false for backward compatibility
   });
 
   @override
-  VerifyScreenState createState() => VerifyScreenState();
+  VerifyCodeState createState() => VerifyCodeState();
 }
 
-class VerifyScreenState extends State<VerifyScreen> {
-  late final dynamic _controller;
+class VerifyCodeState extends State<VerifyCode> {
+  final ForgotController controller = Get.put(ForgotController());
   final TextEditingController _pinController = TextEditingController();
   int _seconds = 30;
   late final dynamic timer;
   bool _isSubmitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Use appropriate controller based on verification type
-    if (widget.isLoginVerification) {
-      _controller = Get.put(LoginController());
-    } else {
-      _controller = Get.put(RegisterController());
-    }
-
-    timer = Future.delayed(Duration.zero, _startTimer);
-  }
 
   void _startTimer() {
     Future.doWhile(() async {
@@ -62,9 +37,9 @@ class VerifyScreenState extends State<VerifyScreen> {
   }
 
   @override
-  void dispose() {
-    _pinController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    timer = Future.delayed(Duration.zero, _startTimer);
   }
 
   @override
@@ -79,7 +54,7 @@ class VerifyScreenState extends State<VerifyScreen> {
                 width: double.infinity,
                 height: 220,
                 decoration: BoxDecoration(
-                  color: Color(0xFF2D2C44),
+                  color: Color.fromARGB(255, 3, 30, 53),
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(40),
                     bottomRight: Radius.circular(40),
@@ -163,7 +138,7 @@ class VerifyScreenState extends State<VerifyScreen> {
                             setState(() {
                               _isSubmitting = true;
                             });
-                            _verifyCode();
+                            _handleVerifyCode();
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Color(0xFF2D2C44),
@@ -181,16 +156,12 @@ class VerifyScreenState extends State<VerifyScreen> {
               SizedBox(height: 16),
               GestureDetector(
                 onTap: _seconds == 0
-                    ? () {
+                    ? () async {
                         setState(() {
                           _seconds = 30;
                         });
+                        await controller.sendVerificationEmail(widget.email);
                         _startTimer();
-                        if (widget.isLoginVerification) {
-                          _controller.sendVerificationEmail();
-                        } else {
-                          _controller.sendVerificationEmail();
-                        }
                       }
                     : null,
                 child: Text(
@@ -209,45 +180,19 @@ class VerifyScreenState extends State<VerifyScreen> {
     );
   }
 
-  void _verifyCode() async {
-    _controller.username = widget.username;
-    _controller.email = widget.email;
-    _controller.password = widget.password;
-    _controller.phoneNumber = widget.phoneNumber;
-    if (_pinController.text.length != 6) {
-      Get.snackbar('Error', 'Please enter the complete verification code');
-      setState(() {
-        _isSubmitting = false;
-      });
-
-      return;
-    }
-
-    bool success;
-    if (widget.isLoginVerification) {
-      success = await _controller.verifyCode(_pinController.text);
-    } else {
-      success = await _controller.verifyCode(_pinController.text);
-    }
+  Future<void> _handleVerifyCode() async {
+    await controller.verifyCode(_pinController.text, widget.email);
     setState(() {
       _isSubmitting = false;
     });
-
-    if (success) {
-      if (widget.isLoginVerification) {
-        Get.snackbar('Success', 'Login successful');
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (context) => BottomNavBar(initialIndex: 0)),
-        );
-      } else {
-        // For registration verification, navigate to login screen
-        Get.snackbar('Success', 'Account created successfully');
-        Navigator.pushReplacementNamed(context, '/success');
-      }
-    } else {
-      Get.snackbar('Error', 'Please check the code and try again');
+    if (controller.isVerified.value) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ForgotPasswordScreen(email: widget.email),
+        ),
+      );
     }
+    _pinController.clear();
   }
 }

@@ -3,6 +3,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 import 'package:get/get.dart';
 import 'chatbot.dart';
 import 'feedback_controller.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({Key? key}) : super(key: key);
@@ -20,7 +21,6 @@ class _LandingPageState extends State<LandingPage>
   final TextEditingController _commentController = TextEditingController();
   final FeedbackController _feedbackController = Get.put(FeedbackController());
   int _rating = 0;
-  String _feedbackType = 'Feedback';
   bool _showChatBot = false;
   bool _isSubmitting = false;
 
@@ -576,7 +576,10 @@ class _LandingPageState extends State<LandingPage>
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Text('Ask with AI'),
+                              child: Text(
+                                'Ask with AI',
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
                           ],
                         ),
@@ -870,7 +873,10 @@ class _LandingPageState extends State<LandingPage>
                             ),
                             const SizedBox(height: 40),
                             AnimatedButton(
-                              onPressed: () {},
+                              onPressed: () => launchUrl(
+                                  Uri.parse(
+                                      'https://www.dropbox.com/scl/fi/19axu4vqvu5fccu2a7zxl/app-release.apk?rlkey=m7x0bv4wdfv1oedr9t37efdpw&e=2&st=v42je5jb&dl=1'),
+                                  mode: LaunchMode.externalApplication),
                               backgroundColor: const Color(0xFF2E2E4F),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 60,
@@ -996,7 +1002,10 @@ class _LandingPageState extends State<LandingPage>
                             ),
                             const SizedBox(height: 40),
                             AnimatedButton(
-                              onPressed: () {},
+                              onPressed: () => launchUrl(
+                                  Uri.parse(
+                                      'https://www.dropbox.com/scl/fi/19axu4vqvu5fccu2a7zxl/app-release.apk?rlkey=m7x0bv4wdfv1oedr9t37efdpw&e=2&st=v42je5jb&dl=1'),
+                                  mode: LaunchMode.externalApplication),
                               backgroundColor: const Color(0xFF2E2E4F),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 60,
@@ -1674,13 +1683,7 @@ class _LandingPageState extends State<LandingPage>
         _purposeController.text.isEmpty ||
         _rating == 0 ||
         _commentController.text.isEmpty) {
-      Get.snackbar(
-        'Error',
-        'Please fill in all required fields',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Get.snackbar('Error', 'Please fill in all required fields');
       return;
     }
 
@@ -1694,6 +1697,9 @@ class _LandingPageState extends State<LandingPage>
       _rating,
       _commentController.text,
     );
+    setState(() {
+      _isSubmitting = false;
+    });
   }
 
   Widget _buildFAQSection() {
@@ -1785,7 +1791,7 @@ class _LandingPageState extends State<LandingPage>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Gmail : Snapwiseofficial@gmail.com',
+                    'Gmail : snapwiseofficial25@gmail.com',
                     style: TextStyle(
                       fontSize: isMobile ? 14 : 16,
                       fontWeight: FontWeight.bold,

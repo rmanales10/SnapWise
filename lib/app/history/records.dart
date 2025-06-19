@@ -57,23 +57,22 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                 ),
               ),
               _buildTodayPayments(),
-
               controller.transactionsHistory.isEmpty
                   ? Center(
-                    child: Text(
-                      "There are no transactions for now",
-                      style: TextStyle(fontSize: isTablet ? 20 : 16),
-                    ),
-                  )
-                  : Column(
-                    children: [
-                      SizedBox(height: 10),
-                      SizedBox(
-                        height: 500, // adjust as needed
-                        child: _buildTransactionsList(),
+                      child: Text(
+                        "",
+                        style: TextStyle(fontSize: isTablet ? 20 : 16),
                       ),
-                    ],
-                  ),
+                    )
+                  : Column(
+                      children: [
+                        SizedBox(height: 10),
+                        SizedBox(
+                          height: 500, // adjust as needed
+                          child: _buildTransactionsList(),
+                        ),
+                      ],
+                    ),
             ],
           ),
         ),
@@ -89,10 +88,9 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
       final history = fav['paymentHistory'] as List? ?? [];
       for (var payment in history) {
         final paymentDateRaw = payment['timestamp'];
-        final paymentDate =
-            paymentDateRaw is Timestamp
-                ? paymentDateRaw.toDate()
-                : paymentDateRaw as DateTime;
+        final paymentDate = paymentDateRaw is Timestamp
+            ? paymentDateRaw.toDate()
+            : paymentDateRaw as DateTime;
         final now = DateTime.now();
         if (paymentDate.year == now.year &&
             paymentDate.month == now.month &&
@@ -186,13 +184,12 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
           child: Stack(
             children: [
               GestureDetector(
-                onTap:
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ViewExpense(expenseId: tx['id']),
-                      ),
-                    ),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ViewExpense(expenseId: tx['id']),
+                  ),
+                ),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -269,10 +266,9 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                         }
                       });
                     },
-                    materialTapTargetSize:
-                        isTablet
-                            ? MaterialTapTargetSize.padded
-                            : MaterialTapTargetSize.shrinkWrap,
+                    materialTapTargetSize: isTablet
+                        ? MaterialTapTargetSize.padded
+                        : MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
             ],

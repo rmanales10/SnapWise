@@ -12,7 +12,20 @@
           "package_name": "com.example.snapwise"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "722916662508-v4u8l28sub5i4sabqtn51n9tcchhk1o8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.snapwise",
+            "certificate_hash": "bc2173e16fe88a1ead018737c845777397f2b39a"
+          }
+        },
+        {
+          "client_id": "722916662508-usuk99tjnpe38rgq7dlph34oh0t5069k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyChRuxv25stbvN4jG4-aaL_Se8llWgUlOw"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "722916662508-usuk99tjnpe38rgq7dlph34oh0t5069k.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

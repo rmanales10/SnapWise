@@ -7,6 +7,8 @@ import 'package:mailer/smtp_server.dart';
 import 'dart:math';
 import 'dart:developer' as log;
 
+import 'package:snapwise/app/crypto/cryptograpy.dart';
+
 class RegisterController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final _storage = GetStorage();
@@ -59,13 +61,12 @@ class RegisterController extends GetxController {
       );
 
       // Create email message
-      final message =
-          Message()
-            ..from = Address('snapwise@intrusion101.com', 'SnapWise')
-            ..recipients.add(email)
-            ..subject = 'Verify your SnapWise account'
-            ..text = 'Your verification code is: ${_verificationCode.value}'
-            ..html = '''
+      final message = Message()
+        ..from = Address('snapwise@intrusion101.com', 'SnapWise')
+        ..recipients.add(email)
+        ..subject = 'Verify your SnapWise account'
+        ..text = 'Your verification code is: ${_verificationCode.value}'
+        ..html = '''
           <h1>Welcome to SnapWise!</h1>
           <p>Thank you for registering. Please use the following verification code to complete your registration:</p>
           <h2 style="color: #2D2C44; font-size: 24px; padding: 10px; background-color: #f5f5f5; text-align: center;">${_verificationCode.value}</h2>
@@ -80,12 +81,7 @@ class RegisterController extends GetxController {
       // Send email
       final sendReport = await send(message, smtpServer);
       log.log('Send report: $sendReport');
-
-      if (sendReport.toString().contains('OK')) {
-        Get.snackbar('Success', 'Verification email sent successfully');
-      } else {
-        throw Exception('Failed to send email: ${sendReport.toString()}');
-      }
+      Get.snackbar('Success', 'Verification email sent successfully');
     } catch (e) {
       log.log('Error sending verification email: $e');
       errorMessage.value = 'Failed to send verification email: ${e.toString()}';
@@ -118,6 +114,7 @@ class RegisterController extends GetxController {
         }
       }
       errorMessage.value = 'Invalid verification code';
+
       return false;
     } catch (e) {
       log.log('Error verifying code: $e');
@@ -128,20 +125,25 @@ class RegisterController extends GetxController {
 
   Future<void> storeExtendedUserInfo(User user) async {
     try {
-      // Fetch IP address and country
-      final response = await _connect.get('https://ipapi.co/json/');
-      final ipData = response.body;
-      final country = ipData['country_name'];
-
+      String country = '';
+      final response = await _connect.get('https://ipwho.is/');
+      if (response.status.hasError) {
+        log.log('Error: ${response.statusText}');
+      } else {
+        final ipData = response.body;
+        country = ipData['country'];
+        log.log('Country: $country');
+      }
       // Prepare user data
       final userData = {
-        'displayName': user.displayName ?? '',
-        'phoneNumber': user.phoneNumber ?? '',
-        'email': user.email ?? '',
+        'displayName': user.displayName ?? username,
+        'phoneNumber': user.phoneNumber ?? phoneNumber,
+        'email': user.email ?? email,
         'country': country,
         'status': 'active',
         'isVerified': true,
         'createdAt': FieldValue.serverTimestamp(),
+        'password': encryptText(password),
       };
 
       // Store in Firestore
@@ -156,6 +158,7 @@ class RegisterController extends GetxController {
       log.log('Extended user info stored successfully');
     } catch (e) {
       log.log('Error storing extended user info: $e');
+
       Get.snackbar('Error', 'Failed to store user information');
     }
   }
@@ -177,6 +180,9 @@ class RegisterController extends GetxController {
         email: email,
         password: password,
       );
+      log.log('Password: $password');
+      log.log('Encrypted password: ${encryptText(password)}');
+      log.log('Decrypted password: ${decryptText(encryptText(password))}');
 
       log.log('Temporary user created successfully');
 

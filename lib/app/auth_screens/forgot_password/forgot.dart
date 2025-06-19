@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:snapwise/app/auth_screens/login/login_controller.dart';
+import 'package:snapwise/app/auth_screens/forgot_password/forgot_controller.dart';
+import 'package:snapwise/app/auth_screens/forgot_password/verify_code.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -10,9 +11,9 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  final LoginController controller = Get.put(LoginController());
-  final bool isTablet =
-      MediaQueryData.fromView(
+  final ForgotController controller = Get.put(ForgotController());
+  bool isSubmitting = false;
+  final bool isTablet = MediaQueryData.fromView(
         // ignore: deprecated_member_use
         WidgetsBinding.instance.window,
       ).size.shortestSide >
@@ -125,24 +126,33 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Send Code Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => _handleResetPassword(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    isSubmitting
+                        ? Center(child: CircularProgressIndicator())
+                        : SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  isSubmitting = true;
+                                });
+                                _handleResetPassword();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    const Color.fromARGB(255, 3, 30, 53),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: const Text(
+                                "Submit",
+                                style: TextStyle(
+                                    fontSize: 16, color: Colors.white),
+                              ),
+                            ),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text(
-                          "Submit",
-                          style: TextStyle(fontSize: 16, color: Colors.white),
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 24),
 
                     // Remember Password Prompt
@@ -184,11 +194,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     );
   }
 
-  void _handleResetPassword() {
-    controller.resetPassword();
-    if (controller.isSuccess.value == true) {
-      Get.offAllNamed('/login');
-      controller.clearData();
+  Future<void> _handleResetPassword() async {
+    await controller.sendVerificationEmail(controller.emailController.text);
+    setState(() {
+      isSubmitting = false;
+    });
+    if (controller.isUserFound.value) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              VerifyCode(email: controller.emailController.text),
+        ),
+      );
     }
+    controller.emailController.clear();
   }
 }

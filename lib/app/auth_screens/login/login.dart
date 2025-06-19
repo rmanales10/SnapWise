@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/auth_screens/login/login_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
+import 'package:snapwise/app/auth_screens/verify/verify_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,9 +16,9 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _showPassword = false;
   final bool _wrongPassword = false;
+  bool _isSubmitting = false;
 
-  final bool isTablet =
-      MediaQueryData.fromView(
+  final bool isTablet = MediaQueryData.fromView(
         // ignore: deprecated_member_use
         WidgetsBinding.instance.window,
       ).size.shortestSide >
@@ -43,9 +44,7 @@ class _LoginPageState extends State<LoginPage> {
                         fit: BoxFit.cover,
                       ),
                     ),
-
                     SizedBox(height: isTablet ? 0 : 20),
-
                     Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: isTablet ? 50 : 24,
@@ -88,7 +87,6 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           const SizedBox(height: 10),
-
                           const Text(
                             "Password",
                             style: TextStyle(
@@ -138,13 +136,11 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           const SizedBox(height: 8),
-
                           if (_wrongPassword)
                             const Text(
                               "Wrong password",
                               style: TextStyle(color: Colors.red, fontSize: 14),
                             ),
-
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
@@ -162,33 +158,40 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                           ),
-
                           const SizedBox(height: 10),
-
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () => _handleLogin(),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Color.fromARGB(255, 3, 30, 53),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                          _isSubmitting
+                              ? const Center(
+                                  child: CircularProgressIndicator(),
+                                )
+                              : SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _isSubmitting = true;
+                                      });
+                                      _handleLogin();
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          Color.fromARGB(255, 3, 30, 53),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      "Continue",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
-                              child: const Text(
-                                "Continue",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
                           const SizedBox(height: 20),
-
                           Row(
                             children: [
                               const Expanded(
@@ -218,7 +221,6 @@ class _LoginPageState extends State<LoginPage> {
                         ],
                       ),
                     ),
-
                     Container(
                       decoration: const BoxDecoration(
                         color: Color.fromARGB(255, 3, 30, 53),
@@ -242,14 +244,14 @@ class _LoginPageState extends State<LoginPage> {
                                   // ignore: use_build_context_synchronously
                                   context,
                                   MaterialPageRoute(
-                                    builder:
-                                        (context) =>
-                                            BottomNavBar(initialIndex: 0),
+                                    builder: (context) =>
+                                        BottomNavBar(initialIndex: 0),
                                   ),
                                 );
                                 Get.snackbar(
                                   'Success',
                                   'Signed in with Google successfully',
+                                  snackPosition: SnackPosition.TOP,
                                 );
                               }
                             },
@@ -324,14 +326,34 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _handleLogin() async {
-    bool success = await controller.login();
-    if (success) {
+    LoginResult result = await controller.login();
+    setState(() {
+      _isSubmitting = false;
+    });
+
+    if (result == LoginResult.success) {
       Navigator.pushReplacement(
         // ignore: use_build_context_synchronously
         context,
         MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 0)),
       );
       controller.clearData();
+    } else if (result == LoginResult.unverified) {
+      // Navigate to verify screen
+      Navigator.push(
+        // ignore: use_build_context_synchronously
+        context,
+        MaterialPageRoute(
+          builder: (context) => VerifyScreen(
+            email: controller.emailController.text,
+            username: '', // Not needed for login verification
+            password: controller.passwordController.text,
+            phoneNumber: '',
+            isLoginVerification: true, // Mark this as login verification
+          ),
+        ),
+      );
     }
+    // For LoginResult.error, the error message is already shown via snackbar
   }
 }

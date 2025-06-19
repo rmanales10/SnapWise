@@ -1,10 +1,8 @@
 import 'dart:developer';
-
 import 'package:get/get.dart';
-import 'package:flutter/material.dart';
 
 class FeedbackController extends GetxController {
-  final String _apiUrl = 'http://intrusion101.com/send_email.php';
+  final String _apiUrl = 'https://intrusion101.com/smtp/send_email.php';
   late GetConnect _connect;
 
   @override
@@ -41,6 +39,7 @@ Comment: $comment
       final response = await _connect.post(
         _apiUrl,
         requestData,
+        headers: {'Content-Type': 'application/json'},
       );
 
       log('Response status code: ${response.statusCode}');
@@ -48,15 +47,11 @@ Comment: $comment
 
       if (response.statusCode == 200) {
         final responseData = response.body;
+        log('Response data: $responseData');
 
         if (responseData['success'] == true) {
-          Get.snackbar(
-            'Success',
-            responseData['message'] ?? 'Feedback sent successfully',
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: const Color(0xFF4CAF50),
-            colorText: Colors.white,
-          );
+          Get.snackbar('Success',
+              responseData['message'] ?? 'Feedback sent successfully');
         } else {
           throw Exception(responseData['error'] ?? 'Failed to send feedback');
         }
@@ -65,13 +60,7 @@ Comment: $comment
       }
     } catch (e) {
       log('Error sending feedback: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to send feedback. Please try again.',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: const Color(0xFFF44336),
-        colorText: Colors.white,
-      );
+      Get.snackbar('Error', 'Failed to send feedback. Please try again.');
     }
   }
 }

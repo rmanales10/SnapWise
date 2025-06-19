@@ -16,12 +16,12 @@ class BudgetNotification extends GetxController {
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-          'budget_alert_channel',
-          'Budget Alerts',
-          importance: Importance.max,
-          priority: Priority.high,
-          icon: '@mipmap/launcher_icon',
-        );
+      'budget_alert_channel',
+      'Budget Alerts',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: '@mipmap/launcher_icon',
+    );
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
     );
@@ -52,12 +52,12 @@ class BudgetNotification extends GetxController {
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-          'income_alert_channel',
-          'Income Alerts',
-          importance: Importance.max,
-          priority: Priority.high,
-          icon: '@mipmap/launcher_icon',
-        );
+      'income_alert_channel',
+      'Income Alerts',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: '@mipmap/launcher_icon',
+    );
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
     );

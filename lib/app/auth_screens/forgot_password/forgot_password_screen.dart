@@ -1,31 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:snapwise/app/auth_screens/register/register_controller.dart';
-import 'package:intl_phone_field/intl_phone_field.dart';
-import 'package:snapwise/app/auth_screens/verify/verify_screen.dart';
+import 'package:snapwise/app/auth_screens/forgot_password/forgot_controller.dart';
+import 'package:snapwise/app/auth_screens/login/login.dart';
 
-class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+class ForgotPasswordScreen extends StatefulWidget {
+  final String email;
+  const ForgotPasswordScreen({super.key, required this.email});
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
-  final _controller = Get.put(RegisterController());
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  String _phoneNumber = '';
-  bool _showPassword = false;
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+  bool _showNewPassword = false;
+  bool _showConfirmPassword = false;
   bool _acceptTerms = false;
   bool _isSubmitting = false;
+  final ForgotController _forgotController = Get.put(ForgotController());
 
   final bool isTablet = MediaQueryData.fromView(
         // ignore: deprecated_member_use
         WidgetsBinding.instance.window,
       ).size.shortestSide >
       600;
+
+  @override
+  void dispose() {
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,15 +61,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "LET'S",
-                      style: TextStyle(
-                        fontSize: isTablet ? 40 : 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Text(
-                      "CREATE",
+                      "RESET",
                       style: TextStyle(
                         fontSize: isTablet ? 40 : 24,
                         fontWeight: FontWeight.bold,
@@ -77,7 +77,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                     ),
                     Text(
-                      "ACCOUNT",
+                      "PASSWORD",
                       style: TextStyle(
                         fontSize: isTablet ? 40 : 24,
                         fontWeight: FontWeight.bold,
@@ -96,9 +96,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   children: [
                     const SizedBox(height: 20),
 
-                    // Username
+                    // New Password
                     const Text(
-                      "Username",
+                      "New Password",
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -106,93 +106,54 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     const SizedBox(height: 8),
                     TextField(
-                      controller: _usernameController,
+                      controller: _newPasswordController,
+                      obscureText: !_showNewPassword,
                       cursorColor: const Color.fromARGB(255, 3, 30, 53),
-                      decoration: _inputDecoration("Your username"),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Email
-                    const Text(
-                      "Email",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _emailController,
-                      cursorColor: const Color.fromARGB(255, 3, 30, 53),
-                      decoration: _inputDecoration("Your email"),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Phone Number
-                    const Text(
-                      "Phone Number",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    IntlPhoneField(
-                      initialCountryCode: 'PH',
-                      flagsButtonPadding:
-                          const EdgeInsets.symmetric(horizontal: 10),
-                      showDropdownIcon: false,
-                      onChanged: (phone) {
-                        _phoneNumber = phone.completeNumber;
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Phone Number',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                              color: Color.fromARGB(255, 3, 30, 53)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                              color: Color.fromARGB(255, 3, 30, 53)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                              color: Color.fromARGB(255, 3, 30, 53)),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                      ),
-                      cursorColor: const Color.fromARGB(255, 3, 30, 53),
-                      keyboardType: TextInputType.phone,
-                    ),
-
-                    // Password
-                    const Text(
-                      "Password",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: !_showPassword,
-                      cursorColor: const Color.fromARGB(255, 3, 30, 53),
-                      decoration: _inputDecoration("Your password").copyWith(
+                      decoration:
+                          _inputDecoration("Enter new password").copyWith(
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _showPassword
+                            _showNewPassword
                                 ? Icons.visibility
                                 : Icons.visibility_off,
                             color: Colors.grey,
                           ),
                           onPressed: () {
                             setState(() {
-                              _showPassword = !_showPassword;
+                              _showNewPassword = !_showNewPassword;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Confirm Password
+                    const Text(
+                      "Confirm Password",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _confirmPasswordController,
+                      obscureText: !_showConfirmPassword,
+                      cursorColor: const Color.fromARGB(255, 3, 30, 53),
+                      decoration:
+                          _inputDecoration("Re-enter new password").copyWith(
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _showConfirmPassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _showConfirmPassword = !_showConfirmPassword;
                             });
                           },
                         ),
@@ -247,7 +208,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Register Button
+                    // Reset Password Button
                     _isSubmitting
                         ? const Center(
                             child: CircularProgressIndicator(),
@@ -259,7 +220,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                 setState(() {
                                   _isSubmitting = true;
                                 });
-                                onSubmit();
+                                _handleResetPassword();
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor:
@@ -271,7 +232,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                     const EdgeInsets.symmetric(vertical: 16),
                               ),
                               child: const Text(
-                                "Register",
+                                "Reset Password",
                                 style: TextStyle(
                                     fontSize: 16, color: Colors.white),
                               ),
@@ -284,7 +245,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Text(
-                          'Already have an account? ',
+                          'Remember your password? ',
                           style: TextStyle(
                             color: Color.fromARGB(255, 3, 30, 53),
                             fontSize: 14,
@@ -421,31 +382,39 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // In your form submission:
-  void onSubmit() async {
-    _controller.email = _emailController.text;
-    _controller.username = _usernameController.text;
-    _controller.password = _passwordController.text;
-    _controller.phoneNumber = _phoneNumber;
+  Future<void> _handleResetPassword() async {
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      Get.snackbar('Error', 'Passwords do not match');
+      return;
+    }
 
-    bool success = await _controller.register();
+    if (!_acceptTerms) {
+      Get.snackbar('Error', 'You must accept the terms and privacy policy');
+      return;
+    }
+
+    await _forgotController.resetPassword(
+        _newPasswordController.text, widget.email);
     setState(() {
       _isSubmitting = false;
     });
-
-    if (success) {
-      // ignore: use_build_context_synchronously
+    if (_forgotController.isReset.value) {
       Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => VerifyScreen(
-                    email: _emailController.text,
-                    username: _usernameController.text,
-                    password: _passwordController.text,
-                    phoneNumber: _phoneNumber,
-                  )));
-    } else {
-      Get.snackbar('Error', _controller.errorMessage.value);
+        context,
+        MaterialPageRoute(
+          builder: (context) => LoginPage(),
+        ),
+      );
     }
+    _newPasswordController.clear();
+    _confirmPasswordController.clear();
+    _acceptTerms = false;
+    _forgotController.isReset.value = false;
+    _forgotController.emailController.clear();
+    _forgotController.userPassword.value = '';
+    _forgotController.verificationCode.value = '';
+    _forgotController.isVerified.value = false;
+    _forgotController.isUserFound.value = false;
+    _forgotController.errorMessage.value = '';
   }
 }

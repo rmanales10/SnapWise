@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
@@ -29,20 +31,26 @@ import 'package:snapwise/services/notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase only if not in web or if web platform is supported
-  if (!kIsWeb || (kIsWeb && Firebase.apps.isEmpty)) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  }
+  try {
+    // Initialize Firebase only if not in web or if web platform is supported
+    if (!kIsWeb || (kIsWeb && Firebase.apps.isEmpty)) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
 
-  // Initialize Firebase Messaging only if not web
-  if (!kIsWeb) {
-    final notificationService = NotificationService();
-    await notificationService.initialize();
-  }
+    // Initialize Firebase Messaging only if not web
+    if (!kIsWeb) {
+      final notificationService = NotificationService();
+      await notificationService.initialize();
+    }
 
-  runApp(kIsWeb ? WebScreen() : UserScreen());
+    runApp(kIsWeb ? WebScreen() : UserScreen());
+  } catch (e) {
+    log('Error during app initialization: $e');
+    // Fallback to basic app initialization
+    runApp(kIsWeb ? WebScreen() : UserScreen());
+  }
 }
 
 class UserScreen extends StatelessWidget {
@@ -50,6 +58,8 @@ class UserScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Initialize SnackbarUtils after GetMaterialApp is created
+
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.blue),
@@ -94,6 +104,8 @@ class WebScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Initialize SnackbarUtils after GetMaterialApp is created
+
     return GetMaterialApp(
       initialRoute: '/',
       defaultTransition: Transition.fade,
@@ -131,18 +143,25 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void checkUserLoggedIn() async {
-    // Shorter delay for web platform
-    await Future.delayed(Duration(seconds: kIsWeb ? 1 : 2));
+    try {
+      // Shorter delay for web platform
+      await Future.delayed(Duration(seconds: kIsWeb ? 1 : 2));
 
-    // Check if user is logged in
-    User? user = FirebaseAuth.instance.currentUser;
+      // Check if user is logged in
+      User? user = FirebaseAuth.instance.currentUser;
 
-    if (user != null) {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => BottomNavBar()),
-      );
-    } else {
+      if (user != null) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => BottomNavBar()),
+        );
+      } else {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+    } catch (e) {
+      // Handle any errors during authentication check
+      log('Error during authentication check: $e');
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/login');
     }
