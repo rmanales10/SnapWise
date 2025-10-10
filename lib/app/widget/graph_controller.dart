@@ -18,6 +18,19 @@ class GraphController extends GetxController {
     fetchExpenses();
   }
 
+  // Helper function to get start and end of current month
+  Map<String, Timestamp> _getCurrentMonthRange() {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final startOfNextMonth = (now.month < 12)
+        ? DateTime(now.year, now.month + 1, 1)
+        : DateTime(now.year + 1, 1, 1);
+    return {
+      'start': Timestamp.fromDate(startOfMonth),
+      'end': Timestamp.fromDate(startOfNextMonth),
+    };
+  }
+
   Future<void> fetchExpenses() async {
     try {
       final User? user = _auth.currentUser;
@@ -25,12 +38,13 @@ class GraphController extends GetxController {
         log('No user logged in');
         return;
       }
-
-      QuerySnapshot querySnapshot =
-          await _firestore
-              .collection('expenses')
-              .where('userId', isEqualTo: user.uid)
-              .get();
+      final monthRange = _getCurrentMonthRange();
+      QuerySnapshot querySnapshot = await _firestore
+          .collection('expenses')
+          .where('userId', isEqualTo: user.uid)
+          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
+          .where('timestamp', isLessThan: monthRange['end'])
+          .get();
 
       // Clear existing data
       dailyExpenses.clear();

@@ -1,4 +1,3 @@
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
@@ -20,7 +19,7 @@ class _HomePageState extends State<HomePage> {
   double _calculateBalance(String income, String spent) {
     double incomeValue = _parseFormattedAmount(income);
     double spentValue = _parseFormattedAmount(spent);
-    return incomeValue - spentValue;
+    return incomeValue - spentValue - controller.totalPaymentHistory.value;
   }
 
   double _parseFormattedAmount(String amount) {
@@ -37,7 +36,6 @@ class _HomePageState extends State<HomePage> {
   final HomeController controller = Get.put(HomeController());
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
-  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
   final _storage = GetStorage();
   RxString photoUrl = ''.obs;
@@ -58,6 +56,7 @@ class _HomePageState extends State<HomePage> {
     controller.fetchTransactions();
     controller.getTotalBudget();
     controller.getTotalIncome();
+    controller.getTotalPaymentHistory();
   }
 
   Future<void> sendBudgetExceededNotification({
@@ -68,7 +67,7 @@ class _HomePageState extends State<HomePage> {
         AndroidNotificationDetails(
       'budget_alert_channel',
       'Budget Alerts',
-      importance: Importance.max,
+      importance: Importance.max,     
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
     );
@@ -81,15 +80,6 @@ class _HomePageState extends State<HomePage> {
       'Budget Alert',
       'You\'ve spent ${(spentPercentage * 100).toStringAsFixed(1)}% of your budget. Remaining: \$${remainingBudget.toStringAsFixed(2)}',
       platformChannelSpecifics,
-    );
-
-    // Log the event
-    await _analytics.logEvent(
-      name: 'budget_exceeded_notification',
-      parameters: {
-        'spent_percentage': spentPercentage,
-        'remaining_budget': remainingBudget,
-      },
     );
   }
 

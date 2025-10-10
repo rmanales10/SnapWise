@@ -193,6 +193,11 @@ class VerifyCodeState extends State<VerifyCode> {
         ),
       );
     }
-    _pinController.clear();
+  }
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
   }
 }

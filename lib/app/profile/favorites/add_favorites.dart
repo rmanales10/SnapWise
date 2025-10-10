@@ -83,8 +83,7 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
 
       if (frequencyController.text == 'Monthly') {
         // Calculate number of months between dates
-        int months =
-            (endDate.year - startDate.year) * 12 +
+        int months = (endDate.year - startDate.year) * 12 +
             endDate.month -
             startDate.month +
             1;
@@ -121,7 +120,6 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-
       body: SizedBox(
         width: double.infinity,
         height: double.infinity,
@@ -143,20 +141,17 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
                     children: [
                       IconButton(
-                        onPressed:
-                            () => Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => BottomNavBar(initialIndex: 14),
-                              ),
-                            ),
+                        onPressed: () => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                BottomNavBar(initialIndex: 14),
+                          ),
+                        ),
                         icon: Icon(Icons.arrow_back, color: Colors.white),
                       ),
-
                       Text(
                         "Favorite",
                         style: TextStyle(
@@ -219,6 +214,8 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
                     const SizedBox(height: 20),
                     _buildCategorySelector(),
                     const SizedBox(height: 20),
+                    _buildDateRangePicker(),
+                    const SizedBox(height: 20),
                     Obx(() {
                       return _buildAmountInput(
                         "Amount to pay",
@@ -227,9 +224,8 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
                       );
                     }),
                     const SizedBox(height: 20),
-                    _buildDateRangeAndAlert(),
+                    _buildReceiveAlertSwitch(),
                     const SizedBox(height: 20),
-
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -278,13 +274,11 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
             border: InputBorder.none,
             hintText: 'Select Frequency',
           ),
-          items:
-              frequency
-                  .map(
-                    (value) =>
-                        DropdownMenuItem(value: value, child: Text(value)),
-                  )
-                  .toList(),
+          items: frequency
+              .map(
+                (value) => DropdownMenuItem(value: value, child: Text(value)),
+              )
+              .toList(),
           onChanged: (value) {
             setState(() {
               frequencyController.text = value ?? '';
@@ -421,15 +415,13 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
     return TextField(
       enabled: enable,
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
-      controller:
-          text == 'Total amount to pay'
-              ? totalAmountController
-              : TextEditingController(
-                text:
-                    amountToPay.value == 0.0
-                        ? ''
-                        : amountToPay.value.toStringAsFixed(2),
-              ),
+      controller: text == 'Total amount to pay'
+          ? totalAmountController
+          : TextEditingController(
+              text: amountToPay.value == 0.0
+                  ? ''
+                  : amountToPay.value.toStringAsFixed(2),
+            ),
       keyboardType: TextInputType.numberWithOptions(decimal: true),
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
@@ -456,37 +448,40 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
     );
   }
 
-  Widget _buildDateRangeAndAlert() {
+  Widget _buildDateRangePicker() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildDateField(
+              controller: startDateController,
+              hint: "Start Date :",
+            ),
+          ),
+          Container(width: 1, height: 40, color: Colors.grey.shade200),
+          Expanded(
+            child: _buildDateField(
+              controller: endDateController,
+              hint: "End Date :",
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReceiveAlertSwitch() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Date Range Picker
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildDateField(
-                  controller: startDateController,
-                  hint: "Start Date :",
-                ),
-              ),
-              Container(width: 1, height: 40, color: Colors.grey.shade200),
-              Expanded(
-                child: _buildDateField(
-                  controller: endDateController,
-                  hint: "End Date :",
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
+
         // Receive Alert Switch
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

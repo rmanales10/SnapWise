@@ -26,31 +26,45 @@ import 'package:snapwise/app/auth_screens/register/success.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
 import 'package:snapwise/services/firebase_options.dart';
-import 'package:snapwise/services/notification_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+// import 'package:snapwise/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    // Initialize Firebase only if not in web or if web platform is supported
-    if (!kIsWeb || (kIsWeb && Firebase.apps.isEmpty)) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-    }
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-    // Initialize Firebase Messaging only if not web
-    if (!kIsWeb) {
-      final notificationService = NotificationService();
-      await notificationService.initialize();
-    }
-
-    runApp(kIsWeb ? WebScreen() : UserScreen());
-  } catch (e) {
-    log('Error during app initialization: $e');
-    // Fallback to basic app initialization
-    runApp(kIsWeb ? WebScreen() : UserScreen());
+  if (!kIsWeb) {
+    await FlutterLocalNotificationsPlugin().initialize(
+      const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/launcher_icon'),
+      ),
+    );
   }
+
+  runApp(kIsWeb ? WebScreen() : UserScreen());
+
+  // try {
+  //   // Initialize Firebase only if not in web or if web platform is supported
+  //   if (!kIsWeb || (kIsWeb && Firebase.apps.isEmpty)) {
+  //     await Firebase.initializeApp(
+  //       options: DefaultFirebaseOptions.currentPlatform,
+  //     );
+  //   }
+
+  //   // Initialize Firebase Messaging only if not web
+  //   if (!kIsWeb) {
+  //     final notificationService = NotificationService();
+  //     await notificationService.initialize();
+  //   }
+
+  //   runApp(kIsWeb ? WebScreen() : UserScreen());
+  // } catch (e) {
+  //   log('Error during app initialization: $e');
+  //   // Fallback to basic app initialization
+  //   runApp(kIsWeb ? WebScreen() : UserScreen());
+  // }
 }
 
 class UserScreen extends StatelessWidget {

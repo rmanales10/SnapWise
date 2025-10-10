@@ -24,29 +24,13 @@ class HomeController extends GetxController {
     fetchTransactionsHistory();
   }
 
-  // Helper function to get start and end of current month
-  Map<String, Timestamp> _getCurrentMonthRange() {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final startOfNextMonth = (now.month < 12)
-        ? DateTime(now.year, now.month + 1, 1)
-        : DateTime(now.year + 1, 1, 1);
-    return {
-      'start': Timestamp.fromDate(startOfMonth),
-      'end': Timestamp.fromDate(startOfNextMonth),
-    };
-  }
-
   Future<void> fetchTransactions() async {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final monthRange = _getCurrentMonthRange();
         final querySnapshot = await _firestore
             .collection('expenses')
             .where('userId', isEqualTo: user.uid)
-            .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-            .where('timestamp', isLessThan: monthRange['end'])
             .orderBy('timestamp', descending: true)
             .get();
 
@@ -72,12 +56,9 @@ class HomeController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final monthRange = _getCurrentMonthRange();
         final querySnapshot = await _firestore
             .collection('expenses')
             .where('userId', isEqualTo: user.uid)
-            .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-            .where('timestamp', isLessThan: monthRange['end'])
             .orderBy('timestamp', descending: true)
             .limit(3)
             .get();
@@ -209,9 +190,8 @@ class HomeController extends GetxController {
         throw Exception('User not authenticated');
       }
 
-      
       final DocumentSnapshot incomeDoc =
-          await _firestore.collection('income').doc(user.uid).get();  
+          await _firestore.collection('income').doc(user.uid).get();
 
       if (!incomeDoc.exists) {
         totalIncome.value = '0.00';
@@ -248,13 +228,9 @@ class HomeController extends GetxController {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final monthRange = _getCurrentMonthRange();
-
     final querySnapshot = await _firestore
         .collection('favorites')
         .where('userId', isEqualTo: user.uid)
-        .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-        .where('timestamp', isLessThan: monthRange['end'])
         .get();
 
     final data = querySnapshot.docs.map((doc) {

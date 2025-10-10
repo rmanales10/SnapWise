@@ -240,12 +240,9 @@ class BudgetController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final monthRange = _getCurrentMonthRange();
         final querySnapshot = await _firestore
             .collection('budget')
             .where('userId', isEqualTo: user.uid)
-            .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-            .where('timestamp', isLessThan: monthRange['end'])
             .orderBy('timestamp', descending: true)
             .get();
 
@@ -315,13 +312,10 @@ class BudgetController extends GetxController {
       await fetchOverallBudget();
       double overallBudget = budgetData.value['amount'] ?? 0.0;
 
-      // Fetch all budget categories for the current month
-      final monthRange = _getCurrentMonthRange();
+      // Fetch all budget categories
       QuerySnapshot budgetSnapshot = await _firestore
           .collection('budget')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
           .get();
 
       totalCategoryBudget.value = 0.0;
@@ -363,30 +357,14 @@ class BudgetController extends GetxController {
     }
   }
 
-  // Helper function to get start and end of current month
-  Map<String, Timestamp> _getCurrentMonthRange() {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final startOfNextMonth = (now.month < 12)
-        ? DateTime(now.year, now.month + 1, 1)
-        : DateTime(now.year + 1, 1, 1);
-    return {
-      'start': Timestamp.fromDate(startOfMonth),
-      'end': Timestamp.fromDate(startOfNextMonth),
-    };
-  }
-
   Future<double> fetchTotalAmountByCategory(String category) async {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final monthRange = _getCurrentMonthRange();
         final querySnapshot = await _firestore
             .collection('expenses')
             .where('userId', isEqualTo: user.uid)
             .where('category', isEqualTo: category)
-            .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-            .where('timestamp', isLessThan: monthRange['end'])
             .get();
 
         double totalAmount = 0.0;
@@ -411,12 +389,10 @@ class BudgetController extends GetxController {
       if (user == null) {
         throw Exception('User not authenticated');
       }
-      final monthRange = _getCurrentMonthRange();
+
       final QuerySnapshot expensesSnapshot = await _firestore
           .collection('expenses')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
           .get();
 
       double totalExpenses = 0.0;
@@ -458,12 +434,10 @@ class BudgetController extends GetxController {
       if (user == null) {
         throw Exception('User not authenticated');
       }
-      final monthRange = _getCurrentMonthRange();
+
       final QuerySnapshot expensesSnapshot = await _firestore
           .collection('expenses')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
           .get();
 
       Map<String, double> categoryTotals = {};

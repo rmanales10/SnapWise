@@ -16,7 +16,7 @@ enum LoginResult { success, unverified, error }
 
 class LoginController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final _storage = GetStorage();
   final _connect = GetConnect();
@@ -104,6 +104,9 @@ class LoginController extends GetxController {
         case 'user-disabled':
           errorMessage = 'This user has been disabled.';
           break;
+        case 'invalid-credential':
+          errorMessage = 'Invalid credentials. Please try again.';
+          break;
         default:
           errorMessage = 'An error occurred. Please try again.';
       }
@@ -138,17 +141,17 @@ class LoginController extends GetxController {
 
       // Create SMTP server configuration
       final smtpServer = SmtpServer(
-        'mail.intrusion101.com',
+        'smtp.gmail.com',
         port: 465,
-        username: 'snapwise@intrusion101.com',
-        password: '#+U^L0r!baSF',
+        username: 'officialsnapwise@gmail.com',
+        password: 'unrl zpuk rmov jqlf',
         ssl: true,
         allowInsecure: true,
       );
 
       // Create email message
       final message = Message()
-        ..from = Address('snapwise@intrusion101.com', 'SnapWise')
+        ..from = Address('officialsnapwise@gmail.com', 'SnapWise')
         ..recipients.add(email)
         ..subject = 'Verify your SnapWise account'
         ..text = 'Your verification code is: $verificationCode'
@@ -222,48 +225,53 @@ class LoginController extends GetxController {
     }
   }
 
-  
-
   Future<bool> signInWithGoogle() async {
     _isLoading.value = true;
 
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      // Optional cleanup
+      await _googleSignIn.disconnect();
+
+      await _googleSignIn.initialize(
+        serverClientId:
+            '722916662508-v4u8l28sub5i4sabqtn51n9tcchhk1o8.apps.googleusercontent.com',
+      );
+
+      final GoogleSignInAccount? googleUser =
+          await _googleSignIn.authenticate();
 
       if (googleUser == null) {
-        _isLoading.value = false;
-        Get.snackbar('Error', 'Google Sign-In was cancelled');
+        Get.snackbar('Cancelled', 'Google Sign-In was cancelled');
         return false;
       }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
 
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
+      final OAuthCredential credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
+        // ⚠️ accessToken no longer used or required
       );
 
-      final UserCredential userCredential = await _auth.signInWithCredential(
-        credential,
-      );
-
-      _isLoading.value = false;
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
 
       if (userCredential.user != null) {
-        // Update user data
         updateUserData(userCredential.user);
-
         return true;
       } else {
         Get.snackbar('Error', 'Failed to sign in with Google');
         return false;
       }
+    } on FirebaseAuthException catch (e) {
+      Get.snackbar('Auth Error', e.message ?? 'Unknown Firebase error');
+      developer.log('FirebaseAuthException: ${e.code} - ${e.message}');
+      return false;
     } catch (e) {
-      _isLoading.value = false;
-      Get.snackbar('Error', 'An error occurred during Google Sign-In');
+      Get.snackbar('Error', 'An unexpected error occurred');
       developer.log('Google Sign-In Error: $e');
       return false;
+    } finally {
+      _isLoading.value = false;
     }
   }
 

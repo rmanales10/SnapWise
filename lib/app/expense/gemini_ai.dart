@@ -2,18 +2,19 @@ import 'dart:developer';
 import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:snapwise/services/ai_controller.dart';
 
 class GeminiAi extends GetxController {
   RxBool isFetchingData = false.obs;
-  final apiKey =
-      'AIzaSyCr_7b0ouVns2_KYDndPigjH74I9Sv98x0'; // Replace with your actual API key
+  final aiController = Get.put(AiController());
 
   Future<Map<String, String>> extractExpenseDetails(String imageBase64) async {
     try {
-      // Decode base64 string to bytes
+      await aiController.getApiKey();
       final bytes = base64.decode(imageBase64);
 
-      final model = GenerativeModel(model: 'gemini-2.0-flash', apiKey: apiKey);
+      final model = GenerativeModel(
+          model: 'gemini-2.5-flash', apiKey: aiController.apiKey.value);
 
       final prompt = '''
       Look at this receipt or expense document image and:

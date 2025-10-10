@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:snapwise/services/ai_controller.dart';
 
 class ChatBot extends StatefulWidget {
   final BuildContext context;
@@ -20,6 +22,7 @@ class _ChatBotState extends State<ChatBot> with TickerProviderStateMixin {
   late AnimationController _typingAnimationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
+  final aiController = Get.put(AiController());
 
   // Initialize Gemini AI
   late final GenerativeModel _model;
@@ -51,31 +54,32 @@ class _ChatBotState extends State<ChatBot> with TickerProviderStateMixin {
     _animationController.forward();
   }
 
-  void _initializeGeminiAI() {
-    const apiKey = 'AIzaSyCr_7b0ouVns2_KYDndPigjH74I9Sv98x0';
+  Future<void> _initializeGeminiAI() async {
+    await aiController.getApiKey();
+    final apiKey = aiController.apiKey.value;
     _model = GenerativeModel(
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       apiKey: apiKey,
     );
     _chat = _model.startChat();
   }
 
   final List<String> _quickQuestions = [
-    'Tell me about SnapWise features',
-    'How do I add expenses?',
-    'How do I create a budget?',
-    'What are the AI features?',
+    'How does SnapWise work?',
+    'How do I add expenses with AI?',
+    'How do I set up budgets?',
+    'What AI features are available?',
     'How does receipt scanning work?',
-    'Tell me about budget notifications',
-    'What reports are available?',
-    'How do I track income?',
+    'How do I track my income?',
+    'What reports can I view?',
+    'How do budget notifications work?',
   ];
 
   void _addWelcomeMessage() {
     _messages.add(
       ChatMessage(
         text:
-            "Hello! I'm your SnapWise AI Assistant. I can help you with any questions about SnapWise features, financial management, or general assistance. What would you like to know?",
+            "Hello! 👋 I'm your SnapWise AI Assistant, your personal finance guide! I can help you understand how SnapWise works, explain features like AI receipt scanning, budget management, expense tracking, and provide financial tips. Ask me anything about the app flow, features, or how to get the most out of your financial management! 💰",
         isUser: false,
       ),
     );
@@ -653,35 +657,116 @@ class _ChatBotState extends State<ChatBot> with TickerProviderStateMixin {
       await Future.delayed(const Duration(milliseconds: 800));
 
       final prompt = '''
-You are SnapWise AI Assistant, a helpful and friendly financial management app assistant. 
+You are SnapWise AI Assistant, a comprehensive financial management app assistant. 
 The user is asking: "$message"
 
-Please provide a helpful, informative, and conversational response. You can help with:
+**SNAPWISE APP OVERVIEW:**
+SnapWise is a complete personal finance management app that helps users track expenses, manage budgets, and make informed financial decisions through AI-powered features.
 
-**SnapWise Features:**
-- Expense tracking and management
-- Budget planning and monitoring  
-- Income tracking
-- AI-powered receipt scanning
-- Financial reports and analytics
-- Budget notifications
-- User profile and settings
+**APP FLOW & NAVIGATION:**
+1. **Authentication Flow:**
+   - Splash screen → Login/Register → Main App
+   - Users can register, login, or reset passwords
+   - Firebase authentication ensures secure access
 
-**Financial Management Tips:**
-- Budgeting advice
-- Saving strategies
-- Expense reduction tips
-- Financial planning
-- Money management best practices
+2. **Main Navigation (Bottom Navigation Bar):**
+   - Home Dashboard (index 0)
+   - Transaction History (index 1) 
+   - Budget Management (index 2)
+   - Profile & Settings (index 3)
+   - Floating Action Button: Quick Add Expense
 
-**General Assistance:**
-- Answer questions about SnapWise
-- Provide financial guidance
-- Help with app usage
-- Explain features and benefits
+3. **Core Screens & Features:**
+   - Home Dashboard: Balance overview, recent transactions, quick stats
+   - Expense Management: Manual entry, AI receipt scanning, category management
+   - Budget Planning: Category budgets, overall budget, income tracking
+   - Transaction History: Complete expense records with filtering
+   - Profile: User settings, favorites, notifications, about
 
-Keep your response concise, friendly, and helpful. Use emojis occasionally to make it more engaging.
-If the question is not related to SnapWise or financial management, politely redirect to how you can help with their financial needs.
+**DETAILED FEATURES:**
+
+**💰 EXPENSE MANAGEMENT:**
+- Manual expense entry with categories (Food, Transport, Entertainment, Shopping, Bills, Custom)
+- AI-powered receipt scanning using Gemini AI
+- Automatic expense categorization and amount extraction
+- Base64 image storage for receipts
+- Real-time expense tracking and validation
+- Category management (add custom categories)
+
+**📊 BUDGET SYSTEM:**
+- Overall budget setting with alert percentages
+- Category-specific budget allocation
+- Real-time budget vs spending comparison
+- Budget remaining calculations
+- Visual budget progress indicators
+- Budget notifications when limits are exceeded
+- AI-powered budget suggestions using Gemini
+
+**💵 INCOME TRACKING:**
+- Monthly income input and management
+- Income vs expense analysis
+- Remaining income calculations
+- Income percentage tracking
+- Income alerts and notifications
+
+**🤖 AI-POWERED FEATURES:**
+- Receipt scanning with automatic data extraction
+- Smart budget allocation suggestions
+- Expense categorization assistance
+- Financial insights and recommendations
+- Predictive budget analysis
+
+**📱 USER INTERFACE:**
+- Responsive design for mobile, tablet, and web
+- Modern gradient UI with smooth animations
+- Intuitive navigation with bottom tab bar
+- Real-time data updates using GetX state management
+- Firebase integration for cloud storage
+
+**🔔 NOTIFICATION SYSTEM:**
+- Budget exceeded alerts
+- Income tracking notifications
+- Local push notifications (Android)
+- Real-time budget status updates
+
+**📈 ANALYTICS & REPORTING:**
+- Transaction history with detailed views
+- Spending patterns by category
+- Monthly financial summaries
+- Visual charts and graphs
+- Export capabilities for financial data
+
+**⚙️ SETTINGS & CUSTOMIZATION:**
+- User profile management
+- Notification preferences
+- App settings and preferences
+- Favorites management
+- About and help sections
+
+**TECHNICAL STACK:**
+- Flutter framework for cross-platform development
+- Firebase for authentication and database
+- Google Gemini AI for intelligent features
+- GetX for state management
+- Cloud Firestore for data storage
+- Local notifications for alerts
+
+**COMMON USER WORKFLOWS:**
+1. **Adding Expenses:** FAB → Select Category → Enter Amount → Add Receipt (Optional) → Save
+2. **Setting Budget:** Budget Tab → Create Budget → Set Categories → Set Amounts → Save
+3. **Tracking Income:** Profile → Income → Input Amount → Set Alerts → Save
+4. **Viewing Reports:** History Tab → Filter by Date/Category → View Details
+5. **AI Receipt Scan:** Add Expense → Camera → AI Processing → Review → Save
+
+**FINANCIAL MANAGEMENT TIPS:**
+- Set realistic budgets based on income
+- Track expenses daily for better control
+- Use AI features for automatic categorization
+- Review spending patterns monthly
+- Set up budget alerts to avoid overspending
+- Regular financial health checks
+
+Keep responses helpful, specific to SnapWise features, and include relevant emojis. If asked about general financial advice, relate it back to how SnapWise can help implement those strategies.
 ''';
 
       final response = await _chat.sendMessage(Content.text(prompt));
@@ -706,11 +791,14 @@ If the question is not related to SnapWise or financial management, politely red
 I apologize, but I'm experiencing some technical difficulties right now. 
 
 I'm your SnapWise AI Assistant and I can help you with:
-📱 SnapWise features and usage
-💰 Financial management advice  
-📊 Budgeting and expense tracking
-🤖 AI-powered features
-💡 Money-saving tips
+📱 Complete app flow and navigation guide
+💰 Expense tracking with AI receipt scanning
+📊 Budget planning and management
+💵 Income tracking and analysis
+🤖 AI-powered financial insights
+🔔 Budget notifications and alerts
+📈 Financial reports and analytics
+💡 Money management tips and strategies
 
 Please try asking your question again, or feel free to ask about any SnapWise features!
 ''',

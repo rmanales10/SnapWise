@@ -1,6 +1,9 @@
+import 'package:get/get.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:snapwise/services/ai_controller.dart';
 
 class GeminiService {
+  final aiController = Get.put(AiController());
   static const String apiKey = 'AIzaSyCr_7b0ouVns2_KYDndPigjH74I9Sv98x0';
   final model = GenerativeModel(
     model: 'gemini-1.5-flash-latest',
@@ -25,11 +28,10 @@ class GeminiService {
     final response = await model.generateContent(content);
 
     if (response.text != null) {
-      final allocations =
-          response.text!
-              .split(',')
-              .map((s) => double.tryParse(s.trim()) ?? 0.0)
-              .toList();
+      final allocations = response.text!
+          .split(',')
+          .map((s) => double.tryParse(s.trim()) ?? 0.0)
+          .toList();
       if (allocations.length == 6) {
         return allocations;
       }

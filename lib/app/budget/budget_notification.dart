@@ -1,11 +1,9 @@
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 
 class BudgetNotification extends GetxController {
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
-  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
   Future<void> sendBudgetExceededNotification({
     required double spentPercentage,
@@ -31,15 +29,6 @@ class BudgetNotification extends GetxController {
       'Budget Alert',
       'You\'ve spent ${spentPercentage.toStringAsFixed(2)}% of your budget. Remaining: $remainingBudget',
       platformChannelSpecifics,
-    );
-
-    // Log the event
-    await _analytics.logEvent(
-      name: 'budget_exceeded_notification',
-      parameters: {
-        'spent_percentage': spentPercentage,
-        'remaining_budget': remainingBudget,
-      },
     );
   }
 
@@ -67,15 +56,6 @@ class BudgetNotification extends GetxController {
       'Income Alert',
       'You\'ve spent ${spentPercentage.toStringAsFixed(2)}% of your income. Remaining: $remainingBudget',
       platformChannelSpecifics,
-    );
-
-    // Log the event
-    await _analytics.logEvent(
-      name: 'income_remaining_notification',
-      parameters: {
-        'spent_percentage': spentPercentage,
-        'remaining_income': remainingBudget,
-      },
     );
   }
 }

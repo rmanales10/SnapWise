@@ -44,11 +44,8 @@ dependencies:
   firebase_core: ^3.13.0
   cloud_firestore: ^5.6.6
   firebase_auth: ^5.5.2
-  google_sign_in: ^6.3.0
   get_storage: ^2.1.1
   google_generative_ai: ^0.4.6
-  firebase_messaging: ^15.2.5
-  firebase_analytics: ^11.4.5
   timeago: ^3.7.0
   flutter_launcher_icons: ^0.14.3
   intl_phone_field: ^3.2.0
@@ -63,6 +60,7 @@ dependencies:
   get: ^4.7.2
   encrypt: ^5.0.3
   crypto: ^3.0.6
+  google_sign_in: ^7.1.1
 
 dev_dependencies:
   flutter_test:

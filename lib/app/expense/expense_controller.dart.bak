@@ -53,31 +53,16 @@ class ExpenseController extends GetxController {
     }
   }
 
-  // Helper function to get start and end of current month
-  Map<String, Timestamp> _getCurrentMonthRange() {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final startOfNextMonth = (now.month < 12)
-        ? DateTime(now.year, now.month + 1, 1)
-        : DateTime(now.year + 1, 1, 1);
-    return {
-      'start': Timestamp.fromDate(startOfMonth),
-      'end': Timestamp.fromDate(startOfNextMonth),
-    };
-  }
-
   Future<void> fetchCategories() async {
     try {
       final User? user = _auth.currentUser;
       if (user == null) {
         throw Exception('User not authenticated');
       }
-      final monthRange = _getCurrentMonthRange();
+
       final QuerySnapshot querySnapshot = await _firestore
           .collection('categories')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
           .get();
 
       List<String> userCategories =
@@ -122,16 +107,7 @@ class ExpenseController extends GetxController {
             await _firestore.collection('expenses').doc(expenseId).get();
 
         if (docSnapshot.exists) {
-          final monthRange = _getCurrentMonthRange();
-          final data = docSnapshot.data() as Map<String, dynamic>;
-          final Timestamp? ts = data['timestamp'] as Timestamp?;
-          if (ts != null &&
-              ts.compareTo(monthRange['start']!) >= 0 &&
-              ts.compareTo(monthRange['end']!) < 0) {
-            expenses.value = docSnapshot.data() as Map<String, dynamic>;
-          } else {
-            throw Exception('Expense not in current month');
-          }
+          expenses.value = docSnapshot.data() as Map<String, dynamic>;
         } else {
           throw Exception('Expense not found');
         }

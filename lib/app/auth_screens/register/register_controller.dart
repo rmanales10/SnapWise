@@ -52,17 +52,17 @@ class RegisterController extends GetxController {
 
       // Create SMTP server configuration
       final smtpServer = SmtpServer(
-        'mail.intrusion101.com',
+        'smtp.gmail.com',
         port: 465,
-        username: 'snapwise@intrusion101.com',
-        password: '#+U^L0r!baSF',
+        username: 'officialsnapwise@gmail.com',
+        password: 'unrl zpuk rmov jqlf',
         ssl: true,
         allowInsecure: true,
       );
 
       // Create email message
       final message = Message()
-        ..from = Address('snapwise@intrusion101.com', 'SnapWise')
+        ..from = Address('officialsnapwise@gmail.com', 'SnapWise')
         ..recipients.add(email)
         ..subject = 'Verify your SnapWise account'
         ..text = 'Your verification code is: ${_verificationCode.value}'

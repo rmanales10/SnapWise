@@ -406,15 +406,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
       );
     }
-    _newPasswordController.clear();
-    _confirmPasswordController.clear();
-    _acceptTerms = false;
-    _forgotController.isReset.value = false;
-    _forgotController.emailController.clear();
-    _forgotController.userPassword.value = '';
-    _forgotController.verificationCode.value = '';
-    _forgotController.isVerified.value = false;
-    _forgotController.isUserFound.value = false;
-    _forgotController.errorMessage.value = '';
+    // _newPasswordController.clear();
+    // _confirmPasswordController.clear();
+    // _acceptTerms = false;
+    // _forgotController.isReset.value = false;
+    // _forgotController.emailController.clear();
+    // _forgotController.userPassword.value = '';
+    // _forgotController.verificationCode.value = '';
+    // _forgotController.isVerified.value = false;
+    // _forgotController.isUserFound.value = false;
+    // _forgotController.errorMessage.value = '';
   }
 }

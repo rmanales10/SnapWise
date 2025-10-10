@@ -7,12 +7,26 @@ class NotificationController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  RxList<Map<String, dynamic>> notifications = <Map<String, dynamic>>[].obs;
+  RxList notifications = [].obs;
+  
 
   @override
   void onInit() {
     super.onInit();
     fetchNotifications();
+  }
+
+  // Helper function to get start and end of current month
+  Map<String, Timestamp> _getCurrentMonthRange() {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final startOfNextMonth = (now.month < 12)
+        ? DateTime(now.year, now.month + 1, 1)
+        : DateTime(now.year + 1, 1, 1);
+    return {
+      'start': Timestamp.fromDate(startOfMonth),
+      'end': Timestamp.fromDate(startOfNextMonth),
+    };
   }
 
   Future<void> fetchNotifications() async {
@@ -21,29 +35,29 @@ class NotificationController extends GetxController {
       if (user == null) {
         throw Exception('User not authenticated');
       }
+      final monthRange = _getCurrentMonthRange();
+      final QuerySnapshot querySnapshot = await _firestore
+          .collection('notification')
+          .where('userId', isEqualTo: user.uid)
+          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
+          .where('timestamp', isLessThan: monthRange['end'])
+          .orderBy('timestamp', descending: true)
+          .get();
 
-      final QuerySnapshot querySnapshot =
-          await _firestore
-              .collection('notification')
-              .where('userId', isEqualTo: user.uid)
-              .orderBy('timestamp', descending: true)
-              .get();
+      notifications.value = querySnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
 
-      notifications.value =
-          querySnapshot.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-
-            return {
-              'id': doc.id,
-              'title': data['category'],
-              'description':
-                  'Your ${data['category']} budget has exceeded the limit',
-              'timestamp': data['timestamp'],
-              'icon': _getCategoryIcon(data['category']),
-              'color': _getCategoryColor(data['category']),
-              'isRead': data['isRead'] ?? false,
-            };
-          }).toList();
+        return {
+          'id': doc.id,
+          'title': data['category'],
+          'description':
+              'Your ${data['category']} budget has exceeded the limit',
+          'timestamp': data['timestamp'],
+          'icon': _getCategoryIcon(data['category']),
+          'color': _getCategoryColor(data['category']),
+          'isRead': data['isRead'] ?? false,
+        };
+      }).toList();
     } catch (e) {
       Get.snackbar('Error', 'Failed to fetch notifications: ${e.toString()}');
     }
