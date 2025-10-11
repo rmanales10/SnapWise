@@ -120,13 +120,11 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      body: SizedBox(
-        width: double.infinity,
-        height: double.infinity,
-        child: Stack(
-          children: [
-            // Header background
-            Container(
+      body: CustomScrollView(
+        slivers: [
+          // Header background
+          SliverToBoxAdapter(
+            child: Container(
               height: isTablet ? 400 : 250,
               width: double.infinity,
               decoration: const BoxDecoration(
@@ -163,11 +161,14 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
                       IconButton(
                         icon: Icon(Icons.delete_outline, color: Colors.red),
                         onPressed: () {
-                          totalAmountController.clear();
-                          frequencyController.text = '';
-                          startDateController.text = '';
-                          endDateController.text = '';
-                          amountToPay.value = 0.0;
+                          setState(() {
+                            totalAmountController.clear();
+                            frequencyController.clear();
+                            startDateController.clear();
+                            endDateController.clear();
+                            titleController.clear();
+                            amountToPay.value = 0.0;
+                          });
                         },
                         tooltip: 'Clear All',
                       ),
@@ -189,68 +190,72 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
                 ],
               ),
             ),
+          ),
 
-            // Overlapping white container
-            Positioned(
-              top: isTablet ? 280 : 210,
-              left: 20,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(width: 1, color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Column(
-                  children: [
-                    _buildTitleInput(),
-                    const SizedBox(height: 20),
-                    _buildAmountInput(
-                      'Total amount to pay',
-                      totalAmountController.text,
+          // Overlapping white container
+          SliverToBoxAdapter(
+            child: Container(
+              margin: EdgeInsets.only(
+                top: isTablet ? 30 : 20,
+                left: 20,
+                right: 20,
+                bottom: 20,
+              ),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(width: 1, color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Column(
+                children: [
+                  _buildTitleInput(),
+                  const SizedBox(height: 20),
+                  _buildAmountInput(
+                    'Total amount to pay',
+                    totalAmountController.text,
+                    true,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildCategorySelector(),
+                  const SizedBox(height: 20),
+                  _buildDateRangePicker(),
+                  const SizedBox(height: 20),
+                  Obx(() {
+                    return _buildAmountInput(
+                      "Amount to pay",
+                      amountToPay.value.toStringAsFixed(2),
                       true,
-                    ),
-                    const SizedBox(height: 20),
-                    _buildCategorySelector(),
-                    const SizedBox(height: 20),
-                    _buildDateRangePicker(),
-                    const SizedBox(height: 20),
-                    Obx(() {
-                      return _buildAmountInput(
-                        "Amount to pay",
-                        amountToPay.value.toStringAsFixed(2),
-                        false,
-                      );
-                    }),
-                    const SizedBox(height: 20),
-                    _buildReceiveAlertSwitch(),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _showConfirmation(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                    );
+                  }),
+                  const SizedBox(height: 20),
+                  _buildReceiveAlertSwitch(),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        _showConfirmation(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 3, 30, 53),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text(
-                          "Save",
-                          style: TextStyle(fontSize: 16, color: Colors.white),
-                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text(
+                        "Save",
+                        style: TextStyle(fontSize: 16, color: Colors.white),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 20), // Extra space at bottom
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -268,15 +273,24 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
           focusColor: Colors.white,
           dropdownColor: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          value: frequency.first,
+          value: frequencyController.text.isEmpty
+              ? null
+              : frequencyController.text,
           icon: const Icon(Icons.keyboard_arrow_down),
           decoration: InputDecoration(
             border: InputBorder.none,
             hintText: 'Select Frequency',
+            hintStyle: TextStyle(color: Colors.grey.shade500),
           ),
           items: frequency
               .map(
-                (value) => DropdownMenuItem(value: value, child: Text(value)),
+                (value) => DropdownMenuItem(
+                  value: value,
+                  child: Text(
+                    value,
+                    style: TextStyle(color: Colors.black87),
+                  ),
+                ),
               )
               .toList(),
           onChanged: (value) {
@@ -284,6 +298,12 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
               frequencyController.text = value ?? '';
             });
             _updateAmountToPay(); // Update amount immediately when frequency changes
+          },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please select a frequency';
+            }
+            return null;
           },
         ),
       ),
@@ -559,7 +579,8 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
         startDateController.text.isEmpty ||
         endDateController.text.isEmpty ||
         titleController.text.isEmpty) {
-      Get.snackbar('Error', 'Please fill all fields');
+      Get.snackbar(
+          'Error', 'Please fill all fields including frequency selection');
       return;
     }
     controller.addFavorite(

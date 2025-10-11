@@ -27,23 +27,26 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth >= 600;
+    final isLargeTablet = screenWidth >= 900;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
-          onPressed:
-              () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => BottomNavBar(initialIndex: 3),
-                ),
-              ),
+          onPressed: () => Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BottomNavBar(initialIndex: 3),
+            ),
+          ),
         ),
         title: Text(
           'Favorites',
           style: TextStyle(
             color: Colors.black,
-            fontSize: 20,
+            fontSize: isTablet ? 24 : 20,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -54,15 +57,14 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
       ),
       body: Obx(() {
         // Filter bills based on selected tab and search query
-        final filteredBills =
-            controller.favorites.where((bill) {
-              final matchesTab = bill['status'] == statusTabs[selectedTab];
-              final matchesSearch = bill['title']
-                  .toString()
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase());
-              return matchesTab && matchesSearch;
-            }).toList();
+        final filteredBills = controller.favorites.where((bill) {
+          final matchesTab = bill['status'] == statusTabs[selectedTab];
+          final matchesSearch = bill['title']
+              .toString()
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase());
+          return matchesTab && matchesSearch;
+        }).toList();
 
         // Calculate totals
         double totalAmount = 0;
@@ -73,76 +75,111 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
         }
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: isTablet ? 24 : 16,
+            vertical: isTablet ? 16 : 8,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _summaryCard(
-                    'Total\nPayment',
-                    'PHP ${totalAmount.toStringAsFixed(2)}',
-                  ),
-                  _summaryCard(
-                    'Total Paid\nPayment',
-                    'PHP ${totalPaid.toStringAsFixed(2)}',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _searchBar(),
-              const SizedBox(height: 16),
-              _tabBar(),
-              const SizedBox(height: 8),
+              // Summary cards - responsive layout
+              isLargeTablet
+                  ? Row(
+                      children: [
+                        Expanded(
+                            child: _summaryCard(
+                          'Total\nPayment',
+                          'PHP ${totalAmount.toStringAsFixed(2)}',
+                          isTablet: isTablet,
+                        )),
+                        SizedBox(width: 16),
+                        Expanded(
+                            child: _summaryCard(
+                          'Total Paid\nPayment',
+                          'PHP ${totalPaid.toStringAsFixed(2)}',
+                          isTablet: isTablet,
+                        )),
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _summaryCard(
+                          'Total\nPayment',
+                          'PHP ${totalAmount.toStringAsFixed(2)}',
+                          isTablet: isTablet,
+                        ),
+                        _summaryCard(
+                          'Total Paid\nPayment',
+                          'PHP ${totalPaid.toStringAsFixed(2)}',
+                          isTablet: isTablet,
+                        ),
+                      ],
+                    ),
+              SizedBox(height: isTablet ? 24 : 20),
+              _searchBar(isTablet: isTablet),
+              SizedBox(height: isTablet ? 20 : 16),
+              _tabBar(isTablet: isTablet),
+              SizedBox(height: isTablet ? 12 : 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'All your upcoming payments Displayed here',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: isTablet ? 16 : 12,
+                      color: Colors.grey[600],
+                    ),
                   ),
                   Row(
                     children: [
                       IconButton(
-                        icon: Icon(Icons.add_box_outlined),
-                        onPressed:
-                            () => Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => BottomNavBar(initialIndex: 15),
-                              ),
-                            ),
+                        icon: Icon(
+                          Icons.add_box_outlined,
+                          size: isTablet ? 28 : 24,
+                        ),
+                        onPressed: () => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                BottomNavBar(initialIndex: 15),
+                          ),
+                        ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.history_rounded),
-                        onPressed:
-                            () => Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => BottomNavBar(initialIndex: 13),
-                              ),
-                            ),
+                        icon: Icon(
+                          Icons.history_rounded,
+                          size: isTablet ? 28 : 24,
+                        ),
+                        onPressed: () => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                BottomNavBar(initialIndex: 13),
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: isTablet ? 12 : 8),
               if (filteredBills.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.all(32.0),
+                  padding: EdgeInsets.all(isTablet ? 48.0 : 32.0),
                   child: Center(
                     child: Text(
                       'No bills found.',
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: isTablet ? 18 : 16,
+                      ),
                     ),
                   ),
                 )
               else
-                ...filteredBills.map((bill) => _billCard(bill)),
+                ...filteredBills
+                    .map((bill) => _billCard(bill, isTablet: isTablet)),
             ],
           ),
         );
@@ -150,10 +187,10 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
     );
   }
 
-  Widget _summaryCard(String title, String amount) {
+  Widget _summaryCard(String title, String amount, {bool isTablet = false}) {
     return Container(
-      width: 180,
-      height: 150,
+      width: isTablet ? 220 : 180,
+      height: isTablet ? 180 : 150,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
@@ -165,7 +202,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
           BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(2, 4)),
         ],
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isTablet ? 20 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -175,7 +212,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 20,
+              fontSize: isTablet ? 24 : 20,
             ),
           ),
           Text(
@@ -183,19 +220,22 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 18,
+              fontSize: isTablet ? 22 : 18,
             ),
           ),
           Text(
             'This Month',
-            style: TextStyle(color: Colors.white70, fontSize: 12),
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: isTablet ? 14 : 12,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _searchBar() {
+  Widget _searchBar({bool isTablet = false}) {
     return TextField(
       controller: _searchController,
       onChanged: (value) {
@@ -204,20 +244,25 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
         });
       },
       decoration: InputDecoration(
-        suffixIcon: Icon(Icons.search),
+        suffixIcon: Icon(Icons.search, size: isTablet ? 28 : 24),
         hintText: 'Search',
+        hintStyle: TextStyle(fontSize: isTablet ? 18 : 16),
         filled: true,
         fillColor: Color(0xFFF3F3F3),
-        contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+        contentPadding: EdgeInsets.symmetric(
+          vertical: isTablet ? 16 : 12,
+          horizontal: 20,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(isTablet ? 28 : 24),
           borderSide: BorderSide.none,
         ),
       ),
+      style: TextStyle(fontSize: isTablet ? 18 : 16),
     );
   }
 
-  Widget _tabBar() {
+  Widget _tabBar({bool isTablet = false}) {
     final tabs = [
       {'icon': Icons.assignment_rounded, 'label': 'Paid'},
       {'icon': Icons.access_time, 'label': 'Pending'},
@@ -226,7 +271,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Color(0xFFF3F3F3),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(isTablet ? 28 : 24),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -234,32 +279,31 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
           final selected = selectedTab == index;
           return Expanded(
             child: InkWell(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(isTablet ? 28 : 24),
               onTap: () => setState(() => selectedTab = index),
               child: Container(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                decoration:
-                    selected
-                        ? BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                        )
-                        : null,
+                padding: EdgeInsets.symmetric(vertical: isTablet ? 16 : 12),
+                decoration: selected
+                    ? BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(isTablet ? 28 : 24),
+                      )
+                    : null,
                 child: Column(
                   children: [
                     Icon(
                       tabs[index]['icon'] as IconData,
-                      size: 20,
+                      size: isTablet ? 28 : 20,
                       color: selected ? Color(0xFF6A4DFE) : Colors.black54,
                     ),
-                    SizedBox(height: 4),
+                    SizedBox(height: isTablet ? 6 : 4),
                     Text(
                       tabs[index]['label'] as String,
                       style: TextStyle(
                         color: selected ? Color(0xFF6A4DFE) : Colors.black54,
                         fontWeight:
                             selected ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 13,
+                        fontSize: isTablet ? 16 : 13,
                       ),
                     ),
                   ],
@@ -272,7 +316,7 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
     );
   }
 
-  Widget _billCard(Map<String, dynamic> bill) {
+  Widget _billCard(Map<String, dynamic> bill, {bool isTablet = false}) {
     Color statusColor;
     switch (bill['status']) {
       case 'Paid':
@@ -285,62 +329,85 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
         statusColor = Colors.orange;
     }
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: EdgeInsets.symmetric(vertical: isTablet ? 12 : 8),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 16 : 12)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isTablet ? 20 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  bill['title'] ?? '',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Expanded(
+                  child: Text(
+                    bill['title'] ?? '',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isTablet ? 20 : 16,
+                    ),
+                  ),
                 ),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isTablet ? 16 : 12,
+                    vertical: isTablet ? 6 : 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(isTablet ? 12 : 8),
                   ),
                   child: Text(
                     bill['status'] ?? 'Pending',
                     style: TextStyle(
                       color: statusColor,
                       fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                      fontSize: isTablet ? 16 : 13,
                     ),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 8),
+            SizedBox(height: isTablet ? 12 : 8),
             Text(
               'PHP ${bill['totalAmount']?.toStringAsFixed(2) ?? '0.00'}',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: isTablet ? 24 : 20,
+              ),
             ),
-            SizedBox(height: 4),
+            SizedBox(height: isTablet ? 6 : 4),
             Text(
               bill['frequency'] ?? '',
-              style: TextStyle(color: Colors.grey[700], fontSize: 14),
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontSize: isTablet ? 16 : 14,
+              ),
             ),
-            SizedBox(height: 8),
+            SizedBox(height: isTablet ? 12 : 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'End Date: ${DateFormat('MMMM d, yyyy').format(DateTime.parse(bill['endDate'] ?? ''))}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                Expanded(
+                  child: Text(
+                    'End Date: ${DateFormat('MMMM d, yyyy').format(DateTime.parse(bill['endDate'] ?? ''))}',
+                    style: TextStyle(
+                      fontSize: isTablet ? 14 : 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
                 ),
                 TextButton(
                   onPressed: () => _showBillDetails(context, bill),
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.zero,
-                    minimumSize: Size(80, 30),
+                    minimumSize: Size(isTablet ? 100 : 80, isTablet ? 36 : 30),
                   ),
-                  child: Text('View Details'),
+                  child: Text(
+                    'View Details',
+                    style: TextStyle(fontSize: isTablet ? 16 : 14),
+                  ),
                 ),
               ],
             ),
@@ -351,6 +418,9 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
   }
 
   void _showBillDetails(BuildContext context, Map<String, dynamic> bill) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth >= 600;
+
     final formatter = NumberFormat.currency(
       locale: 'en_PH',
       symbol: 'PHP ',
@@ -365,10 +435,9 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
     if ((bill['paymentHistory'] as List?)?.isNotEmpty ?? false) {
       paidToday = (bill['paymentHistory'] as List).any((payment) {
         final paymentDateRaw = payment['timestamp'];
-        final paymentDate =
-            paymentDateRaw is Timestamp
-                ? paymentDateRaw.toDate()
-                : paymentDateRaw as DateTime;
+        final paymentDate = paymentDateRaw is Timestamp
+            ? paymentDateRaw.toDate()
+            : paymentDateRaw as DateTime;
         final now = DateTime.now();
         return paymentDate.year == now.year &&
             paymentDate.month == now.month &&
@@ -381,10 +450,11 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
       builder: (context) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(isTablet ? 28 : 24),
           ),
           child: Container(
-            padding: const EdgeInsets.all(24),
+            width: isTablet ? screenWidth * 0.6 : null,
+            padding: EdgeInsets.all(isTablet ? 32 : 24),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -393,42 +463,46 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                   // Header with gradient background
                   Container(
                     width: double.infinity,
-                    padding: EdgeInsets.all(20),
+                    padding: EdgeInsets.all(isTablet ? 24 : 20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [Color(0xFF2B2E4A), Color(0xFF6A4DFE)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          bill['title'] ?? '',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 24,
+                        Expanded(
+                          child: Text(
+                            bill['title'] ?? '',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: isTablet ? 28 : 24,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
                         ),
-                        SizedBox(height: 8),
+                        SizedBox(width: 8),
                         Container(
                           padding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                            horizontal: isTablet ? 16 : 12,
+                            vertical: isTablet ? 8 : 6,
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius:
+                                BorderRadius.circular(isTablet ? 24 : 20),
                           ),
                           child: Text(
                             bill['status'] ?? 'Pending',
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w500,
+                              fontSize: isTablet ? 16 : 14,
                             ),
                           ),
                         ),
@@ -517,15 +591,13 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                         _buildDetailRow(
                           bill['status'] == 'Paid' ? 'Status' : 'Final Status',
                           bill['status'] ?? 'Pending',
-                          valueColor:
-                              bill['status'] == 'Paid'
-                                  ? Colors.green
-                                  : Colors.orange,
+                          valueColor: bill['status'] == 'Paid'
+                              ? Colors.green
+                              : Colors.orange,
                         ),
                         SizedBox(height: 16),
                         LinearProgressIndicator(
-                          value:
-                              (bill['paidAmount'] ?? 0.0) /
+                          value: (bill['paidAmount'] ?? 0.0) /
                               (bill['totalAmount'] ?? 1.0),
                           backgroundColor: Colors.grey[200],
                           valueColor: AlwaysStoppedAnimation<Color>(
@@ -554,8 +626,8 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                           bill['startDate'] != null &&
                                   bill['startDate'].toString().isNotEmpty
                               ? DateFormat(
-                                'MMMM d, yyyy',
-                              ).format(DateTime.parse(bill['startDate']))
+                                  'MMMM d, yyyy',
+                                ).format(DateTime.parse(bill['startDate']))
                               : 'Not set',
                         ),
                         Divider(height: 24),
@@ -564,8 +636,8 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                           bill['endDate'] != null &&
                                   bill['endDate'].toString().isNotEmpty
                               ? DateFormat(
-                                'MMMM d, yyyy',
-                              ).format(DateTime.parse(bill['endDate']))
+                                  'MMMM d, yyyy',
+                                ).format(DateTime.parse(bill['endDate']))
                               : 'Not set',
                         ),
                       ],
@@ -593,16 +665,15 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                     )
                   else
                     ElevatedButton(
-                      onPressed:
-                          paidToday
-                              ? null
-                              : () async {
-                                await controller.updatePaymentStatus(
-                                  bill['id'],
-                                  bill['amountToPay'] ?? 0.0,
-                                );
-                                Navigator.pop(context);
-                              },
+                      onPressed: paidToday
+                          ? null
+                          : () async {
+                              await controller.updatePaymentStatus(
+                                bill['id'],
+                                bill['amountToPay'] ?? 0.0,
+                              );
+                              Navigator.pop(context);
+                            },
                       style: ElevatedButton.styleFrom(
                         minimumSize: Size(double.infinity, 50),
                         backgroundColor: Colors.green.shade500,
@@ -643,10 +714,9 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                           SizedBox(height: 12),
                           ...(bill['paymentHistory'] as List).map((payment) {
                             final paymentDateRaw = payment['timestamp'];
-                            final paymentDate =
-                                paymentDateRaw is Timestamp
-                                    ? paymentDateRaw.toDate()
-                                    : paymentDateRaw as DateTime;
+                            final paymentDate = paymentDateRaw is Timestamp
+                                ? paymentDateRaw.toDate()
+                                : paymentDateRaw as DateTime;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8.0),
                               child: Row(

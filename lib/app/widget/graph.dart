@@ -27,10 +27,27 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
   bool isDaily = true;
 
   List<BarChartGroupData> getGraphData() {
-    List<double> expenses =
-        isDaily
-            ? graphController.getCurrentMonthExpenses()
-            : graphController.getMonthlyExpensesForLastYear();
+    List<double> expenses = isDaily
+        ? graphController.getCurrentMonthExpenses()
+        : graphController.getMonthlyExpensesForLastYear();
+
+    // Ensure we have data to display
+    if (expenses.isEmpty || expenses.every((e) => e == 0)) {
+      // Return dummy data to show empty state
+      return List.generate(isDaily ? 30 : 12, (index) {
+        return BarChartGroupData(
+          x: index,
+          barRods: [
+            BarChartRodData(
+              toY: 0.0,
+              color: Colors.grey.shade300,
+              width: isDaily ? 8 : 12,
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ],
+        );
+      });
+    }
 
     return List.generate(expenses.length, (index) {
       return BarChartGroupData(
@@ -38,7 +55,7 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
         barRods: [
           BarChartRodData(
             toY: expenses[index],
-            color: widget.barColor,
+            color: expenses[index] > 0 ? widget.barColor : Colors.grey.shade300,
             width: isDaily ? 8 : 12,
             borderRadius: BorderRadius.circular(6),
           ),
@@ -53,14 +70,62 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
     return (1000000, 'M');
   }
 
+  // Generate dynamic Y-axis labels based on max value
+  List<double> generateYAxisLabels(double maxValue) {
+    if (maxValue <= 0) return [0, 25, 50, 75, 100];
+
+    // Find appropriate step size
+    double step;
+    if (maxValue <= 100) {
+      step = 25;
+    } else if (maxValue <= 500) {
+      step = 100;
+    } else if (maxValue <= 1000) {
+      step = 200;
+    } else if (maxValue <= 5000) {
+      step = 1000;
+    } else if (maxValue <= 10000) {
+      step = 2000;
+    } else if (maxValue <= 50000) {
+      step = 10000;
+    } else if (maxValue <= 100000) {
+      step = 20000;
+    } else if (maxValue <= 500000) {
+      step = 100000;
+    } else {
+      step = 200000;
+    }
+
+    // Generate labels
+    List<double> labels = [];
+    double current = 0;
+    while (current <= maxValue) {
+      labels.add(current);
+      current += step;
+    }
+
+    // Ensure we have at least 4 labels
+    if (labels.length < 4) {
+      labels = [0, maxValue * 0.25, maxValue * 0.5, maxValue * 0.75, maxValue];
+    }
+
+    return labels;
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final maxValue =
-        isDaily
-            ? graphController.getCurrentMonthExpenses().reduce(max)
-            : graphController.getMonthlyExpensesForLastYear().reduce(max);
+    final expenses = isDaily
+        ? graphController.getCurrentMonthExpenses()
+        : graphController.getMonthlyExpensesForLastYear();
+
+    // Handle empty data
+    final maxValue = expenses.isEmpty || expenses.every((e) => e == 0)
+        ? 100.0 // Default max value for empty state
+        : expenses.reduce(max);
+
     final (scale, suffix) = calculateScale(maxValue);
+    final yAxisLabels = generateYAxisLabels(maxValue);
     return Column(
       children: [
         Padding(
@@ -83,19 +148,18 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
               children: [
                 Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children:
-                      List.generate(5, (index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 20),
-                          child: Text(
-                            '${((maxValue * index / 4) / scale).toStringAsFixed(1)}$suffix',
-                            style: TextStyle(
-                              color: Colors.grey.shade700,
-                              fontSize: 10,
-                            ),
-                          ),
-                        );
-                      }).reversed.toList(),
+                  children: yAxisLabels.reversed.map((label) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: Text(
+                        '${(label / scale).toStringAsFixed(label >= 1000 ? 0 : 1)}$suffix',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 10,
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
                 SizedBox(width: 8),
                 Expanded(
@@ -148,8 +212,7 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                           "DEC",
                                         ];
                                         final currentMonthIndex = now.month - 1;
-                                        final monthIndex =
-                                            (currentMonthIndex -
+                                        final monthIndex = (currentMonthIndex -
                                                 (11 - value.toInt())) %
                                             12;
                                         return Text(
@@ -178,35 +241,50 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                     rod,
                                     rodIndex,
                                   ) {
+                                    final amount = rod.toY;
+                                    final formattedAmount = amount >= 1000
+                                        ? 'PHP ${(amount / 1000).toStringAsFixed(1)}k'
+                                        : 'PHP ${amount.toStringAsFixed(2)}';
+
                                     return BarTooltipItem(
-                                      '${isDaily ? "Day" : "Month"} ${groupIndex + 1}: ${rod.toY.toStringAsFixed(2)}',
+                                      '${isDaily ? "Day" : "Month"} ${groupIndex + 1}\n$formattedAmount',
                                       const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
+                                        fontSize: 12,
                                       ),
                                     );
                                   },
-                                  tooltipPadding: const EdgeInsets.all(8),
+                                  tooltipPadding: const EdgeInsets.all(12),
                                   tooltipMargin: 8,
                                 ),
                                 touchCallback: (
                                   FlTouchEvent event,
                                   BarTouchResponse? touchResponse,
                                 ) {
-                                  // Custom touch handling can be added here if needed
+                                  if (event is FlTapUpEvent &&
+                                      touchResponse != null &&
+                                      touchResponse.spot?.touchedBarGroup !=
+                                          null) {
+                                    final touchedGroup =
+                                        touchResponse.spot!.touchedBarGroup;
+                                    final amount =
+                                        touchedGroup.barRods.first.toY;
+                                    final formattedAmount = amount >= 1000
+                                        ? 'PHP ${(amount / 1000).toStringAsFixed(1)}k'
+                                        : 'PHP ${amount.toStringAsFixed(2)}';
+
+                                    final period = isDaily
+                                        ? "Day ${touchedGroup.x + 1}"
+                                        : "Month ${touchedGroup.x + 1}";
+
+                                    _showExpenseDetails(
+                                        context, period, formattedAmount);
+                                  }
                                 },
                                 handleBuiltInTouches: true,
                               ),
-                              maxY:
-                                  isDaily
-                                      ? graphController
-                                              .getCurrentMonthExpenses()
-                                              .reduce((a, b) => a > b ? a : b) *
-                                          1.2
-                                      : graphController
-                                              .getMonthlyExpensesForLastYear()
-                                              .reduce((a, b) => a > b ? a : b) *
-                                          1.2,
+                              maxY: yAxisLabels.last,
                               alignment: BarChartAlignment.spaceAround,
                               groupsSpace: 12,
                             ),
@@ -249,7 +327,10 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => isDaily = true),
+                      onTap: () async {
+                        setState(() => isDaily = true);
+                        await graphController.refreshData();
+                      },
                       child: Container(
                         alignment: Alignment.center,
                         child: Text(
@@ -265,7 +346,10 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                   ),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => isDaily = false),
+                      onTap: () async {
+                        setState(() => isDaily = false);
+                        await graphController.refreshData();
+                      },
                       child: Container(
                         alignment: Alignment.center,
                         child: Text(
@@ -285,6 +369,96 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showExpenseDetails(BuildContext context, String period, String amount) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.bar_chart,
+                color: widget.barColor,
+                size: 24,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Expense Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: widget.barColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      period,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      amount,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: widget.barColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Click on any bar in the chart to view detailed expense information for that ${isDaily ? "day" : "month"}.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                backgroundColor: widget.barColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: Text(
+                'Close',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -27,14 +27,14 @@ class _IncomeEditPageState extends State<IncomeEditPage> {
   Future<void> fetchIncome() async {
     await _budgetController.fetchIncome();
     setState(() {
-      amountController.text =
-          _budgetController.incomeData.value['amount'] ?? '';
-      alertPercentage =
-          _budgetController.incomeData.value['alertPercentage'] == null
-              ? 80.0
-              : double.parse(
-                _budgetController.incomeData.value['alertPercentage'],
-              );
+      final amount = _budgetController.incomeData.value['amount'];
+      amountController.text = amount != null ? amount.toString() : '';
+      alertPercentage = _budgetController.incomeData.value['alertPercentage'] ==
+              null
+          ? 80.0
+          : double.parse(
+              _budgetController.incomeData.value['alertPercentage'].toString(),
+            );
       receiveAlert =
           _budgetController.incomeData.value['receiveAlert'] ?? false;
     });
@@ -80,7 +80,6 @@ class _IncomeEditPageState extends State<IncomeEditPage> {
                           child: Icon(Icons.arrow_back, color: Colors.white),
                         ),
                       ),
-
                       Align(
                         alignment: Alignment.center,
                         child: Text(
@@ -103,7 +102,6 @@ class _IncomeEditPageState extends State<IncomeEditPage> {
                       fontSize: 16,
                     ),
                   ),
-
                   const SizedBox(height: 10),
                 ],
               ),
@@ -404,16 +402,14 @@ class _PercentageThumbShape extends SliderComponentShape {
 
     // Define the thumb circle
     final rect = Rect.fromCenter(center: center, width: 40, height: 20);
-    final fillPaint =
-        Paint()
-          ..color = const Color(0xFF7F3DFF)
-          ..style = PaintingStyle.fill;
+    final fillPaint = Paint()
+      ..color = const Color(0xFF7F3DFF)
+      ..style = PaintingStyle.fill;
 
-    final borderPaint =
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4;
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
 
     // Draw thumb
     canvas.drawOval(rect, fillPaint);

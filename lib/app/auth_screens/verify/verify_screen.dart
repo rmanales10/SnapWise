@@ -62,12 +62,6 @@ class VerifyScreenState extends State<VerifyScreen> {
   }
 
   @override
-  void dispose() {
-    _pinController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,

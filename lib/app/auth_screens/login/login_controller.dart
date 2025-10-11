@@ -237,10 +237,9 @@ class LoginController extends GetxController {
             '722916662508-v4u8l28sub5i4sabqtn51n9tcchhk1o8.apps.googleusercontent.com',
       );
 
-      final GoogleSignInAccount? googleUser =
-          await _googleSignIn.authenticate();
+      final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
 
-      if (googleUser == null) {
+      if (googleUser.displayName == null) {
         Get.snackbar('Cancelled', 'Google Sign-In was cancelled');
         return false;
       }

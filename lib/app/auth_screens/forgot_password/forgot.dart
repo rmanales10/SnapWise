@@ -210,9 +210,5 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     }
   }
 
-  @override
-  void dispose() {
-    controller.emailController.dispose();
-    super.dispose();
-  }
+
 }

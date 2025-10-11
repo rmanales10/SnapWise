@@ -18,17 +18,35 @@ class GraphController extends GetxController {
     fetchExpenses();
   }
 
-  // Helper function to get start and end of current month
-  Map<String, Timestamp> _getCurrentMonthRange() {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final startOfNextMonth = (now.month < 12)
-        ? DateTime(now.year, now.month + 1, 1)
-        : DateTime(now.year + 1, 1, 1);
-    return {
-      'start': Timestamp.fromDate(startOfMonth),
-      'end': Timestamp.fromDate(startOfNextMonth),
-    };
+  // Method to refresh data when needed
+  Future<void> refreshData() async {
+    await fetchExpenses();
+  }
+
+  // Get total expenses for current period
+  double getTotalExpenses({bool isDaily = true}) {
+    if (isDaily) {
+      return getCurrentMonthExpenses()
+          .fold(0.0, (sum, expense) => sum + expense);
+    } else {
+      return getMonthlyExpensesForLastYear()
+          .fold(0.0, (sum, expense) => sum + expense);
+    }
+  }
+
+  // Get formatted total expenses string
+  String getFormattedTotalExpenses({bool isDaily = true}) {
+    double total = getTotalExpenses(isDaily: isDaily);
+
+    if (total >= 1000000) {
+      double inMillions = total / 1000000;
+      return 'PHP ${inMillions.toStringAsFixed(1)}M';
+    } else if (total >= 1000) {
+      double inThousands = total / 1000;
+      return 'PHP ${inThousands.toStringAsFixed(1)}k';
+    } else {
+      return 'PHP ${total.toStringAsFixed(2)}';
+    }
   }
 
   Future<void> fetchExpenses() async {
@@ -38,17 +56,17 @@ class GraphController extends GetxController {
         log('No user logged in');
         return;
       }
-      final monthRange = _getCurrentMonthRange();
-      QuerySnapshot querySnapshot = await _firestore
-          .collection('expenses')
-          .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
-          .get();
 
       // Clear existing data
       dailyExpenses.clear();
       monthlyExpenses.clear();
+
+      // Fetch all expenses (not just current month)
+      QuerySnapshot querySnapshot = await _firestore
+          .collection('expenses')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('timestamp', descending: false)
+          .get();
 
       for (var doc in querySnapshot.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
@@ -58,6 +76,10 @@ class GraphController extends GetxController {
         updateDailyExpenses(date, amount);
         updateMonthlyExpenses(date, amount);
       }
+
+      log('Fetched ${querySnapshot.docs.length} expenses');
+      log('Daily expenses: ${dailyExpenses.length} entries');
+      log('Monthly expenses: ${monthlyExpenses.length} entries');
     } catch (e) {
       log('Error fetching expenses: $e');
     }
@@ -112,9 +134,19 @@ class GraphController extends GetxController {
     List<double> expenses = [];
 
     for (int i = 11; i >= 0; i--) {
-      final month = now.subtract(Duration(days: i * 30));
-      final monthKey = DateFormat('yyyy-MM').format(month);
-      expenses.add(monthlyExpenses[monthKey] ?? 0.0);
+      // Get the exact month (not approximate days)
+      final monthDate = DateTime(now.year, now.month - i, 1);
+      // If we go into previous year
+      if (now.month - i <= 0) {
+        final adjustedMonth = monthDate.month + 12;
+        final adjustedYear = monthDate.year - 1;
+        final adjustedDate = DateTime(adjustedYear, adjustedMonth, 1);
+        final monthKey = DateFormat('yyyy-MM').format(adjustedDate);
+        expenses.add(monthlyExpenses[monthKey] ?? 0.0);
+      } else {
+        final monthKey = DateFormat('yyyy-MM').format(monthDate);
+        expenses.add(monthlyExpenses[monthKey] ?? 0.0);
+      }
     }
 
     return expenses;
