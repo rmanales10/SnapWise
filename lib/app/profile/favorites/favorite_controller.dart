@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'favorites_notification.dart';
+import '../../../services/snackbar_service.dart';
 
 class FavoriteController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -131,10 +132,8 @@ class FavoriteController extends GetxController {
         checkAllFavoritesNotifications();
       },
       onError: (error) {
-        Get.snackbar(
-          'Error',
-          'Failed to fetch favorites: ${error.toString()}',
-        );
+        SnackbarService.showFavoritesError(
+            'Failed to fetch favorites: ${error.toString()}');
       },
     );
   }
@@ -169,9 +168,10 @@ class FavoriteController extends GetxController {
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      Get.snackbar('Success', 'Favorite added successfully');
+      SnackbarService.showFavoritesSuccess('Favorite added successfully');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add favorite: ${e.toString()}');
+      SnackbarService.showFavoritesError(
+          'Failed to add favorite: ${e.toString()}');
     } finally {
       isLoading.value = false;
     }
@@ -182,9 +182,10 @@ class FavoriteController extends GetxController {
       await _firestore.collection('favorites').doc(favoriteId).update({
         'status': status,
       });
-      Get.snackbar('Success', 'Status updated successfully');
+      SnackbarService.showFavoritesSuccess('Status updated successfully');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to update status: ${e.toString()}');
+      SnackbarService.showFavoritesError(
+          'Failed to update status: ${e.toString()}');
     }
   }
 
@@ -225,14 +226,14 @@ class FavoriteController extends GetxController {
         );
       }
 
-      Get.snackbar(
-        'Success',
+      SnackbarService.showFavoritesSuccess(
         newPaidAmount >= totalAmount
             ? 'Payment completed successfully'
             : 'Payment processed. Remaining: ₱${(totalAmount - newPaidAmount).toStringAsFixed(2)}',
       );
     } catch (e) {
-      Get.snackbar('Error', 'Failed to process payment: ${e.toString()}');
+      SnackbarService.showFavoritesError(
+          'Failed to process payment: ${e.toString()}');
     }
   }
 
@@ -240,9 +241,10 @@ class FavoriteController extends GetxController {
     try {
       await _firestore.collection('favorites').doc(favoriteId).delete();
 
-      Get.snackbar('Success', 'Favorite deleted successfully');
+      SnackbarService.showFavoritesSuccess('Favorite deleted successfully');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to delete favorite: ${e.toString()}');
+      SnackbarService.showFavoritesError(
+          'Failed to delete favorite: ${e.toString()}');
     }
   }
 
@@ -266,9 +268,11 @@ class FavoriteController extends GetxController {
       }
       await batch.commit();
 
-      Get.snackbar('Success', 'All favorites deleted successfully');
+      SnackbarService.showFavoritesSuccess(
+          'All favorites deleted successfully');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to delete all favorites: ${e.toString()}');
+      SnackbarService.showFavoritesError(
+          'Failed to delete all favorites: ${e.toString()}');
     }
   }
 }

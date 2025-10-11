@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'budget_notification.dart';
+import '../../services/snackbar_service.dart';
 
 class BudgetController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -56,7 +57,7 @@ class BudgetController extends GetxController {
       });
       isSuccess.value = true;
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add expense: ${e.toString()}');
+      SnackbarService.showBudgetError('Failed to add budget: ${e.toString()}');
     }
   }
 
@@ -88,7 +89,8 @@ class BudgetController extends GetxController {
       }, SetOptions(merge: true));
       isSuccess.value = true;
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add expense: ${e.toString()}');
+      SnackbarService.showBudgetError(
+          'Failed to update budget: ${e.toString()}');
     }
   }
 
@@ -107,9 +109,10 @@ class BudgetController extends GetxController {
       // Recalculate the remaining budget
       await calculateRemainingBudget();
 
-      Get.snackbar('Success', 'Budget deleted successfully');
+      SnackbarService.showBudgetSuccess('Budget deleted successfully');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to delete budget: ${e.toString()}');
+      SnackbarService.showBudgetError(
+          'Failed to delete budget: ${e.toString()}');
     }
   }
 
@@ -137,7 +140,7 @@ class BudgetController extends GetxController {
       }, SetOptions(merge: true));
       isSuccess.value = true;
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add income: ${e.toString()}');
+      SnackbarService.showIncomeError('Failed to add income: ${e.toString()}');
     }
   }
 
@@ -161,13 +164,8 @@ class BudgetController extends GetxController {
       double income = incomeData.value['amount'] ?? 0.0;
 
       if (income > 0 && amount > income) {
-        Get.snackbar(
-          'Budget Limit Exceeded',
+        SnackbarService.showValidationWarning(
           'Overall budget cannot exceed your income of ₱${income.toStringAsFixed(2)}',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          duration: Duration(seconds: 4),
         );
         return;
       }
@@ -181,15 +179,10 @@ class BudgetController extends GetxController {
       }, SetOptions(merge: true));
       isSuccess.value = true;
 
-      Get.snackbar(
-        'Success',
-        'Overall budget set successfully!',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
+      SnackbarService.showBudgetSuccess('Overall budget set successfully!');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to set overall budget: ${e.toString()}');
+      SnackbarService.showBudgetError(
+          'Failed to set overall budget: ${e.toString()}');
     }
   }
 
@@ -209,7 +202,8 @@ class BudgetController extends GetxController {
         budgetData.value = {};
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch budget: ${e.toString()}');
+      SnackbarService.showBudgetError(
+          'Failed to fetch budget: ${e.toString()}');
     }
   }
 
@@ -229,7 +223,8 @@ class BudgetController extends GetxController {
         incomeData.value = {};
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch income: ${e.toString()}');
+      SnackbarService.showIncomeError(
+          'Failed to fetch income: ${e.toString()}');
     }
   }
 
@@ -515,7 +510,8 @@ class BudgetController extends GetxController {
       }, SetOptions(merge: true));
       isSuccess.value = true;
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add notification: ${e.toString()}');
+      SnackbarService.showNotificationInfo(
+          'Failed to add notification: ${e.toString()}');
     }
   }
 
