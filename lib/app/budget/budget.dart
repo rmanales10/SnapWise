@@ -21,6 +21,11 @@ class _BudgetPageState extends State<BudgetPage> {
   RxDouble remainingBudgetPercentage = 0.0.obs;
   final _budgetNotification = Get.put(BudgetNotification());
   final _budgetController = Get.put(BudgetController());
+
+  // Sorting variables
+  String currentSortBy = 'name'; // 'name', 'amount', 'spent', 'remaining'
+  bool isAscending = true;
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +39,196 @@ class _BudgetPageState extends State<BudgetPage> {
       _budgetController.fetchIncome(),
       _budgetController.totalOverallIncome(),
     ]);
+  }
+
+  // Sorting methods
+  void _showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Sort Categories',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildSortOption('Name', 'name', Icons.sort_by_alpha),
+            _buildSortOption('Budget Amount', 'amount', Icons.attach_money),
+            _buildSortOption('Amount Spent', 'spent', Icons.trending_down),
+            _buildSortOption(
+                'Remaining Amount', 'remaining', Icons.account_balance_wallet),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        isAscending = !isAscending;
+                      });
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 3, 30, 53),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isAscending
+                              ? Icons.arrow_upward
+                              : Icons.arrow_downward,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isAscending ? 'Ascending' : 'Descending',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[300],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(color: Colors.black87),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortOption(String title, String sortBy, IconData icon) {
+    bool isSelected = currentSortBy == sortBy;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected ? const Color.fromARGB(255, 3, 30, 53) : Colors.grey,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected
+              ? const Color.fromARGB(255, 3, 30, 53)
+              : Colors.black87,
+        ),
+      ),
+      trailing: isSelected
+          ? Icon(
+              isAscending ? Icons.arrow_upward : Icons.arrow_downward,
+              color: const Color.fromARGB(255, 3, 30, 53),
+            )
+          : null,
+      onTap: () {
+        setState(() {
+          currentSortBy = sortBy;
+        });
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  List<Map<String, dynamic>> _getSortedCategories() {
+    List<Map<String, dynamic>> categories =
+        List.from(_budgetController.budgetCategories);
+
+    // For sorting by spent or remaining, we'll sort by budget amount as fallback
+    // since we need async data for actual spent amounts
+    categories.sort((a, b) {
+      int comparison = 0;
+
+      switch (currentSortBy) {
+        case 'name':
+          comparison = a['title'].toString().compareTo(b['title'].toString());
+          break;
+        case 'amount':
+          double amountA = double.parse(a['amount'].toString());
+          double amountB = double.parse(b['amount'].toString());
+          comparison = amountA.compareTo(amountB);
+          break;
+        case 'spent':
+        case 'remaining':
+          // For now, sort by budget amount as fallback
+          // The actual sorting by spent/remaining will be handled in the UI
+          double amountA = double.parse(a['amount'].toString());
+          double amountB = double.parse(b['amount'].toString());
+          comparison = amountA.compareTo(amountB);
+          break;
+      }
+
+      return isAscending ? comparison : -comparison;
+    });
+
+    return categories;
+  }
+
+  // Method to sort categories with async data
+  Future<List<Map<String, dynamic>>> _getSortedCategoriesWithAsyncData() async {
+    List<Map<String, dynamic>> categories =
+        List.from(_budgetController.budgetCategories);
+
+    if (currentSortBy == 'spent' || currentSortBy == 'remaining') {
+      // Fetch spent amounts for all categories
+      Map<String, double> spentAmounts = {};
+      for (var category in categories) {
+        double spent = await _budgetController.fetchTotalAmountByCategory(
+          category['title'].toString(),
+        );
+        spentAmounts[category['title'].toString()] = spent;
+      }
+
+      // Sort based on spent or remaining amounts
+      categories.sort((a, b) {
+        String titleA = a['title'].toString();
+        String titleB = b['title'].toString();
+        double spentA = spentAmounts[titleA] ?? 0.0;
+        double spentB = spentAmounts[titleB] ?? 0.0;
+        double budgetA = double.parse(a['amount'].toString());
+        double budgetB = double.parse(b['amount'].toString());
+
+        int comparison = 0;
+        if (currentSortBy == 'spent') {
+          comparison = spentA.compareTo(spentB);
+        } else if (currentSortBy == 'remaining') {
+          double remainingA = budgetA - spentA;
+          double remainingB = budgetB - spentB;
+          comparison = remainingA.compareTo(remainingB);
+        }
+
+        return isAscending ? comparison : -comparison;
+      });
+    }
+
+    return categories;
   }
 
   // Check for category budget notification
@@ -254,7 +449,48 @@ class _BudgetPageState extends State<BudgetPage> {
                   ),
                 ),
                 const SizedBox(width: 5),
-                const Icon(Icons.sort_rounded, size: 32),
+                GestureDetector(
+                  onTap: _showSortOptions,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: currentSortBy != 'name'
+                          ? const Color.fromARGB(255, 3, 30, 53)
+                              .withOpacity(0.1)
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: currentSortBy != 'name'
+                          ? Border.all(
+                              color: const Color.fromARGB(255, 3, 30, 53)
+                                  .withOpacity(0.3),
+                              width: 1,
+                            )
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.sort_rounded,
+                          size: 20,
+                          color: currentSortBy != 'name'
+                              ? const Color.fromARGB(255, 3, 30, 53)
+                              : Colors.grey[700],
+                        ),
+                        if (currentSortBy != 'name') ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            isAscending
+                                ? Icons.arrow_upward
+                                : Icons.arrow_downward,
+                            size: 16,
+                            color: const Color.fromARGB(255, 3, 30, 53),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
             Expanded(
@@ -264,105 +500,133 @@ class _BudgetPageState extends State<BudgetPage> {
                   physics: AlwaysScrollableScrollPhysics(),
                   child: Obx(() {
                     return isbudgetTab
-                        ? Column(
-                            children: _budgetController.budgetCategories
-                                .map((category) {
-                              return FutureBuilder<double>(
-                                future: _budgetController
-                                    .fetchTotalAmountByCategory(
-                                  category['title'].toString(),
-                                ),
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return Container(
-                                      margin: const EdgeInsets.symmetric(
-                                          vertical: 10),
-                                      padding: const EdgeInsets.all(14),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade100,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                category['color'] ??
-                                                    Colors.grey,
+                        ? FutureBuilder<List<Map<String, dynamic>>>(
+                            future: (currentSortBy == 'spent' ||
+                                    currentSortBy == 'remaining')
+                                ? _getSortedCategoriesWithAsyncData()
+                                : Future.value(_getSortedCategories()),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(20),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              }
+
+                              List<Map<String, dynamic>> categories =
+                                  snapshot.data ?? _getSortedCategories();
+
+                              return Column(
+                                children: categories.map((category) {
+                                  return FutureBuilder<double>(
+                                    future: _budgetController
+                                        .fetchTotalAmountByCategory(
+                                      category['title'].toString(),
+                                    ),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return Container(
+                                          margin: const EdgeInsets.symmetric(
+                                              vertical: 10),
+                                          padding: const EdgeInsets.all(14),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade100,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                          Color>(
+                                                    category['color'] ??
+                                                        Colors.grey,
+                                                  ),
+                                                ),
                                               ),
-                                            ),
+                                              SizedBox(width: 16),
+                                              Text(
+                                                'Loading ${category['title']}...',
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          SizedBox(width: 16),
-                                          Text(
-                                            'Loading ${category['title']}...',
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 14,
-                                            ),
+                                        );
+                                      } else if (snapshot.hasError) {
+                                        return Container(
+                                          margin: const EdgeInsets.symmetric(
+                                              vertical: 10),
+                                          padding: const EdgeInsets.all(14),
+                                          decoration: BoxDecoration(
+                                            color: Colors.red.shade50,
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            border: Border.all(
+                                                color: Colors.red.shade200),
                                           ),
-                                        ],
-                                      ),
-                                    );
-                                  } else if (snapshot.hasError) {
-                                    return Container(
-                                      margin: const EdgeInsets.symmetric(
-                                          vertical: 10),
-                                      padding: const EdgeInsets.all(14),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.shade50,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                            color: Colors.red.shade200),
-                                      ),
-                                      child: Text(
-                                        'Error loading ${category['title']}: ${snapshot.error}',
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                    );
-                                  } else {
-                                    double amountSpent = snapshot.data ?? 0.0;
-                                    double totalBudget = double.parse(
-                                      category['amount'].toString(),
-                                    );
-                                    double alertPercentage = double.parse(
-                                      category['alertPercentage'].toString(),
-                                    );
-                                    bool exceeded =
-                                        (amountSpent / totalBudget) >=
-                                            (alertPercentage / 100);
+                                          child: Text(
+                                            'Error loading ${category['title']}: ${snapshot.error}',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        );
+                                      } else {
+                                        double amountSpent =
+                                            snapshot.data ?? 0.0;
+                                        double totalBudget = double.parse(
+                                          category['amount'].toString(),
+                                        );
+                                        double alertPercentage = double.parse(
+                                          category['alertPercentage']
+                                              .toString(),
+                                        );
+                                        bool exceeded =
+                                            (amountSpent / totalBudget) >=
+                                                (alertPercentage / 100);
 
-                                    // Check for category budget notification
-                                    if (exceeded &&
-                                        (category['receiveAlert'] ?? false)) {
-                                      _checkCategoryBudgetNotification(
-                                        category['title'],
-                                        amountSpent,
-                                        totalBudget,
-                                      );
-                                    }
+                                        // Check for category budget notification
+                                        if (exceeded &&
+                                            (category['receiveAlert'] ??
+                                                false)) {
+                                          _checkCategoryBudgetNotification(
+                                            category['title'],
+                                            amountSpent,
+                                            totalBudget,
+                                          );
+                                        }
 
-                                    return _buildCategoryItem1(
-                                      isTablet,
-                                      id: category['budgetId'],
-                                      icon: category['icon'],
-                                      category: category['title'],
-                                      amountSpent: amountSpent,
-                                      totalBudget: totalBudget,
-                                      color: category['color'] ?? Colors.grey,
-                                      exceeded: exceeded,
-                                      alertPercentage: alertPercentage,
-                                      receiveAlert:
-                                          category['receiveAlert'] ?? false,
-                                    );
-                                  }
-                                },
+                                        return _buildCategoryItem1(
+                                          isTablet,
+                                          id: category['budgetId'],
+                                          icon: category['icon'],
+                                          category: category['title'],
+                                          amountSpent: amountSpent,
+                                          totalBudget: totalBudget,
+                                          color:
+                                              category['color'] ?? Colors.grey,
+                                          exceeded: exceeded,
+                                          alertPercentage: alertPercentage,
+                                          receiveAlert:
+                                              category['receiveAlert'] ?? false,
+                                        );
+                                      }
+                                    },
+                                  );
+                                }).toList(),
                               );
-                            }).toList(),
+                            },
                           )
                         : Column(
                             children: _budgetController
