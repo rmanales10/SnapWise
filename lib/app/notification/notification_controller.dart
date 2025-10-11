@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/snackbar_service.dart';
 
 class NotificationController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   RxList notifications = [].obs;
-  
 
   @override
   void onInit() {
@@ -59,7 +59,9 @@ class NotificationController extends GetxController {
         };
       }).toList();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch notifications: ${e.toString()}');
+      SnackbarService.showError(
+          title: 'Notification Error',
+          message: 'Failed to fetch notifications: ${e.toString()}');
     }
   }
 

@@ -238,8 +238,9 @@ class _BudgetPageState extends State<BudgetPage> {
     double categoryLimit,
   ) async {
     try {
-      double exceededAmount = amountSpent - categoryLimit;
-      if (exceededAmount > 0) {
+      // Only send notification if the actual budget limit is exceeded
+      if (amountSpent > categoryLimit) {
+        double exceededAmount = amountSpent - categoryLimit;
         await _budgetNotification.sendCategoryBudgetExceededNotification(
           category: category,
           categoryExpenses: amountSpent,
@@ -597,7 +598,8 @@ class _BudgetPageState extends State<BudgetPage> {
                                                 (alertPercentage / 100);
 
                                         // Check for category budget notification
-                                        if (exceeded &&
+                                        // Only send notification if actual budget is exceeded, not just alert percentage
+                                        if (amountSpent > totalBudget &&
                                             (category['receiveAlert'] ??
                                                 false)) {
                                           _checkCategoryBudgetNotification(
