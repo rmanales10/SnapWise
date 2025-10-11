@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'budget_notification.dart';
 
 class BudgetController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -147,12 +148,28 @@ class BudgetController extends GetxController {
   ) async {
     try {
       if (amount <= 0) {
-        throw Exception('Invalid category or amount');
+        throw Exception('Invalid amount');
       }
 
       final User? user = _auth.currentUser;
       if (user == null) {
         throw Exception('User not authenticated');
+      }
+
+      // Check if overall budget exceeds income
+      await fetchIncome();
+      double income = incomeData.value['amount'] ?? 0.0;
+
+      if (income > 0 && amount > income) {
+        Get.snackbar(
+          'Budget Limit Exceeded',
+          'Overall budget cannot exceed your income of ₱${income.toStringAsFixed(2)}',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: Duration(seconds: 4),
+        );
+        return;
       }
 
       await _firestore.collection('overallBudget').doc(user.uid).set({
@@ -163,8 +180,16 @@ class BudgetController extends GetxController {
         'timestamp': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       isSuccess.value = true;
+
+      Get.snackbar(
+        'Success',
+        'Overall budget set successfully!',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add expense: ${e.toString()}');
+      Get.snackbar('Error', 'Failed to set overall budget: ${e.toString()}');
     }
   }
 
@@ -347,7 +372,6 @@ class BudgetController extends GetxController {
       }
 
       // Calculate remaining budget (overall budget minus sum of category budgets)
-
       remainingBudget.value = overallBudget - totalCategoryBudget.value;
 
       // Calculate the percentage of overall budget remaining
@@ -366,13 +390,41 @@ class BudgetController extends GetxController {
         100,
       );
 
+      // Check for overall budget exceeded notification
+      await _checkOverallBudgetNotification(overallBudget);
+
       // print('Total Category Budgets: $totalCategoryBudgets');
       // print('Overall Budget: $overallBudget');
       // print('Remaining Budget: ${remainingBudget.value}');
       // print('Remaining Budget Percentage: ${remainingBudgetPercentage.value}%');
       // print('Category Budgets: $categoryBudgets');
     } catch (e) {
-      // log('Error calculating remaining budget: $e');
+      print('Error calculating remaining budget: $e');
+    }
+  }
+
+  // Check if overall budget is exceeded and send notification
+  Future<void> _checkOverallBudgetNotification(double overallBudget) async {
+    try {
+      if (overallBudget <= 0) return;
+
+      double totalExpenses = await fetchTotalExpenses();
+      double exceededAmount = totalExpenses - overallBudget;
+
+      if (exceededAmount > 0) {
+        // Check if user has notifications enabled for overall budget
+        bool receiveAlert = budgetData.value['receiveAlert'] ?? false;
+        if (receiveAlert) {
+          final budgetNotification = Get.find<BudgetNotification>();
+          await budgetNotification.sendOverallBudgetExceededNotification(
+            totalExpenses: totalExpenses,
+            budgetLimit: overallBudget,
+            exceededAmount: exceededAmount,
+          );
+        }
+      }
+    } catch (e) {
+      print('Error checking overall budget notification: $e');
     }
   }
 

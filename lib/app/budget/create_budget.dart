@@ -18,10 +18,10 @@ class _CreateBudgetState extends State<CreateBudget> {
   bool isOverall = true;
   bool receiveAlert = false;
   double alertPercentage = 80.0;
-  final TextEditingController amountController = TextEditingController();
-  final TextEditingController categoryController = TextEditingController(
-    text: null,
-  );
+  final TextEditingController overallAmountController = TextEditingController();
+  final TextEditingController categoryAmountController =
+      TextEditingController();
+  final TextEditingController categoryController = TextEditingController();
   final _budgetController = Get.put(BudgetController());
   final _expensecontroller = Get.put(ExpenseController());
 
@@ -50,7 +50,6 @@ class _CreateBudgetState extends State<CreateBudget> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-
       body: SizedBox(
         width: double.infinity,
         height: double.infinity,
@@ -81,7 +80,6 @@ class _CreateBudgetState extends State<CreateBudget> {
                           child: Icon(Icons.arrow_back, color: Colors.white),
                         ),
                       ),
-
                       Align(
                         alignment: Alignment.center,
                         child: Text(
@@ -95,7 +93,6 @@ class _CreateBudgetState extends State<CreateBudget> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 20),
                   Container(
                     height: 45,
@@ -108,14 +105,12 @@ class _CreateBudgetState extends State<CreateBudget> {
                         AnimatedPositioned(
                           duration: const Duration(milliseconds: 300),
                           top: 2.5,
-                          right:
-                              isOverall
-                                  ? MediaQuery.of(context).size.width / 2 - 20
-                                  : 3,
-                          left:
-                              isOverall
-                                  ? 3
-                                  : MediaQuery.of(context).size.width / 2 - 20,
+                          right: isOverall
+                              ? MediaQuery.of(context).size.width / 2 - 20
+                              : 3,
+                          left: isOverall
+                              ? 3
+                              : MediaQuery.of(context).size.width / 2 - 20,
                           child: Container(
                             width: MediaQuery.of(context).size.width / 2 - 40,
                             height: 40,
@@ -129,16 +124,22 @@ class _CreateBudgetState extends State<CreateBudget> {
                           children: [
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => setState(() => isOverall = true),
+                                onTap: () {
+                                  setState(() {
+                                    isOverall = true;
+                                    // Clear category fields when switching to overall
+                                    categoryController.clear();
+                                    categoryAmountController.clear();
+                                  });
+                                },
                                 child: Container(
                                   alignment: Alignment.center,
                                   child: Text(
                                     'Overall',
                                     style: TextStyle(
-                                      color:
-                                          isOverall
-                                              ? Colors.white
-                                              : Colors.black.withOpacity(0.7),
+                                      color: isOverall
+                                          ? Colors.white
+                                          : Colors.black.withOpacity(0.7),
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -147,16 +148,21 @@ class _CreateBudgetState extends State<CreateBudget> {
                             ),
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => setState(() => isOverall = false),
+                                onTap: () {
+                                  setState(() {
+                                    isOverall = false;
+                                    // Clear overall fields when switching to category
+                                    overallAmountController.clear();
+                                  });
+                                },
                                 child: Container(
                                   alignment: Alignment.center,
                                   child: Text(
                                     'Category',
                                     style: TextStyle(
-                                      color:
-                                          isOverall
-                                              ? Colors.black.withOpacity(0.7)
-                                              : Colors.white,
+                                      color: isOverall
+                                          ? Colors.black.withOpacity(0.7)
+                                          : Colors.white,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -397,42 +403,47 @@ class _CreateBudgetState extends State<CreateBudget> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        if (categoryController.text.isNotEmpty &&
-                            amountController.text.isNotEmpty) {
-                          double remainingBudget =
-                              _budgetController.budgetData.value['amount']
-                                  ?.toDouble() ??
-                              0.0;
-                          double newAmount = double.parse(
-                            amountController.text,
-                          );
-                          double totalCategoryBudget =
-                              _budgetController.totalCategoryBudget.toDouble();
-
-                          if (totalCategoryBudget + newAmount >
-                              remainingBudget) {
-                            Get.snackbar(
-                              '⚠️ Warning',
-                              'Insufficient Budget Balance. The total of all category budgets cannot exceed the overall budget.',
-                              colorText: Colors.black,
-                              backgroundColor: Colors.amber.shade100,
-                            );
-                          } else {
-                            setBudgetCategory();
+                        if (isOverall) {
+                          // Overall budget logic
+                          if (overallAmountController.text.isNotEmpty) {
+                            if (_budgetController.incomeData.value['amount'] <
+                                double.parse(overallAmountController.text)) {
+                              Get.snackbar(
+                                '⚠️ Warning',
+                                'Insufficient Income Balance. Your current income balance is not sufficient to proceed. Please add funds or adjust your budget amount.',
+                                colorText: Colors.black,
+                                backgroundColor: Colors.amber.shade100,
+                              );
+                            } else {
+                              setOverallBudget();
+                            }
                           }
-                        }
-                        if (amountController.text.isNotEmpty &&
-                            categoryController.text.isEmpty) {
-                          if (_budgetController.incomeData.value['amount'] <
-                              double.parse(amountController.text)) {
-                            Get.snackbar(
-                              '⚠️ Warning',
-                              'Insufficient Income Balance Your current income balance is not sufficient to proceed. Please add funds or adjust your budget amount.',
-                              colorText: Colors.black,
-                              backgroundColor: Colors.amber.shade100,
+                        } else {
+                          // Category budget logic
+                          if (categoryController.text.isNotEmpty &&
+                              categoryAmountController.text.isNotEmpty) {
+                            double remainingBudget = _budgetController
+                                    .budgetData.value['amount']
+                                    ?.toDouble() ??
+                                0.0;
+                            double newAmount = double.parse(
+                              categoryAmountController.text,
                             );
-                          } else {
-                            setOverallBudget();
+                            double totalCategoryBudget = _budgetController
+                                .totalCategoryBudget
+                                .toDouble();
+
+                            if (totalCategoryBudget + newAmount >
+                                remainingBudget) {
+                              Get.snackbar(
+                                '⚠️ Warning',
+                                'Insufficient Budget Balance. The total of all category budgets cannot exceed the overall budget.',
+                                colorText: Colors.black,
+                                backgroundColor: Colors.amber.shade100,
+                              );
+                            } else {
+                              setBudgetCategory();
+                            }
                           }
                         }
                         Navigator.pop(context);
@@ -640,16 +651,20 @@ class _CreateBudgetState extends State<CreateBudget> {
   }
 
   Widget _buildAmountInput() {
+    // Use the appropriate controller based on the selected tab
+    TextEditingController currentController =
+        isOverall ? overallAmountController : categoryAmountController;
+
     return TextField(
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
-      enabled: amountController.text.isNotEmpty ? false : true,
-      controller: amountController,
+      controller: currentController,
       keyboardType: TextInputType.numberWithOptions(decimal: true),
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
       ],
       decoration: InputDecoration(
-        hintText: "Amount",
+        hintText:
+            isOverall ? "Overall Budget Amount" : "Category Budget Amount",
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -673,13 +688,13 @@ class _CreateBudgetState extends State<CreateBudget> {
   Future<void> setBudgetCategory() async {
     await _budgetController.addBudget(
       categoryController.text,
-      double.parse(amountController.text),
+      double.parse(categoryAmountController.text),
       alertPercentage,
       receiveAlert,
     );
     if (_budgetController.isSuccess.value == true) {
       categoryController.clear();
-      amountController.clear();
+      categoryAmountController.clear();
       Navigator.pushReplacement(
         // ignore: use_build_context_synchronously
         context,
@@ -691,12 +706,12 @@ class _CreateBudgetState extends State<CreateBudget> {
 
   Future<void> setOverallBudget() async {
     await _budgetController.addOverallBudget(
-      double.parse(amountController.text),
+      double.parse(overallAmountController.text),
       alertPercentage,
       receiveAlert,
     );
     if (_budgetController.isSuccess.value == true) {
-      amountController.clear();
+      overallAmountController.clear();
       Navigator.pushReplacement(
         // ignore: use_build_context_synchronously
         context,
@@ -730,16 +745,14 @@ class _PercentageThumbShape extends SliderComponentShape {
 
     // Define the thumb circle
     final rect = Rect.fromCenter(center: center, width: 40, height: 20);
-    final fillPaint =
-        Paint()
-          ..color = const Color(0xFF7F3DFF)
-          ..style = PaintingStyle.fill;
+    final fillPaint = Paint()
+      ..color = const Color(0xFF7F3DFF)
+      ..style = PaintingStyle.fill;
 
-    final borderPaint =
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4;
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
 
     // Draw thumb
     canvas.drawOval(rect, fillPaint);

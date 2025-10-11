@@ -36,6 +36,27 @@ class _BudgetPageState extends State<BudgetPage> {
     ]);
   }
 
+  // Check for category budget notification
+  Future<void> _checkCategoryBudgetNotification(
+    String category,
+    double amountSpent,
+    double categoryLimit,
+  ) async {
+    try {
+      double exceededAmount = amountSpent - categoryLimit;
+      if (exceededAmount > 0) {
+        await _budgetNotification.sendCategoryBudgetExceededNotification(
+          category: category,
+          categoryExpenses: amountSpent,
+          categoryLimit: categoryLimit,
+          exceededAmount: exceededAmount,
+        );
+      }
+    } catch (e) {
+      print('Error checking category budget notification: $e');
+    }
+  }
+
   final List<Category> categories = [
     Category(
       icon: Icons.shopping_cart,
@@ -314,6 +335,16 @@ class _BudgetPageState extends State<BudgetPage> {
                                     bool exceeded =
                                         (amountSpent / totalBudget) >=
                                             (alertPercentage / 100);
+
+                                    // Check for category budget notification
+                                    if (exceeded &&
+                                        (category['receiveAlert'] ?? false)) {
+                                      _checkCategoryBudgetNotification(
+                                        category['title'],
+                                        amountSpent,
+                                        totalBudget,
+                                      );
+                                    }
 
                                     return _buildCategoryItem1(
                                       isTablet,

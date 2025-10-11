@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'favorites_notification.dart';
 
 class FavoriteController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FavoritesNotification _favoritesNotification =
+      Get.put(FavoritesNotification());
 
   final RxList<Map<String, dynamic>> favorites = <Map<String, dynamic>>[].obs;
   final RxBool isLoading = false.obs;
@@ -16,6 +20,74 @@ class FavoriteController extends GetxController {
   void onInit() {
     super.onInit();
     setupFavoritesStream();
+    // Check for notifications every time favorites are loaded
+    checkAllFavoritesNotifications();
+  }
+
+  // Check notifications for all favorites
+  Future<void> checkAllFavoritesNotifications() async {
+    try {
+      for (var favorite in favorites) {
+        await _checkFavoriteNotification(favorite);
+      }
+    } catch (e) {
+      print('Error checking favorites notifications: $e');
+    }
+  }
+
+  // Check notification for a specific favorite
+  Future<void> _checkFavoriteNotification(Map<String, dynamic> favorite) async {
+    try {
+      bool receiveAlert = favorite['receiveAlert'] ?? false;
+      if (!receiveAlert) return;
+
+      String frequency = favorite['frequency'] ?? 'monthly';
+      String startDateStr = favorite['startDate'] ?? '';
+      String endDateStr = favorite['endDate'] ?? '';
+
+      if (startDateStr.isEmpty || endDateStr.isEmpty) return;
+
+      DateTime startDate = DateFormat('yyyy-MM-dd').parse(startDateStr);
+      DateTime endDate = DateFormat('yyyy-MM-dd').parse(endDateStr);
+
+      Map<String, dynamic> paymentStatus =
+          _favoritesNotification.checkPaymentStatus(
+        startDate: startDate,
+        frequency: frequency,
+        endDate: endDate,
+      );
+
+      String title = favorite['title'] ?? 'Payment';
+      double amountToPay = (favorite['amountToPay'] ?? 0.0).toDouble();
+
+      switch (paymentStatus['status']) {
+        case 'due_today':
+          await _favoritesNotification.sendPaymentDueTodayNotification(
+            title: title,
+            amountToPay: amountToPay,
+            frequency: frequency,
+          );
+          break;
+        case 'due_soon':
+          await _favoritesNotification.sendPaymentDueSoonNotification(
+            title: title,
+            amountToPay: amountToPay,
+            frequency: frequency,
+            daysUntilDue: paymentStatus['days'],
+          );
+          break;
+        case 'overdue':
+          await _favoritesNotification.sendMissedPaymentNotification(
+            title: title,
+            amountToPay: amountToPay,
+            frequency: frequency,
+            daysOverdue: paymentStatus['days'],
+          );
+          break;
+      }
+    } catch (e) {
+      print('Error checking favorite notification: $e');
+    }
   }
 
   @override
@@ -54,6 +126,9 @@ class FavoriteController extends GetxController {
           final data = doc.data();
           return {'id': doc.id, ...data};
         }).toList();
+
+        // Check notifications when favorites data changes
+        checkAllFavoritesNotifications();
       },
       onError: (error) {
         Get.snackbar(
@@ -141,11 +216,20 @@ class FavoriteController extends GetxController {
         'status': newPaidAmount >= totalAmount ? 'Paid' : 'Pending',
       });
 
+      // Send completion notification if payment is fully completed
+      if (newPaidAmount >= totalAmount) {
+        String title = data['title'] ?? 'Payment';
+        await _favoritesNotification.sendPaymentCompletedNotification(
+          title: title,
+          totalAmount: totalAmount,
+        );
+      }
+
       Get.snackbar(
         'Success',
         newPaidAmount >= totalAmount
             ? 'Payment completed successfully'
-            : 'Payment processed. Remaining: ${(totalAmount - newPaidAmount).toStringAsFixed(2)}',
+            : 'Payment processed. Remaining: ₱${(totalAmount - newPaidAmount).toStringAsFixed(2)}',
       );
     } catch (e) {
       Get.snackbar('Error', 'Failed to process payment: ${e.toString()}');
