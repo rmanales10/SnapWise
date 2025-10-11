@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get_storage/get_storage.dart';
+import '../../../services/snackbar_service.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -9,8 +11,34 @@ class NotificationSettingsPage extends StatefulWidget {
 }
 
 class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
+  final GetStorage _storage = GetStorage();
   bool _expenseAlertsEnabled = true;
   bool _budgetAlertsEnabled = true;
+  bool _incomeAlertsEnabled = true;
+  bool _favoritesAlertsEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  void _loadSettings() {
+    setState(() {
+      _expenseAlertsEnabled = _storage.read('expenseAlertsEnabled') ?? true;
+      _budgetAlertsEnabled = _storage.read('budgetAlertsEnabled') ?? true;
+      _incomeAlertsEnabled = _storage.read('incomeAlertsEnabled') ?? true;
+      _favoritesAlertsEnabled = _storage.read('favoritesAlertsEnabled') ?? true;
+    });
+  }
+
+  void _saveSetting(String key, bool value) {
+    _storage.write(key, value);
+    SnackbarService.showSuccess(
+      title: 'Settings Updated',
+      message: 'Notification preference saved successfully',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,10 +112,9 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                   'Expense Alert',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize:
-                                        isTablet
-                                            ? 20
-                                            : 17, // Adjust font size for tablet
+                                    fontSize: isTablet
+                                        ? 20
+                                        : 17, // Adjust font size for tablet
                                   ),
                                 ),
                                 const SizedBox(height: 5),
@@ -95,10 +122,9 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                   "Get notification about your expense",
                                   style: TextStyle(
                                     color: Colors.grey,
-                                    fontSize:
-                                        isTablet
-                                            ? 18
-                                            : 16, // Adjust font size for tablet
+                                    fontSize: isTablet
+                                        ? 18
+                                        : 16, // Adjust font size for tablet
                                   ),
                                 ),
                               ],
@@ -113,6 +139,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                 setState(() {
                                   _expenseAlertsEnabled = value;
                                 });
+                                _saveSetting('expenseAlertsEnabled', value);
                               },
                               activeTrackColor: const Color.fromARGB(
                                 255,
@@ -134,6 +161,122 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                       ),
                     ),
 
+                    const SizedBox(height: 1),
+
+                    // Income Alert Section
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 40 : 20,
+                        vertical: isTablet ? 20 : 15,
+                      ),
+                      color: Colors.white,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Income Alert',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isTablet ? 20 : 17,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  "Get notification about income-related updates",
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: isTablet ? 18 : 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Transform.scale(
+                            scale: 0.8,
+                            child: Switch(
+                              value: _incomeAlertsEnabled,
+                              onChanged: (value) {
+                                setState(() {
+                                  _incomeAlertsEnabled = value;
+                                });
+                                _saveSetting('incomeAlertsEnabled', value);
+                              },
+                              activeTrackColor:
+                                  const Color.fromARGB(255, 3, 30, 53),
+                              inactiveTrackColor:
+                                  const Color.fromARGB(255, 3, 30, 53),
+                              activeColor: Colors.white,
+                              inactiveThumbColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 1),
+
+                    // Favorites Alert Section
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 40 : 20,
+                        vertical: isTablet ? 20 : 15,
+                      ),
+                      color: Colors.white,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Favorites Alert',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isTablet ? 20 : 17,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  "Get notification about payment due dates and reminders",
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: isTablet ? 18 : 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Transform.scale(
+                            scale: 0.8,
+                            child: Switch(
+                              value: _favoritesAlertsEnabled,
+                              onChanged: (value) {
+                                setState(() {
+                                  _favoritesAlertsEnabled = value;
+                                });
+                                _saveSetting('favoritesAlertsEnabled', value);
+                              },
+                              activeTrackColor:
+                                  const Color.fromARGB(255, 3, 30, 53),
+                              inactiveTrackColor:
+                                  const Color.fromARGB(255, 3, 30, 53),
+                              activeColor: Colors.white,
+                              inactiveThumbColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 1),
+
                     // Budget Alert Section
                     Container(
                       padding: EdgeInsets.symmetric(
@@ -152,10 +295,9 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                   'Budget',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize:
-                                        isTablet
-                                            ? 20
-                                            : 17, // Adjust font size for tablet
+                                    fontSize: isTablet
+                                        ? 20
+                                        : 17, // Adjust font size for tablet
                                   ),
                                 ),
                                 const SizedBox(height: 5),
@@ -163,16 +305,14 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                   "Get notification when your budget exceeding the limit",
                                   style: TextStyle(
                                     color: Colors.grey,
-                                    fontSize:
-                                        isTablet
-                                            ? 18
-                                            : 16, // Adjust font size for tablet
+                                    fontSize: isTablet
+                                        ? 18
+                                        : 16, // Adjust font size for tablet
                                   ),
                                 ),
                               ],
                             ),
                           ),
-
                           const SizedBox(width: 5),
                           Transform.scale(
                             scale: 0.8,
@@ -182,6 +322,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                                 setState(() {
                                   _budgetAlertsEnabled = value;
                                 });
+                                _saveSetting('budgetAlertsEnabled', value);
                               },
                               activeTrackColor: const Color.fromARGB(
                                 255,

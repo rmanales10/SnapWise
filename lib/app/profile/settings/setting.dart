@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'notification.dart';
+import 'about.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -8,8 +10,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-
-
   @override
   Widget build(BuildContext context) {
     // Use MediaQuery to get the screen width
@@ -60,14 +60,25 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildSettingItem(
                     title: 'Notification',
                     onTap: () {
-                      Navigator.pushNamed(context, '/notif-setting');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const NotificationSettingsPage(),
+                        ),
+                      );
                     },
                   ),
 
                   _buildSettingItem(
                     title: 'About',
                     onTap: () {
-                      Navigator.pushNamed(context, '/about');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AboutPage(),
+                        ),
+                      );
                     },
                   ),
                 ],
