@@ -266,7 +266,20 @@ class BudgetController extends GetxController {
         budgetCategories.assignAll(fetchBudgetCategories);
       }
     } catch (e) {
-      // log('Error fetching transactions: $e');
+      print('Error fetching budget categories: $e');
+    }
+  }
+
+  // Method to refresh all budget data
+  Future<void> refreshBudgetData() async {
+    try {
+      await Future.wait([
+        fetchBudgetCategory(),
+        fetchExpensesByCategory(),
+        calculateRemainingBudget(),
+      ]);
+    } catch (e) {
+      print('Error refreshing budget data: $e');
     }
   }
 
@@ -391,7 +404,11 @@ class BudgetController extends GetxController {
 
         double totalAmount = 0.0;
         for (var doc in querySnapshot.docs) {
-          totalAmount += (doc.data()['amount'] as num).toDouble();
+          final data = doc.data();
+          final amount = data['amount'];
+          if (amount != null && amount is num) {
+            totalAmount += amount.toDouble();
+          }
         }
 
         categoryTotalAmount.value = totalAmount;
@@ -399,7 +416,7 @@ class BudgetController extends GetxController {
       }
       return 0.0;
     } catch (e) {
-      // log('Error fetching total amount by category: $e');
+      print('Error fetching total amount by category: $e');
       categoryTotalAmount.value = 0.0;
       return 0.0;
     }

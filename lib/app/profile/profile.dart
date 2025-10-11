@@ -100,12 +100,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ],
                     ),
-                    Spacer(),
-                    Icon(
-                      LucideIcons.edit2,
-                      size: isTablet ? 30 : 20,
-                    ), // Larger icon for tablets
-                    const SizedBox(width: 20),
                   ],
                 );
               }),
