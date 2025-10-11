@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'dart:developer' as log;
+import '../../../services/snackbar_service.dart';
 
 import 'package:snapwise/app/crypto/cryptograpy.dart';
 
@@ -37,7 +38,7 @@ class ForgotController extends GetxController {
         .get();
     if (user.docs.isEmpty) {
       isUserFound.value = false;
-      Get.snackbar('Error', 'User not found');
+      SnackbarService.showError(title: 'User Error', message: 'User not found');
       return;
     }
     isUserFound.value = true;
@@ -78,11 +79,13 @@ class ForgotController extends GetxController {
       // Send email
       final sendReport = await send(message, smtpServer);
       log.log('Send report: $sendReport');
-      Get.snackbar('Success', 'Reset email sent successfully');
+      SnackbarService.showSuccess(
+          title: 'Success', message: 'Reset email sent successfully');
     } catch (e) {
       log.log('Error sending reset email: $e');
       errorMessage.value = 'Failed to send reset email: ${e.toString()}';
-      Get.snackbar('Error', errorMessage.value);
+      SnackbarService.showError(
+          title: 'Email Error', message: errorMessage.value);
     }
   }
 
@@ -90,10 +93,12 @@ class ForgotController extends GetxController {
     try {
       if (code == verificationCode.value) {
         isVerified.value = true;
-        Get.snackbar('Success', 'Code verified successfully');
+        SnackbarService.showSuccess(
+            title: 'Success', message: 'Code verified successfully');
       } else {
         isVerified.value = false;
-        Get.snackbar('Error', 'Invalid code');
+        SnackbarService.showError(
+            title: 'Verification Error', message: 'Invalid code');
       }
     } catch (e) {
       isVerified.value = false;
@@ -124,10 +129,12 @@ class ForgotController extends GetxController {
           .update({'password': encryptText(newPassword)});
       await _auth.signOut();
       isReset.value = true;
-      Get.snackbar('Success', 'Password reset successfully');
+      SnackbarService.showSuccess(
+          title: 'Success', message: 'Password reset successfully');
     } catch (e) {
       isReset.value = false;
-      Get.snackbar('Error', 'Failed to reset password');
+      SnackbarService.showError(
+          title: 'Reset Error', message: 'Failed to reset password');
     }
   }
 }

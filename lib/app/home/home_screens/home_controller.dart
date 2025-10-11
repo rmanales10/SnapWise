@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../../services/snackbar_service.dart';
 
 class HomeController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -196,7 +197,9 @@ class HomeController extends GetxController {
         totalBudget.value = total.toStringAsFixed(2);
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch budget: ${e.toString()}');
+      SnackbarService.showError(
+          title: 'Budget Error',
+          message: 'Failed to fetch budget: ${e.toString()}');
       totalBudget.value = '0.00';
     }
   }
@@ -209,9 +212,8 @@ class HomeController extends GetxController {
         throw Exception('User not authenticated');
       }
 
-      
       final DocumentSnapshot incomeDoc =
-          await _firestore.collection('income').doc(user.uid).get();  
+          await _firestore.collection('income').doc(user.uid).get();
 
       if (!incomeDoc.exists) {
         totalIncome.value = '0.00';
@@ -238,7 +240,9 @@ class HomeController extends GetxController {
         totalIncome.value = total.toStringAsFixed(2);
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch income: ${e.toString()}');
+      SnackbarService.showError(
+          title: 'Income Error',
+          message: 'Failed to fetch income: ${e.toString()}');
       totalIncome.value = '0.00';
     }
   }

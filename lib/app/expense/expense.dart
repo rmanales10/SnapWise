@@ -25,6 +25,9 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
   final TextEditingController amountController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
   final TextEditingController dateController = TextEditingController();
+
+  // Loading state for AI processing
+  bool isProcessingImage = false;
   @override
   void initState() {
     super.initState();
@@ -38,172 +41,260 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      body: SizedBox(
-        width: double.infinity,
-        height: double.infinity,
-        child: Stack(
-          children: [
-            // Header background
-            Container(
-              height: isTablet ? 400 : 250,
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: Color.fromARGB(255, 3, 30, 53),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(40),
-                  bottomRight: Radius.circular(40),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
+      body: Stack(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: double.infinity,
+            child: Stack(
+              children: [
+                // Header background
+                Container(
+                  height: isTablet ? 400 : 250,
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Color.fromARGB(255, 3, 30, 53),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(40),
+                      bottomRight: Radius.circular(40),
+                    ),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Align(
+                      Stack(
                         alignment: Alignment.center,
-                        child: Text(
-                          "Expense",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                        children: [
+                          Align(
+                            alignment: Alignment.center,
+                            child: Text(
+                              "Expense",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-
-            // Overlapping white container
-            Positioned(
-              top: isTablet ? 280 : 210,
-              left: 20,
-              right: 20,
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(width: 1, color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(30),
                 ),
-                child: Column(
-                  children: [
-                    _buildCategorySelector(),
-                    const SizedBox(height: 20),
-                    _buildAmountInput(),
-                    const SizedBox(height: 20),
-                    _buildDateInput(),
-                    const SizedBox(height: 20),
-                    Row(
+
+                // Overlapping white container
+                Positioned(
+                  top: isTablet ? 280 : 210,
+                  left: 20,
+                  right: 20,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(width: 1, color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Column(
                       children: [
-                        Expanded(
-                          child: Divider(
-                            color: Colors.grey.shade600,
-                            thickness: 1,
+                        _buildCategorySelector(),
+                        const SizedBox(height: 20),
+                        _buildAmountInput(),
+                        const SizedBox(height: 20),
+                        _buildDateInput(),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Divider(
+                                color: Colors.grey.shade600,
+                                thickness: 1,
+                              ),
+                            ),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                "or",
+                                style: TextStyle(color: Colors.grey.shade700),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(
+                                color: Colors.grey.shade600,
+                                thickness: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        GestureDetector(
+                          onTap: isProcessingImage
+                              ? null
+                              : () {
+                                  if (base64Image != null) {
+                                    _showImagePreview(context);
+                                  } else {
+                                    _showImageSourceBottomSheet(context);
+                                  }
+                                },
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                width: 1,
+                                color: Colors.grey.shade300,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (base64Image == null) ...[
+                                  Icon(
+                                    Icons.attachment_rounded,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Add attachment',
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ] else ...[
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.memory(
+                                      base64Decode(base64Image!),
+                                      width: 40,
+                                      height: 40,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'View Image',
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            "or",
-                            style: TextStyle(color: Colors.grey.shade700),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: Colors.grey.shade600,
-                            thickness: 1,
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: isProcessingImage
+                                ? null
+                                : () {
+                                    _showConfirmation(context);
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isProcessingImage
+                                  ? Colors.grey.shade400
+                                  : const Color.fromARGB(255, 3, 30, 53),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: const Text(
+                              "Save",
+                              style:
+                                  TextStyle(fontSize: 16, color: Colors.white),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    GestureDetector(
-                      onTap: () {
-                        if (base64Image != null) {
-                          _showImagePreview(context);
-                        } else {
-                          _showImageSourceBottomSheet(context);
-                        }
-                      },
-                      child: Container(
-                        height: 50,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // AI Processing Loading Overlay
+          if (isProcessingImage)
+            Container(
+              color: Colors.black.withOpacity(0.7),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(30),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        spreadRadius: 5,
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // AI Processing Animation
+                      Container(
+                        width: 80,
+                        height: 80,
                         decoration: BoxDecoration(
-                          border: Border.all(
-                            width: 1,
-                            color: Colors.grey.shade300,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
+                          color: const Color.fromARGB(255, 3, 30, 53)
+                              .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(40),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (base64Image == null) ...[
-                              Icon(
-                                Icons.attachment_rounded,
-                                color: Colors.grey.shade700,
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'Add attachment',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                            ] else ...[
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.memory(
-                                  base64Decode(base64Image!),
-                                  width: 40,
-                                  height: 40,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'View Image',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                            ],
-                          ],
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Color.fromARGB(255, 3, 30, 53),
+                            ),
+                            strokeWidth: 4,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _showConfirmation(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: const Text(
-                          "Save",
-                          style: TextStyle(fontSize: 16, color: Colors.white),
+                      const SizedBox(height: 20),
+                      Text(
+                        'AI Processing Image',
+                        style: TextStyle(
+                          fontSize: isTablet ? 20 : 18,
+                          fontWeight: FontWeight.bold,
+                          color: const Color.fromARGB(255, 3, 30, 53),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      Text(
+                        'Extracting expense details from receipt...',
+                        style: TextStyle(
+                          fontSize: isTablet ? 16 : 14,
+                          color: Colors.grey.shade600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      // Processing steps indicator
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildProcessingStep('📷', 'Reading Image', true),
+                          const SizedBox(width: 20),
+                          _buildProcessingStep('🤖', 'AI Analysis', true),
+                          const SizedBox(width: 20),
+                          _buildProcessingStep('📝', 'Extracting Data', true),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -330,6 +421,11 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
 
   Future<void> _processAndDisplayImage(XFile image) async {
     try {
+      // Set loading state
+      setState(() {
+        isProcessingImage = true;
+      });
+
       // Read the file as bytes
       Uint8List imageBytes = await image.readAsBytes();
 
@@ -353,6 +449,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
         amountController.text = expenseDetails['amount'] ?? '';
         dateController.text =
             expenseDetails['date'] ?? DateTime.now().toString().split(' ')[0];
+        isProcessingImage = false; // Stop loading
       });
 
       if (expenseDetails['category']?.isEmpty == true ||
@@ -367,6 +464,9 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       // ignore: use_build_context_synchronously
       _showImagePreview(context);
     } catch (e) {
+      setState(() {
+        isProcessingImage = false; // Stop loading on error
+      });
       _showErrorSnackbar(
         'Error processing the image. Please try again or enter details manually.',
       );
@@ -591,6 +691,46 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
               color: value.contains('Not') ? Colors.red : Colors.black,
               fontWeight: FontWeight.w500,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProcessingStep(String emoji, String label, bool isActive) {
+    return Column(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: isActive
+                ? const Color.fromARGB(255, 3, 30, 53).withOpacity(0.1)
+                : Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(
+              color: isActive
+                  ? const Color.fromARGB(255, 3, 30, 53)
+                  : Colors.grey.shade300,
+              width: 2,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              emoji,
+              style: const TextStyle(fontSize: 20),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isActive
+                ? const Color.fromARGB(255, 3, 30, 53)
+                : Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],

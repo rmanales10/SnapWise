@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/snackbar_service.dart';
 
 class ExpenseController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -47,9 +48,10 @@ class ExpenseController extends GetxController {
         'timestamp': FieldValue.serverTimestamp(),
       });
       isSuccess.value = true;
-      Get.snackbar('Success', 'Expense added successfully');
+      SnackbarService.showExpenseSuccess('Expense added successfully');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add expense: ${e.toString()}');
+      SnackbarService.showExpenseError(
+          'Failed to add expense: ${e.toString()}');
     }
   }
 
@@ -88,7 +90,8 @@ class ExpenseController extends GetxController {
 
       categories.value = allCategories.toList();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch categories: ${e.toString()}');
+      SnackbarService.showExpenseError(
+          'Failed to fetch categories: ${e.toString()}');
     }
   }
 
@@ -107,10 +110,12 @@ class ExpenseController extends GetxController {
         });
         await fetchCategories(); // Refresh the categories list
       } else {
-        Get.snackbar('Info', 'Category already exists');
+        SnackbarService.showInfo(
+            title: 'Info', message: 'Category already exists');
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add new category: ${e.toString()}');
+      SnackbarService.showExpenseError(
+          'Failed to add new category: ${e.toString()}');
     }
   }
 
@@ -157,9 +162,10 @@ class ExpenseController extends GetxController {
       expenses.remove(expenseId);
 
       isSuccess.value = true;
-      Get.snackbar('Success', 'Expense deleted successfully');
+      SnackbarService.showExpenseSuccess('Expense deleted successfully');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to delete expense: ${e.toString()}');
+      SnackbarService.showExpenseError(
+          'Failed to delete expense: ${e.toString()}');
     }
   }
 }

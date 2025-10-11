@@ -4,6 +4,7 @@ import 'package:snapwise/app/profile/favorites/favorite_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../services/snackbar_service.dart';
 
 class FavoriteScreen extends StatefulWidget {
   const FavoriteScreen({Key? key}) : super(key: key);
@@ -775,10 +776,8 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                           onPressed: () async {
                             await controller.deleteFavorite(bill['id']);
                             await controller.setupFavoritesStream();
-                            Get.snackbar(
-                              'Success',
-                              'Favorite deleted successfully',
-                            );
+                            SnackbarService.showFavoritesSuccess(
+                                'Favorite deleted successfully');
                             Navigator.pop(context);
                           },
                           style: ElevatedButton.styleFrom(

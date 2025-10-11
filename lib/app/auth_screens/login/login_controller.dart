@@ -8,6 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'dart:math';
+import '../../../services/snackbar_service.dart';
 
 import 'package:snapwise/app/auth_screens/login/login.dart';
 
@@ -49,7 +50,7 @@ class LoginController extends GetxController {
   Future<LoginResult> login() async {
     if (!validateInputs()) {
       errorMessage = 'Please fill in all fields';
-      Get.snackbar('Error', 'Please fill in all fields');
+      SnackbarService.showValidationError('Please fill in all fields');
       _auth.signOut();
       return LoginResult.error;
     }
@@ -110,12 +111,13 @@ class LoginController extends GetxController {
         default:
           errorMessage = 'An error occurred. Please try again.';
       }
-      Get.snackbar('Error', errorMessage);
+      SnackbarService.showError(title: 'Login Error', message: errorMessage);
       _auth.signOut();
       return LoginResult.error;
     } catch (e) {
       _isLoading.value = false;
-      Get.snackbar('Error', 'An unexpected error occurred');
+      SnackbarService.showError(
+          title: 'Login Error', message: 'An unexpected error occurred');
       _auth.signOut();
       return LoginResult.error;
     }
@@ -172,14 +174,16 @@ class LoginController extends GetxController {
       developer.log('Send report: $sendReport');
 
       if (sendReport.toString().contains('OK')) {
-        Get.snackbar('Success', 'Verification email sent successfully');
+        SnackbarService.showSuccess(
+            title: 'Success', message: 'Verification email sent successfully');
       } else {
         throw Exception('Failed to send email: ${sendReport.toString()}');
       }
     } catch (e) {
       developer.log('Error sending verification email: $e');
-      Get.snackbar(
-          'Error', 'Failed to send verification email: ${e.toString()}');
+      SnackbarService.showError(
+          title: 'Email Error',
+          message: 'Failed to send verification email: ${e.toString()}');
     }
   }
 
@@ -240,7 +244,8 @@ class LoginController extends GetxController {
       final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
 
       if (googleUser.displayName == null) {
-        Get.snackbar('Cancelled', 'Google Sign-In was cancelled');
+        SnackbarService.showInfo(
+            title: 'Cancelled', message: 'Google Sign-In was cancelled');
         return false;
       }
 
@@ -258,15 +263,20 @@ class LoginController extends GetxController {
         updateUserData(userCredential.user);
         return true;
       } else {
-        Get.snackbar('Error', 'Failed to sign in with Google');
+        SnackbarService.showError(
+            title: 'Google Sign-In Error',
+            message: 'Failed to sign in with Google');
         return false;
       }
     } on FirebaseAuthException catch (e) {
-      Get.snackbar('Auth Error', e.message ?? 'Unknown Firebase error');
+      SnackbarService.showError(
+          title: 'Auth Error', message: e.message ?? 'Unknown Firebase error');
       developer.log('FirebaseAuthException: ${e.code} - ${e.message}');
       return false;
     } catch (e) {
-      Get.snackbar('Error', 'An unexpected error occurred');
+      SnackbarService.showError(
+          title: 'Google Sign-In Error',
+          message: 'An unexpected error occurred');
       developer.log('Google Sign-In Error: $e');
       return false;
     } finally {
@@ -309,11 +319,14 @@ class LoginController extends GetxController {
 
       // ignore: use_build_context_synchronously
       Get.offAll(() => const LoginPage());
-      Get.snackbar('Success', 'Logout Successfully');
+      SnackbarService.showSuccess(
+          title: 'Success', message: 'Logout Successfully');
       Get.reset();
     } catch (e) {
       developer.log(e.toString());
-      Get.snackbar('Error', 'Failed to logout. Please try again.');
+      SnackbarService.showError(
+          title: 'Logout Error',
+          message: 'Failed to logout. Please try again.');
     }
   }
 
@@ -346,7 +359,8 @@ class LoginController extends GetxController {
       developer.log('Extended user info stored successfully');
     } catch (e) {
       developer.log('Error storing extended user info: $e');
-      Get.snackbar('Error', 'Failed to store user information');
+      SnackbarService.showError(
+          title: 'Data Error', message: 'Failed to store user information');
     }
   }
 }

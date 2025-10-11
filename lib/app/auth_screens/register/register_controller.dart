@@ -6,6 +6,7 @@ import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'dart:math';
 import 'dart:developer' as log;
+import '../../../services/snackbar_service.dart';
 
 import 'package:snapwise/app/crypto/cryptograpy.dart';
 
@@ -81,11 +82,13 @@ class RegisterController extends GetxController {
       // Send email
       final sendReport = await send(message, smtpServer);
       log.log('Send report: $sendReport');
-      Get.snackbar('Success', 'Verification email sent successfully');
+      SnackbarService.showSuccess(
+          title: 'Success', message: 'Verification email sent successfully');
     } catch (e) {
       log.log('Error sending verification email: $e');
       errorMessage.value = 'Failed to send verification email: ${e.toString()}';
-      Get.snackbar('Error', errorMessage.value);
+      SnackbarService.showError(
+          title: 'Email Error', message: errorMessage.value);
     }
   }
 
@@ -159,7 +162,8 @@ class RegisterController extends GetxController {
     } catch (e) {
       log.log('Error storing extended user info: $e');
 
-      Get.snackbar('Error', 'Failed to store user information');
+      SnackbarService.showError(
+          title: 'Data Error', message: 'Failed to store user information');
     }
   }
 

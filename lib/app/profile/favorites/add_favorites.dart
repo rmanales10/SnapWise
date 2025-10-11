@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/profile/favorites/favorite_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
+import '../../../services/snackbar_service.dart';
 
 class AddFavoritesScreen extends StatefulWidget {
   const AddFavoritesScreen({super.key});
@@ -579,8 +580,8 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
         startDateController.text.isEmpty ||
         endDateController.text.isEmpty ||
         titleController.text.isEmpty) {
-      Get.snackbar(
-          'Error', 'Please fill all fields including frequency selection');
+      SnackbarService.showValidationError(
+          'Please fill all fields including frequency selection');
       return;
     }
     controller.addFavorite(
@@ -593,7 +594,7 @@ class _AddFavoritesScreenState extends State<AddFavoritesScreen> {
       receiveAlert: receiveAlert,
     );
     if (controller.isLoading.value == true) {
-      Get.snackbar('Success', 'Favorite added successfully');
+      SnackbarService.showFavoritesSuccess('Favorite added successfully');
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 14)),

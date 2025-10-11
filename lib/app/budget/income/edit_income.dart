@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/budget/budget_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
+import '../../../services/snackbar_service.dart';
 
 class IncomeEditPage extends StatefulWidget {
   const IncomeEditPage({super.key});
@@ -374,7 +375,7 @@ class _IncomeEditPageState extends State<IncomeEditPage> {
         context,
         MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
       );
-      Get.snackbar('Success', 'Income set successfully');
+      SnackbarService.showIncomeSuccess('Income set successfully');
     }
   }
 }
