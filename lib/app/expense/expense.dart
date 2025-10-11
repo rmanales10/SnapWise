@@ -7,6 +7,7 @@ import 'package:snapwise/app/expense/expense_controller.dart';
 import 'package:snapwise/app/expense/gemini_ai.dart';
 import 'package:snapwise/app/home/home_screens/home_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
+import '../../services/snackbar_service.dart';
 
 class ExpenseManualPage extends StatefulWidget {
   const ExpenseManualPage({super.key});
@@ -37,7 +38,6 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-
       body: SizedBox(
         width: double.infinity,
         height: double.infinity,
@@ -211,8 +211,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
   Future<void> _showImageSourceBottomSheet(BuildContext context) async {
     final ImagePicker picker = ImagePicker();
 
-    final bool isTablet =
-        MediaQueryData.fromView(
+    final bool isTablet = MediaQueryData.fromView(
           // ignore: deprecated_member_use
           WidgetsBinding.instance.window,
         ).size.shortestSide >
@@ -343,8 +342,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       });
 
       // Process with AI
-      Map<String, String>? expenseDetails = await aiController
-          .extractExpenseDetails(base64String);
+      Map<String, String>? expenseDetails =
+          await aiController.extractExpenseDetails(base64String);
 
       await controller.fetchCategories();
       await controller.addCategory(expenseDetails['category'] ?? '');
@@ -566,8 +565,40 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     );
   }
 
+  Widget _buildConfirmationRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Text(':', style: TextStyle(fontSize: 14, color: Colors.grey)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              color: value.contains('Not') ? Colors.red : Colors.black,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   void _showErrorSnackbar(String message) {
-    Get.snackbar('Error', message, colorText: Colors.white);
+    SnackbarService.showExpenseError(message);
   }
 
   Widget _buildCategorySelector() {
@@ -578,53 +609,68 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Obx(
-        () => DropdownButtonFormField<String>(
-          focusColor: Colors.white,
-          dropdownColor: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          value:
-              controller.categories.contains(categoryController.text)
-                  ? categoryController.text
-                  : (controller.categories.isNotEmpty
-                      ? controller.categories.first
-                      : null),
-          icon: const Icon(Icons.keyboard_arrow_down),
-          decoration: const InputDecoration(border: InputBorder.none),
-          items: [
-            ...controller.categories.map(
-              (value) => DropdownMenuItem(
-                value: value,
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontWeight: FontWeight.normal,
-                    color: Colors.grey.shade700,
+        () {
+          // Ensure we have a valid selected value
+          String? selectedValue;
+          if (categoryController.text.isNotEmpty &&
+              controller.categories.contains(categoryController.text)) {
+            selectedValue = categoryController.text;
+          } else if (controller.categories.isNotEmpty) {
+            selectedValue = controller.categories.first;
+            // Auto-set the first category if none is selected
+            if (categoryController.text.isEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                setState(() {
+                  categoryController.text = selectedValue!;
+                });
+              });
+            }
+          }
+
+          return DropdownButtonFormField<String>(
+            focusColor: Colors.white,
+            dropdownColor: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            value: selectedValue,
+            icon: const Icon(Icons.keyboard_arrow_down),
+            decoration: const InputDecoration(border: InputBorder.none),
+            items: [
+              ...controller.categories.map(
+                (value) => DropdownMenuItem(
+                  value: value,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontWeight: FontWeight.normal,
+                      color: Colors.grey.shade700,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const DropdownMenuItem(
-              value: '__add_new__',
-              child: Text("Add New"),
-            ),
-          ],
-          onChanged: (value) async {
-            if (value == '__add_new__') {
-              String? newCategory = await _showAddCategoryBottomSheet(context);
+              const DropdownMenuItem(
+                value: '__add_new__',
+                child: Text("Add New"),
+              ),
+            ],
+            onChanged: (value) async {
+              if (value == '__add_new__') {
+                String? newCategory =
+                    await _showAddCategoryBottomSheet(context);
 
-              if (newCategory != null && newCategory.isNotEmpty) {
-                await controller.addCategory(newCategory);
+                if (newCategory != null && newCategory.isNotEmpty) {
+                  await controller.addCategory(newCategory);
+                  setState(() {
+                    categoryController.text = newCategory;
+                  });
+                }
+              } else if (value != null) {
                 setState(() {
-                  categoryController.text = newCategory;
+                  categoryController.text = value;
                 });
               }
-            } else if (value != null) {
-              setState(() {
-                categoryController.text = value;
-              });
-            }
-          },
-        ),
+            },
+          );
+        },
       ),
     );
   }
@@ -789,10 +835,54 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
               ),
               const SizedBox(height: 10),
               Text(
-                'Are you sure you want to save expense?',
+                'Are you sure you want to save this expense?',
                 style: TextStyle(
                   color: Colors.black54,
                   fontSize: isTablet ? 18 : 16,
+                ),
+              ),
+              const SizedBox(height: 15),
+              // Show expense details
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Expense Details:',
+                      style: TextStyle(
+                        fontSize: isTablet ? 16 : 14,
+                        fontWeight: FontWeight.bold,
+                        color: const Color.fromARGB(255, 3, 30, 53),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildConfirmationRow(
+                        'Category',
+                        categoryController.text.isEmpty
+                            ? 'Not selected'
+                            : categoryController.text),
+                    const SizedBox(height: 4),
+                    _buildConfirmationRow(
+                        'Amount',
+                        amountController.text.isEmpty
+                            ? 'Not entered'
+                            : '₱${amountController.text}'),
+                    const SizedBox(height: 4),
+                    _buildConfirmationRow(
+                        'Date',
+                        dateController.text.isEmpty
+                            ? 'Not selected'
+                            : dateController.text),
+                    const SizedBox(height: 4),
+                    _buildConfirmationRow('Attachment',
+                        base64Image == null ? 'None' : 'Image attached'),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
@@ -856,7 +946,6 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
       ],
-
       decoration: InputDecoration(
         hintText: "Amount",
         contentPadding: const EdgeInsets.symmetric(
@@ -921,22 +1010,42 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
   }
 
   Future<void> _addExpense() async {
-    await controller.addExpense(
-      categoryController.text,
-      double.parse(amountController.text),
-      base64Image ?? 'No Image',
-      dateController.text,
-    );
-    if (controller.isSuccess.value == true) {
-      homeController.fetchTransactions();
-      homeController.fetchTransactionsHistory();
-      Navigator.pushReplacement(
-        // ignore: use_build_context_synchronously
-        context,
-        MaterialPageRoute(builder: (context) => BottomNavBar()),
+    // Validate inputs before saving
+    if (categoryController.text.isEmpty) {
+      _showErrorSnackbar('Please select a category');
+      return;
+    }
+
+    if (amountController.text.isEmpty) {
+      _showErrorSnackbar('Please enter an amount');
+      return;
+    }
+
+    if (dateController.text.isEmpty) {
+      _showErrorSnackbar('Please select a date');
+      return;
+    }
+
+    try {
+      await controller.addExpense(
+        categoryController.text,
+        double.parse(amountController.text),
+        base64Image ?? 'No Image',
+        dateController.text,
       );
-      categoryController.clear();
-      amountController.clear();
+      if (controller.isSuccess.value == true) {
+        homeController.fetchTransactions();
+        homeController.fetchTransactionsHistory();
+        Navigator.pushReplacement(
+          // ignore: use_build_context_synchronously
+          context,
+          MaterialPageRoute(builder: (context) => BottomNavBar()),
+        );
+        categoryController.clear();
+        amountController.clear();
+      }
+    } catch (e) {
+      _showErrorSnackbar('Error saving expense: ${e.toString()}');
     }
   }
 }
