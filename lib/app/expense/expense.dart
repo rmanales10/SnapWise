@@ -241,53 +241,21 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // AI Processing Animation
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: const Color.fromARGB(255, 3, 30, 53)
-                              .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(40),
+                      // Simple loading indicator
+                      const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color.fromARGB(255, 3, 30, 53),
                         ),
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color.fromARGB(255, 3, 30, 53),
-                            ),
-                            strokeWidth: 4,
-                          ),
-                        ),
+                        strokeWidth: 4,
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'AI Processing Image',
+                        'Processing Image',
                         style: TextStyle(
                           fontSize: isTablet ? 20 : 18,
                           fontWeight: FontWeight.bold,
                           color: const Color.fromARGB(255, 3, 30, 53),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Extracting expense details from receipt...',
-                        style: TextStyle(
-                          fontSize: isTablet ? 16 : 14,
-                          color: Colors.grey.shade600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 20),
-                      // Processing steps indicator
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildProcessingStep('📷', 'Reading Image', true),
-                          const SizedBox(width: 20),
-                          _buildProcessingStep('🤖', 'AI Analysis', true),
-                          const SizedBox(width: 20),
-                          _buildProcessingStep('📝', 'Extracting Data', true),
-                        ],
                       ),
                     ],
                   ),
@@ -691,46 +659,6 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
               color: value.contains('Not') ? Colors.red : Colors.black,
               fontWeight: FontWeight.w500,
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProcessingStep(String emoji, String label, bool isActive) {
-    return Column(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: isActive
-                ? const Color.fromARGB(255, 3, 30, 53).withOpacity(0.1)
-                : Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(
-              color: isActive
-                  ? const Color.fromARGB(255, 3, 30, 53)
-                  : Colors.grey.shade300,
-              width: 2,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              emoji,
-              style: const TextStyle(fontSize: 20),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isActive
-                ? const Color.fromARGB(255, 3, 30, 53)
-                : Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
           ),
         ),
       ],
