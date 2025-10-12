@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/budget/budget_controller.dart';
+import 'package:snapwise/app/expense/expense_controller.dart';
+import 'package:snapwise/app/profile/favorites/favorite_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
+import '../../services/snackbar_service.dart';
 
 // ignore: must_be_immutable
 class EditBudgetCategoryPage extends StatefulWidget {
@@ -29,6 +32,8 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
   bool isOverall = true;
   bool isdelete = true;
   final _budgetController = Get.put(BudgetController());
+  final _expensecontroller = Get.put(ExpenseController());
+  final _favoriteController = Get.put(FavoriteController());
   final TextEditingController amountController = TextEditingController();
   final TextEditingController categoryController = TextEditingController(
     text: "Shopping",
@@ -86,7 +91,6 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
                           child: Icon(Icons.arrow_back, color: Colors.white),
                         ),
                       ),
-
                       Align(
                         alignment: Alignment.center,
                         child: Text(
@@ -109,7 +113,6 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
                       fontSize: 16,
                     ),
                   ),
-
                   const SizedBox(height: 10),
                 ],
               ),
@@ -284,15 +287,101 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
     );
   }
 
-  List<String> categories = [
-    'Shopping',
-    'Food',
-    'Transport',
-    'Rent',
-    'Entertainment',
-  ];
-
   Widget _buildCategorySelector() {
+    // Get all available categories (expense categories + favorites categories)
+    List<String> allCategories = List.from(_expensecontroller.categories);
+
+    // Add favorites categories that are not already in expense categories
+    Set<String> existingCategories =
+        _expensecontroller.categories.map((cat) => cat.toLowerCase()).toSet();
+
+    for (var favorite in _favoriteController.favorites) {
+      String title = favorite['title'] ?? '';
+      if (title.isNotEmpty &&
+          !existingCategories.contains(title.toLowerCase())) {
+        allCategories.add(title);
+      }
+    }
+
+    // Create dropdown items with duplicate prevention
+    List<DropdownMenuItem<String>> dropdownItems = [];
+    Set<String> usedValues = <String>{};
+
+    // Add regular expense categories
+    for (String category in _expensecontroller.categories) {
+      if (!usedValues.contains(category)) {
+        dropdownItems.add(DropdownMenuItem(
+          value: category,
+          child: Row(
+            children: [
+              Icon(
+                Icons.category,
+                size: 16,
+                color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                category,
+                style: TextStyle(
+                  fontWeight: FontWeight.normal,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ));
+        usedValues.add(category);
+      }
+    }
+
+    // Add favorites categories (only those not already in expense categories)
+    for (String category in allCategories) {
+      if (!_expensecontroller.categories.contains(category) &&
+          !usedValues.contains(category)) {
+        dropdownItems.add(DropdownMenuItem(
+          value: category,
+          child: Row(
+            children: [
+              Icon(
+                Icons.favorite,
+                size: 16,
+                color: Colors.orange,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                category,
+                style: TextStyle(
+                  fontWeight: FontWeight.normal,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Favorites',
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ));
+        usedValues.add(category);
+      }
+    }
+
+    // Add "Add New" option
+    dropdownItems.add(
+        const DropdownMenuItem(value: '__add_new__', child: Text("Add New")));
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -303,32 +392,20 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
         focusColor: Colors.white,
         dropdownColor: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        value:
-            categoryController.text.isNotEmpty ? categoryController.text : null,
+        value: categoryController.text.isNotEmpty &&
+                usedValues.contains(categoryController.text)
+            ? categoryController.text
+            : null,
         icon: const Icon(Icons.keyboard_arrow_down),
         decoration: const InputDecoration(border: InputBorder.none),
-        items: [
-          ...categories.map(
-            (value) => DropdownMenuItem(
-              value: value,
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontWeight: FontWeight.normal,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-            ),
-          ),
-          const DropdownMenuItem(value: '__add_new__', child: Text("Add New")),
-        ],
+        items: dropdownItems,
         onChanged: (value) async {
           if (value == '__add_new__') {
             String? newCategory = await _showAddCategoryBottomSheet(context);
 
             if (newCategory != null && newCategory.isNotEmpty) {
               setState(() {
-                categories.add(newCategory);
+                _expensecontroller.categories.add(newCategory);
                 categoryController.text = newCategory;
               });
             }
@@ -621,7 +698,7 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
         context,
         MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
       );
-      Get.snackbar('Success', 'Budget added successfully');
+      SnackbarService.showBudgetSuccess('Budget updated successfully');
     }
   }
 }
@@ -649,16 +726,14 @@ class _PercentageThumbShape extends SliderComponentShape {
 
     // Define the thumb circle
     final rect = Rect.fromCenter(center: center, width: 40, height: 20);
-    final fillPaint =
-        Paint()
-          ..color = const Color(0xFF7F3DFF)
-          ..style = PaintingStyle.fill;
+    final fillPaint = Paint()
+      ..color = const Color(0xFF7F3DFF)
+      ..style = PaintingStyle.fill;
 
-    final borderPaint =
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4;
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
 
     // Draw thumb
     canvas.drawOval(rect, fillPaint);

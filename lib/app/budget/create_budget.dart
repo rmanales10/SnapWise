@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/budget/budget_controller.dart';
 import 'package:snapwise/app/expense/expense_controller.dart';
+import 'package:snapwise/app/profile/favorites/favorite_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
 import '../../services/snackbar_service.dart';
+import 'dart:developer' as dev;
 
 class CreateBudget extends StatefulWidget {
   const CreateBudget({super.key});
@@ -25,11 +27,34 @@ class _CreateBudgetState extends State<CreateBudget> {
   final TextEditingController categoryController = TextEditingController();
   final _budgetController = Get.put(BudgetController());
   final _expensecontroller = Get.put(ExpenseController());
+  final _favoriteController = Get.put(FavoriteController());
 
   @override
   void initState() {
     super.initState();
     fetchOverallBudget();
+    _initializeControllers();
+  }
+
+  Future<void> _initializeControllers() async {
+    // Ensure FavoriteController is initialized and data is fetched
+    try {
+      Get.find<FavoriteController>();
+    } catch (e) {
+      Get.put(FavoriteController());
+    }
+
+    // Ensure ExpenseController is initialized and data is fetched
+    try {
+      Get.find<ExpenseController>();
+    } catch (e) {
+      Get.put(ExpenseController());
+    }
+
+    // Setup favorites stream (data will be loaded automatically)
+    await _favoriteController.setupFavoritesStream();
+    // Fetch expense categories
+    await _expensecontroller.fetchCategories();
   }
 
   Future<void> fetchOverallBudget() async {
@@ -471,55 +496,151 @@ class _CreateBudgetState extends State<CreateBudget> {
   }
 
   Widget _buildCategorySelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: DropdownButtonFormField<String>(
-        focusColor: Colors.white,
-        dropdownColor: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        value:
-            categoryController.text.isNotEmpty ? categoryController.text : null,
-        icon: const Icon(Icons.keyboard_arrow_down),
-        decoration: const InputDecoration(border: InputBorder.none),
-        items: [
-          ..._expensecontroller.categories.map(
-            (value) => DropdownMenuItem(
-              value: value,
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontWeight: FontWeight.normal,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-            ),
-          ),
-          const DropdownMenuItem(value: '__add_new__', child: Text("Add New")),
-        ],
-        onChanged: (value) async {
-          if (value == '__add_new__') {
-            String? newCategory = await _showAddCategoryBottomSheet(context);
+    return Obx(() {
+      // Get all available categories (expense categories + favorites categories)
+      List<String> allCategories = List.from(_expensecontroller.categories);
 
-            if (newCategory != null && newCategory.isNotEmpty) {
+      // Add favorites categories that are not already in expense categories
+      Set<String> existingCategories =
+          _expensecontroller.categories.map((cat) => cat.toLowerCase()).toSet();
+
+      dev.log(
+          'Debug: Favorites count: ${_favoriteController.favorites.length}');
+      for (var favorite in _favoriteController.favorites) {
+        String title = favorite['title'] ?? '';
+        dev.log('Debug: Favorite title: $title');
+        if (title.isNotEmpty &&
+            !existingCategories.contains(title.toLowerCase())) {
+          allCategories.add(title);
+          dev.log('Debug: Added favorite to categories: $title');
+        }
+      }
+      dev.log('Debug: All categories: $allCategories');
+
+      // Create dropdown items with duplicate prevention
+      List<DropdownMenuItem<String>> dropdownItems = [];
+      Set<String> usedValues = <String>{};
+
+      // Add regular expense categories
+      for (String category in _expensecontroller.categories) {
+        if (!usedValues.contains(category)) {
+          dropdownItems.add(DropdownMenuItem(
+            value: category,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.category,
+                  size: 16,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  category,
+                  style: TextStyle(
+                    fontWeight: FontWeight.normal,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ));
+          usedValues.add(category);
+          dev.log('Debug: Added regular category: $category');
+        }
+      }
+
+      // Add favorites categories (only those not already in expense categories)
+      for (String category in allCategories) {
+        if (!_expensecontroller.categories.contains(category) &&
+            !usedValues.contains(category)) {
+          dropdownItems.add(DropdownMenuItem(
+            value: category,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.favorite,
+                  size: 16,
+                  color: Colors.orange,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  category,
+                  style: TextStyle(
+                    fontWeight: FontWeight.normal,
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Favorites',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ));
+          usedValues.add(category);
+          dev.log('Debug: Added favorite category: $category');
+        }
+      }
+
+      // Add "Add New" option
+      dropdownItems.add(
+          const DropdownMenuItem(value: '__add_new__', child: Text("Add New")));
+
+      dev.log('Debug: Total dropdown items: ${dropdownItems.length}');
+      dev.log('Debug: Used values: $usedValues');
+      dev.log('Debug: Current selected value: ${categoryController.text}');
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: DropdownButtonFormField<String>(
+          focusColor: Colors.white,
+          dropdownColor: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          value: categoryController.text.isNotEmpty &&
+                  usedValues.contains(categoryController.text)
+              ? categoryController.text
+              : null,
+          icon: const Icon(Icons.keyboard_arrow_down),
+          decoration: const InputDecoration(border: InputBorder.none),
+          items: dropdownItems,
+          onChanged: (value) async {
+            if (value == '__add_new__') {
+              String? newCategory = await _showAddCategoryBottomSheet(context);
+
+              if (newCategory != null && newCategory.isNotEmpty) {
+                setState(() {
+                  _expensecontroller.categories.add(newCategory);
+                  categoryController.text = newCategory;
+                });
+                // Force rebuild of dropdown
+                setState(() {});
+              }
+            } else if (value != null) {
               setState(() {
-                _expensecontroller.categories.add(newCategory);
-                categoryController.text = newCategory;
+                categoryController.text = value;
               });
-              // Force rebuild of dropdown
-              setState(() {});
             }
-          } else if (value != null) {
-            setState(() {
-              categoryController.text = value;
-            });
-          }
-        },
-      ),
-    );
+          },
+        ),
+      );
+    });
   }
 
   Future<String?> _showAddCategoryBottomSheet(BuildContext context) async {

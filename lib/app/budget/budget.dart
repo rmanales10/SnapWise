@@ -623,6 +623,11 @@ class _BudgetPageState extends State<BudgetPage> {
                                           alertPercentage: alertPercentage,
                                           receiveAlert:
                                               category['receiveAlert'] ?? false,
+                                          isFromFavorites:
+                                              category['isFromFavorites'] ??
+                                                  false,
+                                          favoriteData:
+                                              category['favoriteData'],
                                         );
                                       }
                                     },
@@ -760,6 +765,8 @@ class _BudgetPageState extends State<BudgetPage> {
     bool exceeded = false,
     required double alertPercentage,
     required bool receiveAlert,
+    bool isFromFavorites = false,
+    Map<String, dynamic>? favoriteData,
   }) {
     final percent = (amountSpent / totalBudget).clamp(0.0, 1.0);
     final remaining = totalBudget - amountSpent;
@@ -807,6 +814,24 @@ class _BudgetPageState extends State<BudgetPage> {
                 ),
               ),
               const Spacer(),
+              if (isFromFavorites)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange, width: 1),
+                  ),
+                  child: Text(
+                    'Favorites',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               if (exceeded)
                 const Icon(Icons.error, color: Colors.red, size: 20),
             ],
@@ -844,30 +869,35 @@ class _BudgetPageState extends State<BudgetPage> {
               ),
               const Spacer(),
               GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => EditBudgetCategoryPage(
-                      budgetId: id,
-                      alertPercentage: alertPercentage,
-                      amount: totalBudget,
-                      category: category,
-                      receiveAlert: receiveAlert,
+                onTap: () {
+                  // For both regular and favorites budget categories, navigate to edit page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EditBudgetCategoryPage(
+                        budgetId: id,
+                        alertPercentage: alertPercentage,
+                        amount: totalBudget,
+                        category: category,
+                        receiveAlert: receiveAlert,
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF7F3DFF),
+                    color: isFromFavorites
+                        ? Colors.orange
+                        : const Color(0xFF7F3DFF),
                     borderRadius: BorderRadius.circular(30),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Edit',
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 10,

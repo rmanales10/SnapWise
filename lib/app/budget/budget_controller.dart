@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'budget_notification.dart';
 import '../../services/snackbar_service.dart';
+import '../profile/favorites/favorite_controller.dart';
 import 'dart:developer' as dev;
 
 class BudgetController extends GetxController {
@@ -281,8 +282,12 @@ class BudgetController extends GetxController {
             "color": _getCategoryColor(data['category']),
             "title": data['category'],
             "amount": "${data['amount'].toStringAsFixed(2)}",
+            'isFromFavorites': false, // Mark as regular budget category
           };
         }).toList();
+
+        // Add favorites categories to budget categories
+        await _addFavoritesCategoriesToBudget(fetchBudgetCategories);
 
         budgetCategories.assignAll(fetchBudgetCategories);
       }
@@ -291,9 +296,128 @@ class BudgetController extends GetxController {
     }
   }
 
+  // Add favorites categories to budget categories list
+  Future<void> _addFavoritesCategoriesToBudget(
+      List<Map<String, dynamic>> budgetCategories) async {
+    try {
+      // Initialize FavoriteController if not already initialized
+      FavoriteController favoriteController;
+      try {
+        favoriteController = Get.find<FavoriteController>();
+      } catch (e) {
+        favoriteController = Get.put(FavoriteController());
+        // Setup the stream to load favorites data
+        await favoriteController.setupFavoritesStream();
+      }
+
+      // Get unique favorites titles that are not already in budget categories
+      Set<String> existingCategories = budgetCategories
+          .map((cat) => cat['title'].toString().toLowerCase())
+          .toSet();
+
+      for (var favorite in favoriteController.favorites) {
+        String title = favorite['title'] ?? '';
+        if (title.isNotEmpty &&
+            !existingCategories.contains(title.toLowerCase())) {
+          // Only add favorites categories that have been set as budget categories
+          bool hasBudgetCategory =
+              await _checkIfFavoriteHasBudgetCategory(title);
+
+          if (hasBudgetCategory) {
+            // Get the budget data for this favorite category
+            Map<String, dynamic> budgetData =
+                await _getFavoriteBudgetData(title);
+
+            if (budgetData.isNotEmpty) {
+              // Add favorites category to budget categories with actual budget data
+              budgetCategories.add({
+                'budgetId': budgetData['budgetId'],
+                'id': budgetData['id'],
+                'alertPercentage': budgetData['alertPercentage'],
+                'receiveAlert': budgetData['receiveAlert'],
+                "icon": _getCategoryIcon(title),
+                "color": _getCategoryColor(title),
+                "title": title,
+                "amount": "${budgetData['amount'].toStringAsFixed(2)}",
+                'isFromFavorites': true, // Mark as favorites category
+                'favoriteData': favorite, // Store original favorite data
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      dev.log('Error adding favorites categories to budget: $e');
+    }
+  }
+
+  // Check if a favorite has been set as a budget category
+  Future<bool> _checkIfFavoriteHasBudgetCategory(String favoriteTitle) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return false;
+
+      final monthRange = _getCurrentMonthRange();
+      final querySnapshot = await _firestore
+          .collection('budget')
+          .where('userId', isEqualTo: user.uid)
+          .where('category', isEqualTo: favoriteTitle)
+          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
+          .where('timestamp', isLessThan: monthRange['end'])
+          .get();
+
+      return querySnapshot.docs.isNotEmpty;
+    } catch (e) {
+      dev.log('Error checking if favorite has budget category: $e');
+      return false;
+    }
+  }
+
+  // Get budget data for a favorite category
+  Future<Map<String, dynamic>> _getFavoriteBudgetData(
+      String favoriteTitle) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return {};
+
+      final monthRange = _getCurrentMonthRange();
+      final querySnapshot = await _firestore
+          .collection('budget')
+          .where('userId', isEqualTo: user.uid)
+          .where('category', isEqualTo: favoriteTitle)
+          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
+          .where('timestamp', isLessThan: monthRange['end'])
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final doc = querySnapshot.docs.first;
+        final data = doc.data();
+        return {
+          'budgetId': data['budgetId'],
+          'id': doc.id,
+          'alertPercentage': data['alertPercentage'],
+          'receiveAlert': data['receiveAlert'],
+          'amount': data['amount'],
+        };
+      }
+
+      return {};
+    } catch (e) {
+      dev.log('Error getting favorite budget data: $e');
+      return {};
+    }
+  }
+
   // Method to refresh all budget data
   Future<void> refreshBudgetData() async {
     try {
+      // Initialize FavoriteController if not already initialized
+      try {
+        Get.find<FavoriteController>();
+      } catch (e) {
+        Get.put(FavoriteController());
+      }
+
       await Future.wait([
         fetchBudgetCategory(),
         fetchExpensesByCategory(),
@@ -480,6 +604,9 @@ class BudgetController extends GetxController {
           }
         }
 
+        // Add favorites expenses for this category
+        totalAmount += await _getFavoritesExpensesForCategory(category);
+
         categoryTotalAmount.value = totalAmount;
         return totalAmount;
       }
@@ -487,6 +614,37 @@ class BudgetController extends GetxController {
     } catch (e) {
       dev.log('Error fetching total amount by category: $e');
       categoryTotalAmount.value = 0.0;
+      return 0.0;
+    }
+  }
+
+  // Get favorites expenses for a specific category
+  Future<double> _getFavoritesExpensesForCategory(String category) async {
+    try {
+      // Initialize FavoriteController if not already initialized
+      FavoriteController favoriteController;
+      try {
+        favoriteController = Get.find<FavoriteController>();
+      } catch (e) {
+        favoriteController = Get.put(FavoriteController());
+        // Setup the stream to load favorites data
+        await favoriteController.setupFavoritesStream();
+      }
+
+      double totalFavoritesExpenses = 0.0;
+
+      for (var favorite in favoriteController.favorites) {
+        String title = favorite['title'] ?? '';
+        if (title.toLowerCase() == category.toLowerCase()) {
+          // Add the paid amount from favorites
+          double paidAmount = (favorite['paidAmount'] ?? 0.0).toDouble();
+          totalFavoritesExpenses += paidAmount;
+        }
+      }
+
+      return totalFavoritesExpenses;
+    } catch (e) {
+      dev.log('Error getting favorites expenses for category: $e');
       return 0.0;
     }
   }
@@ -567,6 +725,9 @@ class BudgetController extends GetxController {
         }
       }
 
+      // Add favorites expenses to category totals
+      await _addFavoritesExpensesToCategoryTotals(categoryTotals);
+
       // Sort the map by total amount in descending order
       var sortedCategories = categoryTotals.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
@@ -577,6 +738,37 @@ class BudgetController extends GetxController {
     } catch (e) {
       // dev.log('Error fetching expenses by category: $e');
       expensesByCategory.clear();
+    }
+  }
+
+  // Add favorites expenses to category totals for income distribution
+  Future<void> _addFavoritesExpensesToCategoryTotals(
+      Map<String, double> categoryTotals) async {
+    try {
+      // Initialize FavoriteController if not already initialized
+      FavoriteController favoriteController;
+      try {
+        favoriteController = Get.find<FavoriteController>();
+      } catch (e) {
+        favoriteController = Get.put(FavoriteController());
+        // Setup the stream to load favorites data
+        await favoriteController.setupFavoritesStream();
+      }
+
+      for (var favorite in favoriteController.favorites) {
+        String title = favorite['title'] ?? '';
+        if (title.isNotEmpty) {
+          double paidAmount = (favorite['paidAmount'] ?? 0.0).toDouble();
+
+          if (categoryTotals.containsKey(title)) {
+            categoryTotals[title] = categoryTotals[title]! + paidAmount;
+          } else {
+            categoryTotals[title] = paidAmount;
+          }
+        }
+      }
+    } catch (e) {
+      dev.log('Error adding favorites expenses to category totals: $e');
     }
   }
 }
