@@ -1,9 +1,9 @@
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
+import '../../../services/notification_service.dart';
 
 class FavoritesNotification extends GetxController {
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  final NotificationService _notificationService =
+      Get.find<NotificationService>();
 
   // Payment Due Today Notification
   Future<void> sendPaymentDueTodayNotification({
@@ -11,23 +11,10 @@ class FavoritesNotification extends GetxController {
     required double amountToPay,
     required String frequency,
   }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'favorites_due_today_channel',
-      'Payment Due Today',
-      importance: Importance.max,
-      priority: Priority.high,
-      icon: '@mipmap/launcher_icon',
-    );
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-    );
-
-    await _flutterLocalNotificationsPlugin.show(
-      10, // Unique ID for payment due today
-      '💰 Payment Due Today!',
-      '$title payment of ₱${amountToPay.toStringAsFixed(2)} is due today ($frequency)',
-      platformChannelSpecifics,
+    await _notificationService.showPaymentDueToday(
+      title: title,
+      amountToPay: amountToPay,
+      frequency: frequency,
     );
   }
 
@@ -38,25 +25,11 @@ class FavoritesNotification extends GetxController {
     required String frequency,
     required int daysUntilDue,
   }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'favorites_due_soon_channel',
-      'Payment Due Soon',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/launcher_icon',
-    );
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-    );
-
-    String dayText = daysUntilDue == 1 ? 'tomorrow' : 'in $daysUntilDue days';
-
-    await _flutterLocalNotificationsPlugin.show(
-      11, // Unique ID for payment due soon
-      '⏰ Payment Due Soon!',
-      '$title payment of ₱${amountToPay.toStringAsFixed(2)} is due $dayText ($frequency)',
-      platformChannelSpecifics,
+    await _notificationService.showPaymentDueSoon(
+      title: title,
+      amountToPay: amountToPay,
+      frequency: frequency,
+      daysUntilDue: daysUntilDue,
     );
   }
 
@@ -67,25 +40,11 @@ class FavoritesNotification extends GetxController {
     required String frequency,
     required int daysOverdue,
   }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'favorites_missed_channel',
-      'Missed Payment',
-      importance: Importance.max,
-      priority: Priority.high,
-      icon: '@mipmap/launcher_icon',
-    );
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-    );
-
-    String dayText = daysOverdue == 1 ? '1 day ago' : '$daysOverdue days ago';
-
-    await _flutterLocalNotificationsPlugin.show(
-      12, // Unique ID for missed payment
-      '🚨 Payment Overdue!',
-      '$title payment of ₱${amountToPay.toStringAsFixed(2)} was due $dayText ($frequency)',
-      platformChannelSpecifics,
+    await _notificationService.showPaymentOverdue(
+      title: title,
+      amountToPay: amountToPay,
+      frequency: frequency,
+      daysOverdue: daysOverdue,
     );
   }
 
@@ -94,23 +53,9 @@ class FavoritesNotification extends GetxController {
     required String title,
     required double totalAmount,
   }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'favorites_completed_channel',
-      'Payment Completed',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/launcher_icon',
-    );
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-    );
-
-    await _flutterLocalNotificationsPlugin.show(
-      13, // Unique ID for payment completed
-      '✅ Payment Completed!',
-      '$title payment of ₱${totalAmount.toStringAsFixed(2)} has been completed successfully!',
-      platformChannelSpecifics,
+    await _notificationService.showPaymentCompleted(
+      title: title,
+      totalAmount: totalAmount,
     );
   }
 

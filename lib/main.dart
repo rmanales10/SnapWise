@@ -26,9 +26,7 @@ import 'package:snapwise/app/auth_screens/register/success.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
 import 'package:snapwise/services/firebase_options.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
-// import 'package:snapwise/services/notification_service.dart';
+import 'package:snapwise/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,11 +34,8 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   if (!kIsWeb) {
-    await FlutterLocalNotificationsPlugin().initialize(
-      const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/launcher_icon'),
-      ),
-    );
+    // Initialize notification service
+    Get.put(NotificationService());
   }
 
   runApp(kIsWeb ? WebScreen() : UserScreen());
