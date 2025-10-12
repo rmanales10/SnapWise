@@ -24,7 +24,10 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
   final homeController = Get.put(HomeController());
   final TextEditingController amountController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
-  final TextEditingController dateController = TextEditingController();
+  final TextEditingController dateController =
+      TextEditingController(); // Transaction date
+  final TextEditingController receiptDateController =
+      TextEditingController(); // Receipt date from OCR
 
   // Loading state for AI processing
   bool isProcessingImage = false;
@@ -103,6 +106,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
                         _buildAmountInput(),
                         const SizedBox(height: 20),
                         _buildDateInput(),
+                        const SizedBox(height: 20),
+                        _buildReceiptDateInput(),
                         const SizedBox(height: 20),
                         Row(
                           children: [
@@ -415,8 +420,11 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       setState(() {
         categoryController.text = expenseDetails['category'] ?? '';
         amountController.text = expenseDetails['amount'] ?? '';
-        dateController.text =
+        receiptDateController.text =
             expenseDetails['date'] ?? DateTime.now().toString().split(' ')[0];
+        dateController.text = DateTime.now()
+            .toString()
+            .split(' ')[0]; // Transaction date is current date
         isProcessingImage = false; // Stop loading
       });
 
@@ -554,7 +562,11 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
                               const SizedBox(height: 8),
                               _buildDetailRow('Amount', amountController.text),
                               const SizedBox(height: 8),
-                              _buildDetailRow('Date', dateController.text),
+                              _buildDetailRow(
+                                  'Transaction Date', dateController.text),
+                              const SizedBox(height: 8),
+                              _buildDetailRow(
+                                  'Receipt Date', receiptDateController.text),
                             ],
                           ),
                         ),
@@ -943,10 +955,16 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
                             : '₱${amountController.text}'),
                     const SizedBox(height: 4),
                     _buildConfirmationRow(
-                        'Date',
+                        'Transaction Date',
                         dateController.text.isEmpty
                             ? 'Not selected'
                             : dateController.text),
+                    const SizedBox(height: 4),
+                    _buildConfirmationRow(
+                        'Receipt Date',
+                        receiptDateController.text.isEmpty
+                            ? 'Not selected'
+                            : receiptDateController.text),
                     const SizedBox(height: 4),
                     _buildConfirmationRow('Attachment',
                         base64Image == null ? 'None' : 'Image attached'),
@@ -1077,6 +1095,47 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     );
   }
 
+  Widget _buildReceiptDateInput() {
+    return TextField(
+      cursorColor: const Color.fromARGB(255, 3, 30, 53),
+      controller: receiptDateController,
+      readOnly: true,
+      onTap: () async {
+        final DateTime? picked = await showDatePicker(
+          context: context,
+          initialDate: DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime.now(),
+        );
+        if (picked != null) {
+          setState(() {
+            receiptDateController.text = picked.toString().split(' ')[0];
+          });
+        }
+      },
+      decoration: InputDecoration(
+        hintText: "Receipt Date (Purchase Date)",
+        suffixIcon: Icon(Icons.receipt_long, color: Colors.grey.shade600),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+      ),
+    );
+  }
+
   Future<void> _addExpense() async {
     // Validate inputs before saving
     if (categoryController.text.isEmpty) {
@@ -1089,8 +1148,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       return;
     }
 
-    if (dateController.text.isEmpty) {
-      _showErrorSnackbar('Please select a date');
+    if (receiptDateController.text.isEmpty) {
+      _showErrorSnackbar('Please select a receipt date');
       return;
     }
 
@@ -1099,7 +1158,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
         categoryController.text,
         double.parse(amountController.text),
         base64Image ?? 'No Image',
-        dateController.text,
+        receiptDateController.text, // Receipt date (for graph)
+        dateController.text, // Transaction date (when input)
       );
       if (controller.isSuccess.value == true) {
         homeController.fetchTransactions();

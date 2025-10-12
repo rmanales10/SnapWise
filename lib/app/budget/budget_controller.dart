@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'budget_notification.dart';
 import '../../services/snackbar_service.dart';
+import 'dart:developer' as dev;
 
 class BudgetController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -286,7 +287,7 @@ class BudgetController extends GetxController {
         budgetCategories.assignAll(fetchBudgetCategories);
       }
     } catch (e) {
-      print('Error fetching budget categories: $e');
+      dev.log('Error fetching budget categories: $e');
     }
   }
 
@@ -299,7 +300,7 @@ class BudgetController extends GetxController {
         calculateRemainingBudget(),
       ]);
     } catch (e) {
-      print('Error refreshing budget data: $e');
+      dev.log('Error refreshing budget data: $e');
     }
   }
 
@@ -394,7 +395,7 @@ class BudgetController extends GetxController {
       // print('Remaining Budget Percentage: ${remainingBudgetPercentage.value}%');
       // print('Category Budgets: $categoryBudgets');
     } catch (e) {
-      print('Error calculating remaining budget: $e');
+      dev.log('Error calculating remaining budget: $e');
     }
   }
 
@@ -419,7 +420,7 @@ class BudgetController extends GetxController {
         }
       }
     } catch (e) {
-      print('Error checking overall budget notification: $e');
+      dev.log('Error checking overall budget notification: $e');
     }
   }
 
@@ -453,7 +454,28 @@ class BudgetController extends GetxController {
         for (var doc in querySnapshot.docs) {
           final data = doc.data();
           final amount = data['amount'];
-          if (amount != null && amount is num) {
+
+          // Check if expense is within current month based on receipt date
+          bool isInCurrentMonth = true;
+          if (data['receiptDate'] != null) {
+            try {
+              DateTime receiptDate = DateTime.parse(data['receiptDate']);
+              DateTime now = DateTime.now();
+              DateTime startOfMonth = DateTime(now.year, now.month, 1);
+              DateTime startOfNextMonth = (now.month < 12)
+                  ? DateTime(now.year, now.month + 1, 1)
+                  : DateTime(now.year + 1, 1, 1);
+
+              isInCurrentMonth = receiptDate.isAfter(
+                      startOfMonth.subtract(const Duration(days: 1))) &&
+                  receiptDate.isBefore(startOfNextMonth);
+            } catch (e) {
+              // If receipt date parsing fails, use timestamp
+              isInCurrentMonth = true;
+            }
+          }
+
+          if (amount != null && amount is num && isInCurrentMonth) {
             totalAmount += amount.toDouble();
           }
         }
@@ -463,7 +485,7 @@ class BudgetController extends GetxController {
       }
       return 0.0;
     } catch (e) {
-      print('Error fetching total amount by category: $e');
+      dev.log('Error fetching total amount by category: $e');
       categoryTotalAmount.value = 0.0;
       return 0.0;
     }
@@ -553,7 +575,7 @@ class BudgetController extends GetxController {
       expensesByCategory.assignAll(Map.fromEntries(sortedCategories));
       // print(expensesByCategory);
     } catch (e) {
-      // print('Error fetching expenses by category: $e');
+      // dev.log('Error fetching expenses by category: $e');
       expensesByCategory.clear();
     }
   }

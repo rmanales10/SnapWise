@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:snapwise/app/auth_screens/login/login_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
 

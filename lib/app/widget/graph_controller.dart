@@ -27,10 +27,10 @@ class GraphController extends GetxController {
   double getTotalExpenses({bool isDaily = true}) {
     if (isDaily) {
       return getCurrentMonthExpenses()
-          .fold(0.0, (sum, expense) => sum + expense);
+          .fold(0.0, (double sum, expense) => sum + expense);
     } else {
       return getMonthlyExpensesForLastYear()
-          .fold(0.0, (sum, expense) => sum + expense);
+          .fold(0.0, (double sum, expense) => sum + expense);
     }
   }
 
@@ -71,7 +71,17 @@ class GraphController extends GetxController {
       for (var doc in querySnapshot.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         double amount = (data['amount'] as num).toDouble();
-        DateTime date = (data['timestamp'] as Timestamp).toDate();
+
+        // Use receipt date for graphing (when purchase was made)
+        // Fallback to timestamp if receiptDate is not available
+        DateTime date;
+        if (data['receiptDate'] != null) {
+          // Parse receipt date string (format: YYYY-MM-DD)
+          date = DateTime.parse(data['receiptDate']);
+        } else {
+          // Fallback to timestamp for backward compatibility
+          date = (data['timestamp'] as Timestamp).toDate();
+        }
 
         updateDailyExpenses(date, amount);
         updateMonthlyExpenses(date, amount);

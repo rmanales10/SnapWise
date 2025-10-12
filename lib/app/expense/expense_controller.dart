@@ -27,7 +27,8 @@ class ExpenseController extends GetxController {
     String category,
     double amount,
     String base64Image,
-    String date,
+    String receiptDate, // Date from receipt/OCR
+    String transactionDate, // Date when user input the expense
   ) async {
     try {
       if (category.isEmpty || amount <= 0) {
@@ -44,7 +45,8 @@ class ExpenseController extends GetxController {
         'category': category,
         'amount': amount,
         'base64Image': base64Image,
-        'date': date,
+        'receiptDate': receiptDate, // Date from receipt/OCR scan
+        'transactionDate': transactionDate, // Date when user input the expense
         'timestamp': FieldValue.serverTimestamp(),
       });
       isSuccess.value = true;

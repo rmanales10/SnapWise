@@ -23,7 +23,10 @@ class _ViewExpenseState extends State<ViewExpense> {
   final TextEditingController categoryController = TextEditingController(
     text: "Shopping",
   );
-  final TextEditingController dateController = TextEditingController();
+  final TextEditingController dateController =
+      TextEditingController(); // Transaction date
+  final TextEditingController receiptDateController =
+      TextEditingController(); // Receipt date
   @override
   void initState() {
     super.initState();
@@ -36,7 +39,12 @@ class _ViewExpenseState extends State<ViewExpense> {
     setState(() {
       amountController.text = controller.expenses['amount'].toString();
       categoryController.text = controller.expenses['category'].toString();
-      dateController.text = controller.expenses['date'] ??
+      // Use receipt date if available, otherwise use transaction date, otherwise current date
+      receiptDateController.text = controller.expenses['receiptDate'] ??
+          controller.expenses['date'] ??
+          DateTime.now().toString().split(' ')[0];
+      dateController.text = controller.expenses['transactionDate'] ??
+          controller.expenses['date'] ??
           DateTime.now().toString().split(' ')[0];
       base64Image = controller.expenses['base64Image'];
     });
@@ -116,6 +124,8 @@ class _ViewExpenseState extends State<ViewExpense> {
                     _buildAmountInput(),
                     const SizedBox(height: 20),
                     _buildDateInput(),
+                    const SizedBox(height: 20),
+                    _buildReceiptDateInput(),
                     const SizedBox(height: 20),
                     Row(
                       children: [
@@ -946,10 +956,16 @@ class _ViewExpenseState extends State<ViewExpense> {
                             : '₱${amountController.text}'),
                     const SizedBox(height: 4),
                     _buildConfirmationRow(
-                        'Date',
+                        'Transaction Date',
                         dateController.text.isEmpty
                             ? 'Not selected'
                             : dateController.text),
+                    const SizedBox(height: 4),
+                    _buildConfirmationRow(
+                        'Receipt Date',
+                        receiptDateController.text.isEmpty
+                            ? 'Not selected'
+                            : receiptDateController.text),
                     const SizedBox(height: 4),
                     _buildConfirmationRow(
                         'Attachment',
@@ -1187,6 +1203,48 @@ class _ViewExpenseState extends State<ViewExpense> {
     );
   }
 
+  Widget _buildReceiptDateInput() {
+    return TextField(
+      cursorColor: const Color.fromARGB(255, 3, 30, 53),
+      controller: receiptDateController,
+      readOnly: true,
+      onTap: () async {
+        final DateTime? picked = await showDatePicker(
+          context: context,
+          initialDate:
+              DateTime.tryParse(receiptDateController.text) ?? DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime.now(),
+        );
+        if (picked != null) {
+          setState(() {
+            receiptDateController.text = picked.toString().split(' ')[0];
+          });
+        }
+      },
+      decoration: InputDecoration(
+        hintText: "Receipt Date (Purchase Date)",
+        suffixIcon: Icon(Icons.receipt_long, color: Colors.grey.shade600),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+      ),
+    );
+  }
+
   Future<void> _addExpense() async {
     // Validate inputs before saving
     if (categoryController.text.isEmpty) {
@@ -1199,8 +1257,8 @@ class _ViewExpenseState extends State<ViewExpense> {
       return;
     }
 
-    if (dateController.text.isEmpty) {
-      _showErrorSnackbar('Please select a date');
+    if (receiptDateController.text.isEmpty) {
+      _showErrorSnackbar('Please select a receipt date');
       return;
     }
 
@@ -1209,7 +1267,8 @@ class _ViewExpenseState extends State<ViewExpense> {
         categoryController.text,
         double.parse(amountController.text),
         base64Image ?? 'No Image',
-        dateController.text,
+        receiptDateController.text, // Receipt date (for graph)
+        dateController.text, // Transaction date (when input)
       );
       if (controller.isSuccess.value == true) {
         Navigator.pushReplacement(

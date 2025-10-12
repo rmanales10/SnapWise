@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'favorites_notification.dart';
 import '../../../services/snackbar_service.dart';
+import 'dart:developer' as dev;
 
 class FavoriteController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -32,7 +33,7 @@ class FavoriteController extends GetxController {
         await _checkFavoriteNotification(favorite);
       }
     } catch (e) {
-      print('Error checking favorites notifications: $e');
+      dev.log('Error checking favorites notifications: $e');
     }
   }
 
@@ -87,7 +88,7 @@ class FavoriteController extends GetxController {
           break;
       }
     } catch (e) {
-      print('Error checking favorite notification: $e');
+      dev.log('Error checking favorite notification: $e');
     }
   }
 

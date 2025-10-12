@@ -6,6 +6,7 @@ import 'package:snapwise/app/budget/budget_controller.dart';
 import 'package:snapwise/app/budget/budget_notification.dart';
 import 'package:snapwise/app/budget/edit_budget_category.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
+import 'dart:developer' as dev;
 
 class BudgetPage extends StatefulWidget {
   const BudgetPage({super.key});
@@ -249,7 +250,7 @@ class _BudgetPageState extends State<BudgetPage> {
         );
       }
     } catch (e) {
-      print('Error checking category budget notification: $e');
+      dev.log('Error checking category budget notification: $e');
     }
   }
 
