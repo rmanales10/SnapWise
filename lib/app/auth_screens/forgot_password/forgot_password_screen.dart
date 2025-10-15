@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/auth_screens/forgot_password/forgot_controller.dart';
 import 'package:snapwise/app/auth_screens/login/login.dart';
+import 'package:snapwise/services/snackbar_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   final String email;
@@ -384,12 +385,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> _handleResetPassword() async {
     if (_newPasswordController.text != _confirmPasswordController.text) {
-      Get.snackbar('Error', 'Passwords do not match');
+      SnackbarService.showError(title: 'Error', message: 'Passwords do not match');
       return;
     }
 
     if (!_acceptTerms) {
-      Get.snackbar('Error', 'You must accept the terms and privacy policy');
+      SnackbarService.showError(title: 'Error', message: 'You must accept the terms and privacy policy');
       return;
     }
 

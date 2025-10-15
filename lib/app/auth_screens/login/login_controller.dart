@@ -5,8 +5,6 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:mailer/mailer.dart';
-import 'package:mailer/smtp_server.dart';
 import 'dart:math';
 import '../../../services/snackbar_service.dart';
 
@@ -77,10 +75,13 @@ class LoginController extends GetxController {
         await _storage.write('tempUserPassword', passwordController.text);
         await _storage.write('tempUserUid', userCredential.user?.uid);
 
-        // Send verification email
-        await sendVerificationEmail();
+        // Generate verification code for SMS
+        String verificationCode = _generateVerificationCode();
+        await _storage.write('verificationCode', verificationCode);
+        developer.log('Generated verification code: $verificationCode');
 
-        errorMessage = 'Please check your email for verification';
+        // SMS verification will be handled by the verification screen
+        errorMessage = 'Please check your phone for verification';
         _auth.signOut();
         return LoginResult.unverified;
       }
@@ -124,7 +125,7 @@ class LoginController extends GetxController {
   }
 
   String _generateVerificationCode() {
-    Random random = Random();
+    final random = Random();
     String code = '';
     for (int i = 0; i < 6; i++) {
       code += random.nextInt(10).toString();
@@ -132,65 +133,10 @@ class LoginController extends GetxController {
     return code;
   }
 
-  Future<void> sendVerificationEmail() async {
-    try {
-      String email = emailController.text;
-      String verificationCode = _generateVerificationCode();
-
-      // Store verification code
-      await _storage.write('verificationCode', verificationCode);
-      developer.log('Generated verification code: $verificationCode');
-
-      // Create SMTP server configuration
-      final smtpServer = SmtpServer(
-        'smtp.gmail.com',
-        port: 465,
-        username: 'officialsnapwise@gmail.com',
-        password: 'unrl zpuk rmov jqlf',
-        ssl: true,
-        allowInsecure: true,
-      );
-
-      // Create email message
-      final message = Message()
-        ..from = Address('officialsnapwise@gmail.com', 'SnapWise')
-        ..recipients.add(email)
-        ..subject = 'Verify your SnapWise account'
-        ..text = 'Your verification code is: $verificationCode'
-        ..html = '''
-          <h1>Welcome to SnapWise!</h1>
-          <p>Please use the following verification code to complete your login:</p>
-          <h2 style="color: #2D2C44; font-size: 24px; padding: 10px; background-color: #f5f5f5; text-align: center;">$verificationCode</h2>
-          <p>This code will expire in 10 minutes.</p>
-          <p>If you didn't request this verification, please ignore this email.</p>
-          <br>
-          <p>Best regards,<br>The SnapWise Team</p>
-        ''';
-
-      developer.log('Attempting to send email to: $email');
-
-      // Send email
-      final sendReport = await send(message, smtpServer);
-      developer.log('Send report: $sendReport');
-
-      if (sendReport.toString().contains('OK')) {
-        SnackbarService.showSuccess(
-            title: 'Success', message: 'Verification email sent successfully');
-      } else {
-        throw Exception('Failed to send email: ${sendReport.toString()}');
-      }
-    } catch (e) {
-      developer.log('Error sending verification email: $e');
-      SnackbarService.showError(
-          title: 'Email Error',
-          message: 'Failed to send verification email: ${e.toString()}');
-    }
-  }
-
   Future<bool> verifyCode(String code) async {
     try {
       final storedCode = await _storage.read('verificationCode') ?? '';
-      developer.log('Verifying code: $code');
+      developer.log('Verifying SMS code: $code');
       developer.log('Expected code: $storedCode');
 
       if (code == storedCode) {
@@ -221,9 +167,11 @@ class LoginController extends GetxController {
           return true;
         }
       }
+      SnackbarService.showError(
+          title: 'Verification Error', message: 'Invalid code');
       return false;
     } catch (e) {
-      developer.log('Error verifying code: $e');
+      developer.log('Error verifying SMS code: $e');
       _auth.signOut();
       return false;
     }

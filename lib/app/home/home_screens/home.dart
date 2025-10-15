@@ -53,10 +53,11 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _fetchPhotoUrl() async {
     photoUrl.value = _storage.read('photoUrl') ?? '';
-    controller.fetchTransactions();
-    controller.getTotalBudget();
-    controller.getTotalIncome();
-    controller.getTotalPaymentHistory();
+
+    // Call these methods asynchronously to avoid build conflicts
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await controller.refreshAllData();
+    });
   }
 
   Future<void> sendBudgetExceededNotification({
@@ -67,7 +68,7 @@ class _HomePageState extends State<HomePage> {
         AndroidNotificationDetails(
       'budget_alert_channel',
       'Budget Alerts',
-      importance: Importance.max,     
+      importance: Importance.max,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
     );
@@ -88,15 +89,20 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildBalanceSection(),
-              TransactionsGraph(),
-              const SizedBox(height: 20),
-              _buildTransactionsList(),
-            ],
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await controller.refreshAllData();
+          },
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildBalanceSection(),
+                TransactionsGraph(),
+                const SizedBox(height: 20),
+                _buildTransactionsList(),
+              ],
+            ),
           ),
         ),
       ),

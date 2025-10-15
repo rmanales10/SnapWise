@@ -1,24 +1,33 @@
+import 'dart:async';
+import 'dart:math';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:snapwise/app/auth_screens/register/register_controller.dart';
 import 'package:snapwise/app/auth_screens/login/login_controller.dart';
+import 'package:snapwise/app/auth_screens/login/login.dart';
+import 'package:snapwise/app/crypto/cryptograpy.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
+import 'package:snapwise/services/snackbar_service.dart';
+import 'package:snapwise/app/auth_screens/sms_service/sms_service.dart';
 
 class VerifyScreen extends StatefulWidget {
-  final String email;
   final String username;
   final String password;
   final String phoneNumber;
+  final String email;
   final bool
       isLoginVerification; // New parameter to distinguish login vs registration
 
   const VerifyScreen({
     super.key,
-    required this.email,
     required this.username,
     required this.password,
     required this.phoneNumber,
+    required this.email,
     this.isLoginVerification =
         false, // Default to false for backward compatibility
   });
@@ -30,9 +39,11 @@ class VerifyScreen extends StatefulWidget {
 class VerifyScreenState extends State<VerifyScreen> {
   late final dynamic _controller;
   final TextEditingController _pinController = TextEditingController();
-  int _seconds = 30;
-  late final dynamic timer;
+  int _seconds = 180; // 3 minutes
+  Timer? _timer;
   bool _isSubmitting = false;
+  late final SmsService _smsService;
+  final _auth = FirebaseAuth.instance;
 
   @override
   void initState() {
@@ -43,22 +54,47 @@ class VerifyScreenState extends State<VerifyScreen> {
       _controller = Get.put(LoginController());
     } else {
       _controller = Get.put(RegisterController());
+      SnackbarService.showSuccess(
+          title: 'Success', message: 'Verification code sent to your phone');
     }
 
-    timer = Future.delayed(Duration.zero, _startTimer);
+    // Initialize SMS service
+    _smsService = Get.put(SmsService());
+
+    // SMS verification code already sent during registration
+    // No need to send again
+
+    // Start the countdown timer
+    _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pinController.dispose();
+    super.dispose();
   }
 
   void _startTimer() {
-    Future.doWhile(() async {
-      if (_seconds > 0) {
-        await Future.delayed(Duration(seconds: 1));
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (mounted) {
         setState(() {
-          _seconds--;
+          if (_seconds > 0) {
+            _seconds--;
+          } else {
+            timer.cancel();
+          }
         });
-        return true;
+      } else {
+        timer.cancel();
       }
-      return false;
     });
+  }
+
+  String _formatTime(int seconds) {
+    int minutes = seconds ~/ 60;
+    int remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -111,8 +147,34 @@ class VerifyScreenState extends State<VerifyScreen> {
                 ),
               ),
               SizedBox(height: 32),
+
+              // SMS Icon and Title
+              Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.sms_outlined,
+                  color: Colors.blue.shade600,
+                  size: 40,
+                ),
+              ),
+
+              SizedBox(height: 16),
               Text(
-                "We've sent a verification code to\n${widget.email}",
+                "SMS Verification",
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              SizedBox(height: 8),
+              Text(
+                "We've sent a verification code to\n${widget.phoneNumber}",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.black87, fontSize: 15),
               ),
@@ -154,10 +216,12 @@ class VerifyScreenState extends State<VerifyScreen> {
                         height: 48,
                         child: ElevatedButton(
                           onPressed: () {
-                            setState(() {
-                              _isSubmitting = true;
-                            });
-                            _verifyCode();
+                            if (mounted) {
+                              setState(() {
+                                _isSubmitting = true;
+                              });
+                              _verifyCode();
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Color(0xFF2D2C44),
@@ -176,19 +240,17 @@ class VerifyScreenState extends State<VerifyScreen> {
               GestureDetector(
                 onTap: _seconds == 0
                     ? () {
-                        setState(() {
-                          _seconds = 30;
-                        });
-                        _startTimer();
-                        if (widget.isLoginVerification) {
-                          _controller.sendVerificationEmail();
-                        } else {
-                          _controller.sendVerificationEmail();
+                        if (mounted) {
+                          setState(() {
+                            _seconds = 180; // 3 minutes
+                          });
+                          _startTimer();
+                          _resendSmsCode();
                         }
                       }
                     : null,
                 child: Text(
-                  "Resend verification code  00:${_seconds.toString().padLeft(2, '0')}",
+                  "Resend SMS code  ${_formatTime(_seconds)}",
                   style: TextStyle(
                     color: _seconds == 0 ? Colors.blue : Colors.black54,
                     fontSize: 15,
@@ -203,16 +265,64 @@ class VerifyScreenState extends State<VerifyScreen> {
     );
   }
 
+  void _resendSmsCode() async {
+    // Check if widget is still mounted before proceeding
+    if (!mounted) return;
+
+    // Generate new verification code
+    String newVerificationCode = _generateNewVerificationCode();
+
+    // Update the controller with new code
+    _controller.verificationCode = newVerificationCode;
+
+    bool smsSuccess = await _smsService.sendVerificationCode(
+      phoneNumber: widget.phoneNumber,
+      code: newVerificationCode,
+    );
+
+    if (!mounted) return;
+
+    if (smsSuccess) {
+      SnackbarService.showSuccess(
+        title: 'SMS Sent',
+        message: 'New verification code sent to your phone',
+      );
+    } else {
+      SnackbarService.showError(
+        title: 'SMS Failed',
+        message: 'Failed to send SMS. Please try again.',
+      );
+    }
+  }
+
+  String _generateNewVerificationCode() {
+    final random = Random();
+    String code = '';
+    for (int i = 0; i < 6; i++) {
+      code += random.nextInt(10).toString();
+    }
+    return code;
+  }
+
   void _verifyCode() async {
+    // Check if widget is still mounted before proceeding
+    if (!mounted) return;
+
     _controller.username = widget.username;
-    _controller.email = widget.email;
     _controller.password = widget.password;
     _controller.phoneNumber = widget.phoneNumber;
+    _controller.email = widget.email;
+
+    // Check if controller is still valid before accessing text
     if (_pinController.text.length != 6) {
-      Get.snackbar('Error', 'Please enter the complete verification code');
-      setState(() {
-        _isSubmitting = false;
-      });
+      SnackbarService.showError(
+          title: 'Error',
+          message: 'Please enter the complete verification code');
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
 
       return;
     }
@@ -223,25 +333,103 @@ class VerifyScreenState extends State<VerifyScreen> {
     } else {
       success = await _controller.verifyCode(_pinController.text);
     }
+
+    // Check if widget is still mounted before updating UI
+    if (!mounted) return;
+
     setState(() {
       _isSubmitting = false;
     });
 
     if (success) {
       if (widget.isLoginVerification) {
-        Get.snackbar('Success', 'Login successful');
+        SnackbarService.showSuccess(
+            title: 'Success', message: 'Login successful');
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
               builder: (context) => BottomNavBar(initialIndex: 0)),
         );
       } else {
-        // For registration verification, navigate to login screen
-        Get.snackbar('Success', 'Account created successfully');
-        Navigator.pushReplacementNamed(context, '/success');
+        // Complete user registration after successful verification
+        await _completeUserRegistration();
       }
     } else {
-      Get.snackbar('Error', 'Please check the code and try again');
+      SnackbarService.showError(
+          title: 'Error', message: 'Please check the code and try again');
+    }
+  }
+
+  Future<void> _completeUserRegistration() async {
+    try {
+      // Check if widget is still mounted before proceeding
+      if (!mounted) return;
+
+      // Create user with email and password after successful verification
+      UserCredential userCredential =
+          await _auth.createUserWithEmailAndPassword(
+        email: widget.email,
+        password: widget.password,
+      );
+
+      User? currentUser = userCredential.user;
+
+      if (currentUser != null) {
+        // Create user document in Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .set({
+          'username': widget.username,
+          'email': widget.email,
+          'phoneNumber': widget.phoneNumber,
+          'isVerified': true,
+          'verifiedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'password': encryptText(widget.password),
+        });
+
+        // Store user data in local storage
+        final storage = GetStorage();
+        await storage.write('isLoggedIn', true);
+        await storage.write('userUid', currentUser.uid);
+        await storage.write('userEmail', currentUser.email);
+        await storage.write('userDisplayName', widget.username);
+        await storage.write('userPhoneNumber', widget.phoneNumber);
+        await storage.write('userPhotoUrl', currentUser.photoURL ?? '');
+
+        // Check if widget is still mounted before showing success message
+        if (!mounted) return;
+
+        SnackbarService.showSuccess(
+          title: 'Registration Successful',
+          message: 'User Registration Successfully! Please login to continue.',
+        );
+
+        // Check if widget is still mounted before navigation
+        if (!mounted) return;
+
+        // Navigate to login page
+        _auth.signOut();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginPage()),
+        );
+      } else {
+        if (!mounted) return;
+
+        SnackbarService.showError(
+          title: 'Error',
+          message: 'Failed to create user account. Please try again.',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      SnackbarService.showError(
+        title: 'Registration Error',
+        message: 'Failed to complete registration: ${e.toString()}',
+      );
     }
   }
 }

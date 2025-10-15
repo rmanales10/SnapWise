@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/budget/budget_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
+import 'package:snapwise/services/snackbar_service.dart';
 
 class EditBudgetPage extends StatefulWidget {
   const EditBudgetPage({super.key});
@@ -300,11 +301,9 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
                       onPressed: () {
                         if (_budgetController.incomeData.value['amount'] <
                             double.parse(amountController.text)) {
-                          Get.snackbar(
-                            '⚠️ Warning',
-                            'Insufficient Income Balance Your current income balance is not sufficient to proceed. Please add funds or adjust your budget amount.',
-                            colorText: Colors.black,
-                            backgroundColor: Colors.amber.shade100,
+                          SnackbarService.showWarning(
+                            title: '⚠️ Warning',
+                            message: 'Insufficient Income Balance Your current income balance is not sufficient to proceed. Please add funds or adjust your budget amount.',
                           );
                         } else {
                           setOverallBudget();
@@ -381,7 +380,7 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
         context,
         MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
       );
-      Get.snackbar('Success', 'Income set successfully');
+      SnackbarService.showSuccess(title: 'Success', message: 'Income set successfully');
     }
   }
 }

@@ -23,6 +23,7 @@ class HomeController extends GetxController {
     super.onInit();
     fetchTransactions();
     fetchTransactionsHistory();
+    getTotalPaymentHistory();
   }
 
   // Helper function to get start and end of current month
@@ -143,12 +144,15 @@ class HomeController extends GetxController {
   }
 
   String getTotalSpent() {
-    // ignore: avoid_types_as_parameter_names
-    double total = transactionsHistory.fold(0.0, (sum, transaction) {
+    // Calculate from regular expenses
+    double total = transactionsHistory.fold(0.0, (double sum, transaction) {
       // Assuming 'amount' is stored as a string with '-' prefix
       String amountStr = transaction['amount'].replaceAll('-', '');
       return sum + double.parse(amountStr);
     });
+
+    // Add favorites payments from current month
+    total += totalPaymentHistory.value;
 
     if (total >= 1000000) {
       double inMillions = total / 1000000;
@@ -248,45 +252,71 @@ class HomeController extends GetxController {
   }
 
   Future<void> getTotalPaymentHistory() async {
-    totalPaymentHistory.value = 0.0;
-    final user = _auth.currentUser;
-    if (user == null) return;
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        totalPaymentHistory.value = 0.0;
+        return;
+      }
 
-    final monthRange = _getCurrentMonthRange();
+      // Get all favorites for the user (not filtered by timestamp)
+      final querySnapshot = await _firestore
+          .collection('favorites')
+          .where('userId', isEqualTo: user.uid)
+          .get();
 
-    final querySnapshot = await _firestore
-        .collection('favorites')
-        .where('userId', isEqualTo: user.uid)
-        .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-        .where('timestamp', isLessThan: monthRange['end'])
-        .get();
+      double totalAmount = 0.0;
+      final monthRange = _getCurrentMonthRange();
 
-    final data = querySnapshot.docs.map((doc) {
-      return doc.data()['paymentHistory'];
-    }).toList();
+      // Process each favorite's payment history
+      for (var doc in querySnapshot.docs) {
+        final favoriteData = doc.data();
+        List<Map<String, dynamic>> paymentHistory =
+            List<Map<String, dynamic>>.from(
+                favoriteData['paymentHistory'] ?? []);
 
-    for (var item in data) {
-      if (item is Map && item.containsKey('amount')) {
-        // Single map
-        totalPaymentHistory.value += _parseAmount(item['amount']);
-      } else if (item is List) {
-        // List of maps
-        for (var subItem in item) {
-          if (subItem is Map && subItem.containsKey('amount')) {
-            totalPaymentHistory.value += _parseAmount(subItem['amount']);
+        // Calculate payments made in current month
+        for (var payment in paymentHistory) {
+          final paymentDateRaw = payment['timestamp'];
+          DateTime paymentDate;
+
+          if (paymentDateRaw is Timestamp) {
+            paymentDate = paymentDateRaw.toDate();
+          } else if (paymentDateRaw is DateTime) {
+            paymentDate = paymentDateRaw;
+          } else {
+            continue; // Skip invalid dates
+          }
+
+          // Check if payment is within current month
+          final startDate = monthRange['start']?.toDate();
+          final endDate = monthRange['end']?.toDate();
+          if (startDate != null &&
+              endDate != null &&
+              paymentDate
+                  .isAfter(startDate.subtract(const Duration(days: 1))) &&
+              paymentDate.isBefore(endDate)) {
+            double amount = (payment['amount'] ?? 0.0).toDouble();
+            totalAmount += amount;
           }
         }
-      } else if (item is num || item is String) {
-        // Direct value
-        totalPaymentHistory.value += _parseAmount(item);
       }
+
+      // Update the value only once at the end
+      totalPaymentHistory.value = totalAmount;
+      log('Total payment history: $totalAmount');
+    } catch (e) {
+      log('Error fetching payment history: $e');
+      totalPaymentHistory.value = 0.0;
     }
-    log(totalPaymentHistory.toString());
   }
 
-  double _parseAmount(dynamic value) {
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value) ?? 0.0;
-    return 0.0;
+  // Method to refresh all data
+  Future<void> refreshAllData() async {
+    await fetchTransactions();
+    await fetchTransactionsHistory();
+    await getTotalPaymentHistory();
+    await getTotalBudget();
+    await getTotalIncome();
   }
 }

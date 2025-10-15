@@ -5,12 +5,14 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 // ignore: depend_on_referenced_packages
 import 'package:intl/intl.dart';
+import '../profile/favorites/favorite_controller.dart';
 
 class GraphController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final RxMap<String, double> dailyExpenses = <String, double>{}.obs;
   final RxMap<String, double> monthlyExpenses = <String, double>{}.obs;
+  final RxDouble currentMonthTotal = 0.0.obs;
 
   @override
   void onInit() {
@@ -23,7 +25,7 @@ class GraphController extends GetxController {
     await fetchExpenses();
   }
 
-  // Get total expenses for current period
+  // Get total expenses for current period (includes both regular expenses and favorites)
   double getTotalExpenses({bool isDaily = true}) {
     if (isDaily) {
       return getCurrentMonthExpenses()
@@ -87,11 +89,60 @@ class GraphController extends GetxController {
         updateMonthlyExpenses(date, amount);
       }
 
+      // Fetch and include favorites payments
+      await _fetchFavoritesPayments();
+
+      // Update current month total to match home controller
+      await _updateCurrentMonthTotal();
+
       log('Fetched ${querySnapshot.docs.length} expenses');
       log('Daily expenses: ${dailyExpenses.length} entries');
       log('Monthly expenses: ${monthlyExpenses.length} entries');
     } catch (e) {
       log('Error fetching expenses: $e');
+    }
+  }
+
+  // Fetch favorites payments and add them to the graph data
+  Future<void> _fetchFavoritesPayments() async {
+    try {
+      // Initialize FavoriteController if not already initialized
+      FavoriteController favoriteController;
+      try {
+        favoriteController = Get.put(FavoriteController());
+      } catch (e) {
+        favoriteController = Get.put(FavoriteController());
+        // Setup the stream to load favorites data
+        await favoriteController.setupFavoritesStream();
+      }
+
+      for (var favorite in favoriteController.favorites) {
+        // Get payment history for this favorite
+        List<Map<String, dynamic>> paymentHistory =
+            List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
+
+        // Add each payment to the graph data
+        for (var payment in paymentHistory) {
+          final paymentDateRaw = payment['timestamp'];
+          DateTime paymentDate;
+
+          if (paymentDateRaw is Timestamp) {
+            paymentDate = paymentDateRaw.toDate();
+          } else if (paymentDateRaw is DateTime) {
+            paymentDate = paymentDateRaw;
+          } else {
+            continue; // Skip invalid dates
+          }
+
+          double amount = (payment['amount'] ?? 0.0).toDouble();
+
+          // Add to graph data
+          updateDailyExpenses(paymentDate, amount);
+          updateMonthlyExpenses(paymentDate, amount);
+        }
+      }
+    } catch (e) {
+      log('Error fetching favorites payments: $e');
     }
   }
 
@@ -103,8 +154,139 @@ class GraphController extends GetxController {
     return List.generate(daysInMonth, (index) {
       final day = index + 1;
       final dateKey = '$currentMonthKey-${day.toString().padLeft(2, '0')}';
-      return dailyExpenses[dateKey] ?? 0.0;
+
+      // Get both regular expenses and favorites payments for this specific day
+      double regularExpenses = dailyExpenses[dateKey] ?? 0.0;
+      double favoritesPayments =
+          _getFavoritesPaymentsForDate(DateTime(now.year, now.month, day));
+
+      return regularExpenses + favoritesPayments;
     });
+  }
+
+  // Update current month total to match home controller calculation exactly
+  Future<void> _updateCurrentMonthTotal() async {
+    try {
+      final total = await _getCurrentMonthTotalFromFirestore();
+      currentMonthTotal.value = total;
+      log('Updated current month total: $total');
+    } catch (e) {
+      log('Error updating current month total: $e');
+      currentMonthTotal.value = 0.0;
+    }
+  }
+
+  // Get total expenses for current month (matching home controller calculation exactly)
+  double getCurrentMonthTotal() {
+    return currentMonthTotal.value;
+  }
+
+  // Get current month total using the same method as home controller
+  Future<double> _getCurrentMonthTotalFromFirestore() async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) {
+        return 0.0;
+      }
+
+      // Get regular expenses for current month (same as home controller)
+      final monthRange = _getCurrentMonthRange();
+      final querySnapshot = await _firestore
+          .collection('expenses')
+          .where('userId', isEqualTo: user.uid)
+          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
+          .where('timestamp', isLessThan: monthRange['end'])
+          .get();
+
+      double regularExpensesTotal = 0.0;
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        String amountStr = data['amount'].replaceAll('-', '');
+        regularExpensesTotal += double.parse(amountStr);
+      }
+
+      // Get favorites payments for current month (same as home controller)
+      double favoritesTotal =
+          await _getFavoritesPaymentsForCurrentMonthFromFirestore();
+
+      log('Graph Controller - Regular expenses: $regularExpensesTotal, Favorites: $favoritesTotal, Total: ${regularExpensesTotal + favoritesTotal}');
+
+      return regularExpensesTotal + favoritesTotal;
+    } catch (e) {
+      log('Error getting current month total from Firestore: $e');
+      return 0.0;
+    }
+  }
+
+  // Helper method to get current month range (same as home controller)
+  Map<String, Timestamp> _getCurrentMonthRange() {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final startOfNextMonth = (now.month < 12)
+        ? DateTime(now.year, now.month + 1, 1)
+        : DateTime(now.year + 1, 1, 1);
+    return {
+      'start': Timestamp.fromDate(startOfMonth),
+      'end': Timestamp.fromDate(startOfNextMonth),
+    };
+  }
+
+  // Get favorites payments for current month from Firestore (same as home controller)
+  Future<double> _getFavoritesPaymentsForCurrentMonthFromFirestore() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        return 0.0;
+      }
+
+      // Get all favorites for the user (same as home controller)
+      final querySnapshot = await _firestore
+          .collection('favorites')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      double totalAmount = 0.0;
+      final monthRange = _getCurrentMonthRange();
+
+      // Process each favorite's payment history (same as home controller)
+      for (var doc in querySnapshot.docs) {
+        final favoriteData = doc.data();
+        List<Map<String, dynamic>> paymentHistory =
+            List<Map<String, dynamic>>.from(
+                favoriteData['paymentHistory'] ?? []);
+
+        // Calculate payments made in current month (same as home controller)
+        for (var payment in paymentHistory) {
+          final paymentDateRaw = payment['timestamp'];
+          DateTime paymentDate;
+
+          if (paymentDateRaw is Timestamp) {
+            paymentDate = paymentDateRaw.toDate();
+          } else if (paymentDateRaw is DateTime) {
+            paymentDate = paymentDateRaw;
+          } else {
+            continue; // Skip invalid dates
+          }
+
+          // Check if payment is within current month (same as home controller)
+          final startDate = monthRange['start']?.toDate();
+          final endDate = monthRange['end']?.toDate();
+          if (startDate != null &&
+              endDate != null &&
+              paymentDate
+                  .isAfter(startDate.subtract(const Duration(days: 1))) &&
+              paymentDate.isBefore(endDate)) {
+            double amount = (payment['amount'] ?? 0.0).toDouble();
+            totalAmount += amount;
+          }
+        }
+      }
+
+      return totalAmount;
+    } catch (e) {
+      log('Error getting favorites payments for current month from Firestore: $e');
+      return 0.0;
+    }
   }
 
   void updateDailyExpenses(DateTime date, double amount) {
@@ -146,19 +328,121 @@ class GraphController extends GetxController {
     for (int i = 11; i >= 0; i--) {
       // Get the exact month (not approximate days)
       final monthDate = DateTime(now.year, now.month - i, 1);
+      String monthKey;
+
       // If we go into previous year
       if (now.month - i <= 0) {
         final adjustedMonth = monthDate.month + 12;
         final adjustedYear = monthDate.year - 1;
         final adjustedDate = DateTime(adjustedYear, adjustedMonth, 1);
-        final monthKey = DateFormat('yyyy-MM').format(adjustedDate);
-        expenses.add(monthlyExpenses[monthKey] ?? 0.0);
+        monthKey = DateFormat('yyyy-MM').format(adjustedDate);
       } else {
-        final monthKey = DateFormat('yyyy-MM').format(monthDate);
-        expenses.add(monthlyExpenses[monthKey] ?? 0.0);
+        monthKey = DateFormat('yyyy-MM').format(monthDate);
       }
+
+      // Get both regular expenses and favorites payments for this specific month
+      double regularExpenses = monthlyExpenses[monthKey] ?? 0.0;
+      double favoritesPayments = _getFavoritesPaymentsForMonth(monthDate);
+
+      expenses.add(regularExpenses + favoritesPayments);
     }
 
     return expenses;
+  }
+
+  // Get favorites payments for a specific date
+  double _getFavoritesPaymentsForDate(DateTime date) {
+    try {
+      FavoriteController favoriteController;
+      try {
+        favoriteController = Get.find<FavoriteController>();
+      } catch (e) {
+        favoriteController = Get.put(FavoriteController());
+        // Setup the stream to load favorites data
+        favoriteController.setupFavoritesStream();
+      }
+
+      double totalAmount = 0.0;
+      final targetDate = DateTime(date.year, date.month, date.day);
+
+      for (var favorite in favoriteController.favorites) {
+        List<Map<String, dynamic>> paymentHistory =
+            List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
+
+        for (var payment in paymentHistory) {
+          final paymentDateRaw = payment['timestamp'];
+          DateTime paymentDate;
+
+          if (paymentDateRaw is Timestamp) {
+            paymentDate = paymentDateRaw.toDate();
+          } else if (paymentDateRaw is DateTime) {
+            paymentDate = paymentDateRaw;
+          } else {
+            continue;
+          }
+
+          // Check if payment is on the same day
+          if (paymentDate.year == targetDate.year &&
+              paymentDate.month == targetDate.month &&
+              paymentDate.day == targetDate.day) {
+            double amount = (payment['amount'] ?? 0.0).toDouble();
+            totalAmount += amount;
+          }
+        }
+      }
+
+      return totalAmount;
+    } catch (e) {
+      log('Error getting favorites payments for date: $e');
+      return 0.0;
+    }
+  }
+
+  // Get favorites payments for a specific month
+  double _getFavoritesPaymentsForMonth(DateTime monthDate) {
+    try {
+      FavoriteController favoriteController;
+      try {
+        favoriteController = Get.find<FavoriteController>();
+      } catch (e) {
+        favoriteController = Get.put(FavoriteController());
+        // Setup the stream to load favorites data
+        favoriteController.setupFavoritesStream();
+      }
+
+      double totalAmount = 0.0;
+      final targetYear = monthDate.year;
+      final targetMonth = monthDate.month;
+
+      for (var favorite in favoriteController.favorites) {
+        List<Map<String, dynamic>> paymentHistory =
+            List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
+
+        for (var payment in paymentHistory) {
+          final paymentDateRaw = payment['timestamp'];
+          DateTime paymentDate;
+
+          if (paymentDateRaw is Timestamp) {
+            paymentDate = paymentDateRaw.toDate();
+          } else if (paymentDateRaw is DateTime) {
+            paymentDate = paymentDateRaw;
+          } else {
+            continue;
+          }
+
+          // Check if payment is in the same month
+          if (paymentDate.year == targetYear &&
+              paymentDate.month == targetMonth) {
+            double amount = (payment['amount'] ?? 0.0).toDouble();
+            totalAmount += amount;
+          }
+        }
+      }
+
+      return totalAmount;
+    } catch (e) {
+      log('Error getting favorites payments for month: $e');
+      return 0.0;
+    }
   }
 }

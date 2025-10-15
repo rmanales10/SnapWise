@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:get/get.dart';
+import 'package:snapwise/services/snackbar_service.dart';
 
 class FeedbackController extends GetxController {
   final String _apiUrl = 'https://intrusion101.com/smtp/send_email.php';
@@ -50,9 +51,12 @@ Comment: $comment
         log('Response data: $responseData');
 
         if (responseData['success'] == true) {
-          Get.snackbar('Success',
-              responseData['message'] ?? 'Feedback sent successfully');
+          SnackbarService.showSuccess(
+              title: 'Success', message: 'Feedback sent successfully');
         } else {
+          SnackbarService.showError(
+              title: 'Error',
+              message: responseData['error'] ?? 'Failed to send feedback');
           throw Exception(responseData['error'] ?? 'Failed to send feedback');
         }
       } else {
@@ -60,7 +64,9 @@ Comment: $comment
       }
     } catch (e) {
       log('Error sending feedback: $e');
-      Get.snackbar('Error', 'Failed to send feedback. Please try again.');
+      SnackbarService.showError(
+          title: 'Error',
+          message: 'Failed to send feedback. Please try again.');
     }
   }
 }

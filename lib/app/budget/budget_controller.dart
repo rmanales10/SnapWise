@@ -303,7 +303,7 @@ class BudgetController extends GetxController {
       // Initialize FavoriteController if not already initialized
       FavoriteController favoriteController;
       try {
-        favoriteController = Get.find<FavoriteController>();
+        favoriteController = Get.put(FavoriteController());
       } catch (e) {
         favoriteController = Get.put(FavoriteController());
         // Setup the stream to load favorites data
@@ -523,25 +523,25 @@ class BudgetController extends GetxController {
     }
   }
 
-  // Check if overall budget is exceeded and send notification
+  // Check if overall budget alert percentage threshold is reached and send notification
   Future<void> _checkOverallBudgetNotification(double overallBudget) async {
     try {
       if (overallBudget <= 0) return;
 
       double totalExpenses = await fetchTotalExpenses();
-      double exceededAmount = totalExpenses - overallBudget;
+      double percentageSpent = (totalExpenses / overallBudget) * 100;
+      double alertPercentage = budgetData.value['alertPercentage'] ?? 80.0;
+      bool receiveAlert = budgetData.value['receiveAlert'] ?? false;
 
-      if (exceededAmount > 0) {
-        // Check if user has notifications enabled for overall budget
-        bool receiveAlert = budgetData.value['receiveAlert'] ?? false;
-        if (receiveAlert) {
-          final budgetNotification = Get.find<BudgetNotification>();
-          await budgetNotification.sendOverallBudgetExceededNotification(
-            totalExpenses: totalExpenses,
-            budgetLimit: overallBudget,
-            exceededAmount: exceededAmount,
-          );
-        }
+      // Send notification if alert percentage threshold is reached
+      if (receiveAlert && percentageSpent >= alertPercentage) {
+        double exceededAmount = totalExpenses - overallBudget;
+        final budgetNotification = Get.find<BudgetNotification>();
+        await budgetNotification.sendOverallBudgetExceededNotification(
+          totalExpenses: totalExpenses,
+          budgetLimit: overallBudget,
+          exceededAmount: exceededAmount,
+        );
       }
     } catch (e) {
       dev.log('Error checking overall budget notification: $e');
@@ -599,13 +599,28 @@ class BudgetController extends GetxController {
             }
           }
 
-          if (amount != null && amount is num && isInCurrentMonth) {
-            totalAmount += amount.toDouble();
+          if (amount != null && isInCurrentMonth) {
+            double amountValue;
+            if (amount is num) {
+              amountValue = amount.toDouble();
+            } else if (amount is String) {
+              // Remove any minus sign and parse as double
+              String cleanAmount = amount.replaceAll('-', '');
+              amountValue = double.tryParse(cleanAmount) ?? 0.0;
+            } else {
+              amountValue = 0.0;
+            }
+            totalAmount += amountValue;
           }
         }
 
         // Add favorites expenses for this category
-        totalAmount += await _getFavoritesExpensesForCategory(category);
+        double favoritesAmount =
+            await _getFavoritesExpensesForCategory(category);
+        totalAmount += favoritesAmount;
+
+        dev.log(
+            'Category: $category, Regular expenses: ${totalAmount - favoritesAmount}, Favorites: $favoritesAmount, Total: $totalAmount');
 
         categoryTotalAmount.value = totalAmount;
         return totalAmount;
@@ -632,13 +647,40 @@ class BudgetController extends GetxController {
       }
 
       double totalFavoritesExpenses = 0.0;
+      final monthRange = _getCurrentMonthRange();
 
       for (var favorite in favoriteController.favorites) {
         String title = favorite['title'] ?? '';
         if (title.toLowerCase() == category.toLowerCase()) {
-          // Add the paid amount from favorites
-          double paidAmount = (favorite['paidAmount'] ?? 0.0).toDouble();
-          totalFavoritesExpenses += paidAmount;
+          // Get payment history for this favorite
+          List<Map<String, dynamic>> paymentHistory =
+              List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
+
+          // Calculate total payments made in current month for this category
+          for (var payment in paymentHistory) {
+            final paymentDateRaw = payment['timestamp'];
+            DateTime paymentDate;
+
+            if (paymentDateRaw is Timestamp) {
+              paymentDate = paymentDateRaw.toDate();
+            } else if (paymentDateRaw is DateTime) {
+              paymentDate = paymentDateRaw;
+            } else {
+              continue; // Skip invalid dates
+            }
+
+            // Check if payment is within current month
+            final startDate = monthRange['start']?.toDate();
+            final endDate = monthRange['end']?.toDate();
+            if (startDate != null &&
+                endDate != null &&
+                paymentDate
+                    .isAfter(startDate.subtract(const Duration(days: 1))) &&
+                paymentDate.isBefore(endDate)) {
+              double amount = (payment['amount'] ?? 0.0).toDouble();
+              totalFavoritesExpenses += amount;
+            }
+          }
         }
       }
 
@@ -669,9 +711,67 @@ class BudgetController extends GetxController {
             (doc.data() as Map<String, dynamic>)['amount'] as double;
       }
 
+      // Add favorites expenses to total
+      totalExpenses += await _getTotalFavoritesExpenses();
+
       return totalExpenses;
     } catch (e) {
       // log('Error fetching total expenses: $e');
+      return 0.0;
+    }
+  }
+
+  // Get total favorites expenses for all categories
+  Future<double> _getTotalFavoritesExpenses() async {
+    try {
+      // Initialize FavoriteController if not already initialized
+      FavoriteController favoriteController;
+      try {
+        favoriteController = Get.find<FavoriteController>();
+      } catch (e) {
+        favoriteController = Get.put(FavoriteController());
+        // Setup the stream to load favorites data
+        await favoriteController.setupFavoritesStream();
+      }
+
+      double totalFavoritesExpenses = 0.0;
+      final monthRange = _getCurrentMonthRange();
+
+      for (var favorite in favoriteController.favorites) {
+        // Get payment history for this favorite
+        List<Map<String, dynamic>> paymentHistory =
+            List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
+
+        // Calculate total payments made in current month
+        for (var payment in paymentHistory) {
+          final paymentDateRaw = payment['timestamp'];
+          DateTime paymentDate;
+
+          if (paymentDateRaw is Timestamp) {
+            paymentDate = paymentDateRaw.toDate();
+          } else if (paymentDateRaw is DateTime) {
+            paymentDate = paymentDateRaw;
+          } else {
+            continue; // Skip invalid dates
+          }
+
+          // Check if payment is within current month
+          final startDate = monthRange['start']?.toDate();
+          final endDate = monthRange['end']?.toDate();
+          if (startDate != null &&
+              endDate != null &&
+              paymentDate
+                  .isAfter(startDate.subtract(const Duration(days: 1))) &&
+              paymentDate.isBefore(endDate)) {
+            double amount = (payment['amount'] ?? 0.0).toDouble();
+            totalFavoritesExpenses += amount;
+          }
+        }
+      }
+
+      return totalFavoritesExpenses;
+    } catch (e) {
+      dev.log('Error getting total favorites expenses: $e');
       return 0.0;
     }
   }
@@ -755,15 +855,47 @@ class BudgetController extends GetxController {
         await favoriteController.setupFavoritesStream();
       }
 
+      final monthRange = _getCurrentMonthRange();
+
       for (var favorite in favoriteController.favorites) {
         String title = favorite['title'] ?? '';
         if (title.isNotEmpty) {
-          double paidAmount = (favorite['paidAmount'] ?? 0.0).toDouble();
+          double totalPaidThisMonth = 0.0;
+
+          // Get payment history for this favorite
+          List<Map<String, dynamic>> paymentHistory =
+              List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
+
+          // Calculate total payments made in current month
+          for (var payment in paymentHistory) {
+            final paymentDateRaw = payment['timestamp'];
+            DateTime paymentDate;
+
+            if (paymentDateRaw is Timestamp) {
+              paymentDate = paymentDateRaw.toDate();
+            } else if (paymentDateRaw is DateTime) {
+              paymentDate = paymentDateRaw;
+            } else {
+              continue; // Skip invalid dates
+            }
+
+            // Check if payment is within current month
+            final startDate = monthRange['start']?.toDate();
+            final endDate = monthRange['end']?.toDate();
+            if (startDate != null &&
+                endDate != null &&
+                paymentDate
+                    .isAfter(startDate.subtract(const Duration(days: 1))) &&
+                paymentDate.isBefore(endDate)) {
+              double amount = (payment['amount'] ?? 0.0).toDouble();
+              totalPaidThisMonth += amount;
+            }
+          }
 
           if (categoryTotals.containsKey(title)) {
-            categoryTotals[title] = categoryTotals[title]! + paidAmount;
+            categoryTotals[title] = categoryTotals[title]! + totalPaidThisMonth;
           } else {
-            categoryTotals[title] = paidAmount;
+            categoryTotals[title] = totalPaidThisMonth;
           }
         }
       }

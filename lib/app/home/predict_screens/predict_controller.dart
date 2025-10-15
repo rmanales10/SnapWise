@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:snapwise/app/home/predict_screens/gemini_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:snapwise/services/snackbar_service.dart';
 
 class PredictController extends GetxController {
   final geminiService = GeminiService();
@@ -59,12 +60,12 @@ class PredictController extends GetxController {
                   .toList(),
           'timestamp': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
-        Get.snackbar('Success', 'Budget saved successfully');
+        SnackbarService.showSuccess(title: 'Success', message: 'Budget saved successfully');
       } else {
-        Get.snackbar('Error', 'User not authenticated');
+        SnackbarService.showError(title: 'Error', message: 'User not authenticated');
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to save budget: $e');
+      SnackbarService.showError(title: 'Error', message: 'Failed to save budget: $e');
     }
   }
 
@@ -97,7 +98,7 @@ class PredictController extends GetxController {
         }
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch existing budget: $e');
+      SnackbarService.showError(title: 'Error', message: 'Failed to fetch existing budget: $e');
     }
   }
 

@@ -34,8 +34,8 @@ class NotificationService extends GetxController {
   Future<void> _initializeNotifications() async {
     try {
       // Android initialization settings
-      const AndroidInitializationSettings initializationSettingsAndroid =
-          AndroidInitializationSettings('@mipmap/launcher_icon');
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/launcher_icon');
 
       // iOS initialization settings
       const DarwinInitializationSettings initializationSettingsIOS =
@@ -473,9 +473,9 @@ class NotificationService extends GetxController {
         PAYMENT_OVERDUE_CHANNEL,
         'Payment Overdue',
         channelDescription: 'Notifications for overdue payments',
-        importance: Importance.max,
-        priority: Priority.high,
-        icon: '@mipmap/launcher_icon',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: '@mipmap/launcher_icon',
         playSound: true,
         enableVibration: true,
         vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]),
@@ -534,9 +534,9 @@ class NotificationService extends GetxController {
       NotificationDetails notificationDetails = NotificationDetails(
         android: androidDetails,
         iOS: iOSDetails,
-      );
+    );
 
-      await _flutterLocalNotificationsPlugin.show(
+    await _flutterLocalNotificationsPlugin.show(
         PAYMENT_COMPLETED_ID,
         '✅ Payment Completed!',
         '$title payment of ₱${totalAmount.toStringAsFixed(2)} has been completed successfully!',

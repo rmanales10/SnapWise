@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:snapwise/app/auth_screens/login/login_controller.dart';
+import 'package:snapwise/app/profile/profile_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -14,6 +15,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final loginController = Get.put(LoginController());
+  final profileController = Get.put(ProfileController());
   final _storage = GetStorage();
   RxString displayName = ''.obs;
   RxString photoUrl = ''.obs;
@@ -22,6 +24,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _fetchUserData();
+    profileController.fetchProfileData();
   }
 
   void _fetchUserData() {
@@ -88,9 +91,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                         Text(
-                          displayName.value.isEmpty
-                              ? 'Set Username'
-                              : displayName.value,
+                          profileController.username.value.isEmpty
+                              ? ''
+                              : profileController.username.value,
                           style: TextStyle(
                             fontSize:
                                 isTablet ? 25 : 20, // Larger text for tablets

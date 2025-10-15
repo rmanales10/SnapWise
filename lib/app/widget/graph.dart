@@ -1,9 +1,11 @@
 // ignore_for_file: use_key_in_widget_constructors, library_private_types_in_public_api
 import 'dart:math';
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/widget/graph_controller.dart';
+import 'package:snapwise/app/home/home_screens/home_controller.dart';
 
 class TransactionsGraph extends StatefulWidget {
   final Color barColor;
@@ -23,6 +25,7 @@ class TransactionsGraph extends StatefulWidget {
 
 class _TransactionsGraphState extends State<TransactionsGraph> {
   final GraphController graphController = Get.put(GraphController());
+  final HomeController homeController = Get.find<HomeController>();
 
   bool isDaily = true;
 
@@ -31,6 +34,21 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
         ? graphController.getCurrentMonthExpenses()
         : graphController.getMonthlyExpensesForLastYear();
 
+    // For monthly view, ensure we show the correct current month total
+    if (!isDaily) {
+      // Get the current month total to ensure accuracy
+      double currentMonthTotal = graphController.getCurrentMonthTotal();
+      dev.log('Current month total from graph controller: $currentMonthTotal');
+    }
+
+    // Calculate the max value for background bars
+    double maxValue = expenses.isEmpty || expenses.every((e) => e == 0)
+        ? (isDaily ? 100.0 : 1000.0) // Default max value for empty state
+        : expenses.reduce(max);
+
+    // Add some padding above the max value for better visualization
+    double backgroundHeight = maxValue * 1.1;
+
     // Ensure we have data to display
     if (expenses.isEmpty || expenses.every((e) => e == 0)) {
       // Return dummy data to show empty state
@@ -38,10 +56,18 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
         return BarChartGroupData(
           x: index,
           barRods: [
+            // Background bar (light blue, full height)
+            BarChartRodData(
+              toY: backgroundHeight,
+              color: Colors.blue.shade50,
+              width: isDaily ? 8 : 16,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            // Foreground bar (actual data, darker blue)
             BarChartRodData(
               toY: 0.0,
               color: Colors.grey.shade300,
-              width: isDaily ? 8 : 12,
+              width: isDaily ? 6 : 12,
               borderRadius: BorderRadius.circular(6),
             ),
           ],
@@ -53,10 +79,20 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
       return BarChartGroupData(
         x: index,
         barRods: [
+          // Background bar (light blue, full height)
+          BarChartRodData(
+            toY: backgroundHeight,
+            color: Colors.blue.shade50,
+            width: isDaily ? 8 : 16,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          // Foreground bar (actual data, darker blue)
           BarChartRodData(
             toY: expenses[index],
-            color: expenses[index] > 0 ? widget.barColor : Colors.grey.shade300,
-            width: isDaily ? 8 : 12,
+            color: expenses[index] > 0
+                ? const Color(0xFF2196F3) // Bright blue color
+                : Colors.grey.shade300,
+            width: isDaily ? 6 : 12,
             borderRadius: BorderRadius.circular(6),
           ),
         ],
@@ -70,11 +106,14 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
     return (1000000, 'M');
   }
 
-  // Generate dynamic Y-axis labels based on max value
+  // Generate Y-axis labels based on actual data range
   List<double> generateYAxisLabels(double maxValue) {
-    if (maxValue <= 0) return [0, 25, 50, 75, 100];
+    // If no data, return default scale
+    if (maxValue <= 0) {
+      return isDaily ? [0, 25, 50, 75, 100] : [0, 1000, 2000, 3000, 4000];
+    }
 
-    // Find appropriate step size
+    // Calculate appropriate step size based on max value
     double step;
     if (maxValue <= 100) {
       step = 25;
@@ -92,8 +131,10 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
       step = 20000;
     } else if (maxValue <= 500000) {
       step = 100000;
-    } else {
+    } else if (maxValue <= 1000000) {
       step = 200000;
+    } else {
+      step = 500000;
     }
 
     // Generate labels
@@ -104,9 +145,24 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
       current += step;
     }
 
-    // Ensure we have at least 4 labels
+    // Ensure we have at least 4 labels and add some padding above max value
     if (labels.length < 4) {
-      labels = [0, maxValue * 0.25, maxValue * 0.5, maxValue * 0.75, maxValue];
+      double paddedMax = maxValue * 1.2; // Add 20% padding
+      labels = [
+        0,
+        paddedMax * 0.25,
+        paddedMax * 0.5,
+        paddedMax * 0.75,
+        paddedMax
+      ];
+    } else {
+      // Add one more step above the max value for better visualization
+      labels.add(labels.last + step);
+    }
+
+    // Limit to maximum 6 labels to prevent overflow
+    if (labels.length > 6) {
+      labels = labels.take(6).toList();
     }
 
     return labels;
@@ -124,23 +180,26 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
         ? 100.0 // Default max value for empty state
         : expenses.reduce(max);
 
-    final (scale, suffix) = calculateScale(maxValue);
     final yAxisLabels = generateYAxisLabels(maxValue);
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Container(
-            height: screenWidth * 0.5,
-            padding: EdgeInsets.only(top: 20, left: 20),
+            constraints: BoxConstraints(
+              minHeight: 200,
+              maxHeight: screenWidth * 0.5,
+            ),
+            padding: EdgeInsets.only(top: 15, left: 20, bottom: 15),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 8,
-                  spreadRadius: 2,
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                  offset: Offset(0, 4),
                 ),
               ],
             ),
@@ -149,13 +208,24 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                 Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: yAxisLabels.reversed.map((label) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
+                    String labelText;
+                    if (label >= 100000) {
+                      labelText = '${(label / 1000).toStringAsFixed(0)}k';
+                    } else if (label >= 1000) {
+                      labelText = '${(label / 1000).toStringAsFixed(1)}k';
+                    } else {
+                      labelText = label.toStringAsFixed(0);
+                    }
+
+                    return Container(
+                      height: 20, // Fixed height to prevent overflow
+                      alignment: Alignment.center,
                       child: Text(
-                        '${(label / scale).toStringAsFixed(label >= 1000 ? 0 : 1)}$suffix',
+                        labelText,
                         style: TextStyle(
                           color: Colors.grey.shade700,
                           fontSize: 10,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     );
@@ -168,7 +238,7 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: SizedBox(
-                        width: isDaily ? 900 : 500,
+                        width: isDaily ? 900 : 600,
                         child: Obx(
                           () => BarChart(
                             BarChartData(
@@ -246,8 +316,64 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                         ? 'PHP ${(amount / 1000).toStringAsFixed(1)}k'
                                         : 'PHP ${amount.toStringAsFixed(2)}';
 
+                                    // Get the actual date for better tooltip
+                                    String dateLabel;
+                                    String totalAmount;
+
+                                    if (isDaily) {
+                                      final now = DateTime.now();
+                                      final day = groupIndex + 1;
+                                      final date =
+                                          DateTime(now.year, now.month, day);
+                                      dateLabel =
+                                          '${date.day}/${date.month}/${date.year}';
+
+                                      // For current day, use home controller's total
+                                      if (day == now.day) {
+                                        totalAmount =
+                                            'PHP ${homeController.getTotalSpent()}';
+                                      } else {
+                                        totalAmount = formattedAmount;
+                                      }
+                                    } else {
+                                      final now = DateTime.now();
+                                      final monthIndex =
+                                          (now.month - (11 - groupIndex)) % 12;
+                                      final year =
+                                          now.month - (11 - groupIndex) <= 0
+                                              ? now.year - 1
+                                              : now.year;
+                                      final month =
+                                          monthIndex == 0 ? 12 : monthIndex;
+                                      final monthNames = [
+                                        'JAN',
+                                        'FEB',
+                                        'MAR',
+                                        'APR',
+                                        'MAY',
+                                        'JUN',
+                                        'JUL',
+                                        'AUG',
+                                        'SEP',
+                                        'OCT',
+                                        'NOV',
+                                        'DEC'
+                                      ];
+                                      dateLabel =
+                                          '${monthNames[month - 1]} $year';
+
+                                      // For current month, use home controller's total
+                                      if (month == now.month &&
+                                          year == now.year) {
+                                        totalAmount =
+                                            'PHP ${homeController.getTotalSpent()}';
+                                      } else {
+                                        totalAmount = formattedAmount;
+                                      }
+                                    }
+
                                     return BarTooltipItem(
-                                      '${isDaily ? "Day" : "Month"} ${groupIndex + 1}\n$formattedAmount',
+                                      '$dateLabel\nTotal: $totalAmount\n(Expenses + Favorites)',
                                       const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
@@ -274,19 +400,71 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                         ? 'PHP ${(amount / 1000).toStringAsFixed(1)}k'
                                         : 'PHP ${amount.toStringAsFixed(2)}';
 
-                                    final period = isDaily
-                                        ? "Day ${touchedGroup.x + 1}"
-                                        : "Month ${touchedGroup.x + 1}";
+                                    // Get the actual date for better display
+                                    String period;
+                                    String displayAmount;
+
+                                    if (isDaily) {
+                                      final now = DateTime.now();
+                                      final day = touchedGroup.x + 1;
+                                      final date =
+                                          DateTime(now.year, now.month, day);
+                                      period =
+                                          '${date.day}/${date.month}/${date.year}';
+
+                                      // For current day, use home controller's total
+                                      if (day == now.day) {
+                                        displayAmount =
+                                            'PHP ${homeController.getTotalSpent()}';
+                                      } else {
+                                        displayAmount = formattedAmount;
+                                      }
+                                    } else {
+                                      final now = DateTime.now();
+                                      final monthIndex =
+                                          (now.month - (11 - touchedGroup.x)) %
+                                              12;
+                                      final year =
+                                          now.month - (11 - touchedGroup.x) <= 0
+                                              ? now.year - 1
+                                              : now.year;
+                                      final month =
+                                          monthIndex == 0 ? 12 : monthIndex;
+                                      final monthNames = [
+                                        'JAN',
+                                        'FEB',
+                                        'MAR',
+                                        'APR',
+                                        'MAY',
+                                        'JUN',
+                                        'JUL',
+                                        'AUG',
+                                        'SEP',
+                                        'OCT',
+                                        'NOV',
+                                        'DEC'
+                                      ];
+                                      period = '${monthNames[month - 1]} $year';
+
+                                      // For current month, use home controller's total
+                                      if (month == now.month &&
+                                          year == now.year) {
+                                        displayAmount =
+                                            'PHP ${homeController.getTotalSpent()}';
+                                      } else {
+                                        displayAmount = formattedAmount;
+                                      }
+                                    }
 
                                     _showExpenseDetails(
-                                        context, period, formattedAmount);
+                                        context, period, displayAmount);
                                   }
                                 },
                                 handleBuiltInTouches: true,
                               ),
                               maxY: yAxisLabels.last,
                               alignment: BarChartAlignment.spaceAround,
-                              groupsSpace: 12,
+                              groupsSpace: isDaily ? 12 : 20,
                             ),
                           ),
                         ),
@@ -301,10 +479,11 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
         SizedBox(height: 16),
         Container(
           width: 200,
-          height: 40,
+          height: 45,
           decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(30),
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: Colors.grey[200]!),
           ),
           child: Stack(
             children: [
@@ -315,10 +494,19 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                     isDaily ? Alignment.centerLeft : Alignment.centerRight,
                 child: Container(
                   width: 100,
-                  height: 35,
+                  height: 40,
+                  margin: EdgeInsets.all(2.5),
                   decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 3, 30, 53),
-                    borderRadius: BorderRadius.circular(30),
+                    color: const Color(0xFF2196F3),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2196F3).withOpacity(0.3),
+                        blurRadius: 8,
+                        spreadRadius: 0,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -336,9 +524,9 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                         child: Text(
                           'Daily',
                           style: TextStyle(
-                            color:
-                                isDaily ? Colors.white : Colors.grey.shade600,
+                            color: isDaily ? Colors.white : Colors.grey[600],
                             fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
                         ),
                       ),
@@ -355,9 +543,9 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                         child: Text(
                           'Monthly',
                           style: TextStyle(
-                            color:
-                                isDaily ? Colors.grey.shade600 : Colors.white,
+                            color: isDaily ? Colors.grey[600] : Colors.white,
                             fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
                         ),
                       ),
@@ -378,21 +566,30 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
+          backgroundColor: Colors.white,
           title: Row(
             children: [
-              Icon(
-                Icons.bar_chart,
-                color: widget.barColor,
-                size: 24,
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2196F3).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.bar_chart,
+                  color: const Color(0xFF2196F3),
+                  size: 24,
+                ),
               ),
-              SizedBox(width: 8),
+              SizedBox(width: 12),
               Text(
                 'Expense Details',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
                 ),
               ),
             ],
@@ -401,15 +598,46 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Double bar visual representation
               Container(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: widget.barColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey[200]!),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Visual representation of double bar
+                    Container(
+                      height: 60,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Background bar (light blue)
+                          Container(
+                            width: 20,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          // Foreground bar (darker blue)
+                          Container(
+                            width: 16,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2196F3),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    // Period and amount
                     Text(
                       period,
                       style: TextStyle(
@@ -422,38 +650,66 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                     Text(
                       amount,
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: widget.barColor,
+                        color: const Color(0xFF2196F3),
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 16),
-              Text(
-                'Click on any bar in the chart to view detailed expense information for that ${isDaily ? "day" : "month"}.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+              SizedBox(height: 20),
+              // Description with modern styling
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: const Color(0xFF2196F3),
+                      size: 20,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'This total includes both regular expenses and favorites payments for ${isDaily ? "this day" : "this month"}.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                backgroundColor: widget.barColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            Container(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2196F3),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  elevation: 0,
                 ),
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-              child: Text(
-                'Close',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                child: Text(
+                  'Close',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
               ),
             ),
           ],

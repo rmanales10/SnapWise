@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:snapwise/services/snackbar_service.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:get/get.dart';
 import 'chatbot.dart';
@@ -1683,7 +1684,8 @@ class _LandingPageState extends State<LandingPage>
         _purposeController.text.isEmpty ||
         _rating == 0 ||
         _commentController.text.isEmpty) {
-      Get.snackbar('Error', 'Please fill in all required fields');
+      SnackbarService.showError(
+          title: 'Error', message: 'Please fill in all required fields');
       return;
     }
 

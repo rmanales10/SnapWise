@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:snapwise/app/auth_screens/login/login_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
 import 'package:snapwise/app/auth_screens/verify/verify_screen.dart';
+import 'package:snapwise/services/snackbar_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -248,10 +249,9 @@ class _LoginPageState extends State<LoginPage> {
                                         BottomNavBar(initialIndex: 0),
                                   ),
                                 );
-                                Get.snackbar(
-                                  'Success',
-                                  'Signed in with Google successfully',
-                                  snackPosition: SnackPosition.TOP,
+                                SnackbarService.showSuccess(
+                                  title: 'Success',
+                                  message: 'Signed in with Google successfully',
                                 );
                               }
                             },

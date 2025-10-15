@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:snapwise/app/auth_screens/register/register_controller.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:snapwise/app/auth_screens/verify/verify_screen.dart';
+import 'package:snapwise/services/snackbar_service.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -423,18 +424,19 @@ class _RegisterPageState extends State<RegisterPage> {
 
   // In your form submission:
   void onSubmit() async {
-    _controller.email = _emailController.text;
+    // ignore: use_build_context_synchronously
+
+    // Set the controller values
     _controller.username = _usernameController.text;
+    _controller.email = _emailController.text;
     _controller.password = _passwordController.text;
     _controller.phoneNumber = _phoneNumber;
 
+    // Call the registration method
     bool success = await _controller.register();
-    setState(() {
-      _isSubmitting = false;
-    });
 
     if (success) {
-      // ignore: use_build_context_synchronously
+      // Navigate to verify screen after successful registration
       Navigator.push(
           context,
           MaterialPageRoute(
@@ -445,7 +447,12 @@ class _RegisterPageState extends State<RegisterPage> {
                     phoneNumber: _phoneNumber,
                   )));
     } else {
-      Get.snackbar('Error', _controller.errorMessage.value);
+      // Show error message if registration fails
+      SnackbarService.showError(
+          title: 'Registration Error', message: _controller.errorMessage.value);
     }
+    setState(() {
+      _isSubmitting = false;
+    });
   }
 }

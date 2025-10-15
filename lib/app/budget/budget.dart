@@ -232,15 +232,19 @@ class _BudgetPageState extends State<BudgetPage> {
     return categories;
   }
 
-  // Check for category budget notification
+  // Check for category budget notification based on alert percentage
   Future<void> _checkCategoryBudgetNotification(
     String category,
     double amountSpent,
     double categoryLimit,
+    double alertPercentage,
   ) async {
     try {
-      // Only send notification if the actual budget limit is exceeded
-      if (amountSpent > categoryLimit) {
+      // Calculate the percentage spent
+      double percentageSpent = (amountSpent / categoryLimit) * 100;
+
+      // Send notification if the alert percentage threshold is reached
+      if (percentageSpent >= alertPercentage) {
         double exceededAmount = amountSpent - categoryLimit;
         await _budgetNotification.sendCategoryBudgetExceededNotification(
           category: category,
@@ -598,15 +602,15 @@ class _BudgetPageState extends State<BudgetPage> {
                                             (amountSpent / totalBudget) >=
                                                 (alertPercentage / 100);
 
-                                        // Check for category budget notification
-                                        // Only send notification if actual budget is exceeded, not just alert percentage
-                                        if (amountSpent > totalBudget &&
-                                            (category['receiveAlert'] ??
-                                                false)) {
+                                        // Check for category budget notification based on alert percentage
+                                        if ((category['receiveAlert'] ??
+                                                false) &&
+                                            exceeded) {
                                           _checkCategoryBudgetNotification(
                                             category['title'],
                                             amountSpent,
                                             totalBudget,
+                                            alertPercentage,
                                           );
                                         }
 
@@ -771,14 +775,14 @@ class _BudgetPageState extends State<BudgetPage> {
     final percent = (amountSpent / totalBudget).clamp(0.0, 1.0);
     final remaining = totalBudget - amountSpent;
 
-    if (receiveAlert) {
-      if (alertPercentage >= percent) {
-        _budgetNotification.sendBudgetExceededNotification(
-          spentPercentage: percent,
-          remainingBudget: remaining,
-        );
-        _budgetController.addNotification(category);
-      }
+    // Send notification based on alert percentage threshold
+    double percentageSpent = (amountSpent / totalBudget) * 100;
+    if (receiveAlert && percentageSpent >= alertPercentage) {
+      _budgetNotification.sendBudgetExceededNotification(
+        spentPercentage: percent,
+        remainingBudget: remaining,
+      );
+      _budgetController.addNotification(category);
     }
 
     return Container(
