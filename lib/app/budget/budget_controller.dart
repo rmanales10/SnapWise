@@ -706,17 +706,53 @@ class BudgetController extends GetxController {
           .get();
 
       double totalExpenses = 0.0;
+      DateTime now = DateTime.now();
+      DateTime startOfMonth = DateTime(now.year, now.month, 1);
+      DateTime startOfNextMonth = (now.month < 12)
+          ? DateTime(now.year, now.month + 1, 1)
+          : DateTime(now.year + 1, 1, 1);
+
       for (var doc in expensesSnapshot.docs) {
-        totalExpenses +=
-            (doc.data() as Map<String, dynamic>)['amount'] as double;
+        final data = doc.data() as Map<String, dynamic>;
+        final amount = data['amount'];
+
+        // Check if expense is within current month based on receipt date
+        bool isInCurrentMonth = true;
+        if (data['receiptDate'] != null) {
+          try {
+            DateTime receiptDate = DateTime.parse(data['receiptDate']);
+            isInCurrentMonth = receiptDate
+                    .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                receiptDate.isBefore(startOfNextMonth);
+          } catch (e) {
+            // If receipt date parsing fails, use timestamp
+            isInCurrentMonth = true;
+          }
+        }
+
+        if (amount != null && isInCurrentMonth) {
+          double amountValue;
+          if (amount is num) {
+            amountValue = amount.toDouble();
+          } else if (amount is String) {
+            // Remove any minus sign and parse as double
+            String cleanAmount = amount.replaceAll('-', '');
+            amountValue = double.tryParse(cleanAmount) ?? 0.0;
+          } else {
+            amountValue = 0.0;
+          }
+          totalExpenses += amountValue;
+        }
       }
 
       // Add favorites expenses to total
       totalExpenses += await _getTotalFavoritesExpenses();
 
+      dev.log(
+          'Total expenses for current month (based on receipt date): $totalExpenses');
       return totalExpenses;
     } catch (e) {
-      // log('Error fetching total expenses: $e');
+      dev.log('Error fetching total expenses: $e');
       return 0.0;
     }
   }
@@ -812,16 +848,48 @@ class BudgetController extends GetxController {
           .get();
 
       Map<String, double> categoryTotals = {};
+      DateTime now = DateTime.now();
+      DateTime startOfMonth = DateTime(now.year, now.month, 1);
+      DateTime startOfNextMonth = (now.month < 12)
+          ? DateTime(now.year, now.month + 1, 1)
+          : DateTime(now.year + 1, 1, 1);
 
       for (var doc in expensesSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final category = data['category'] as String;
-        final amount = (data['amount'] as num).toDouble();
+        final amount = data['amount'];
 
-        if (categoryTotals.containsKey(category)) {
-          categoryTotals[category] = categoryTotals[category]! + amount;
-        } else {
-          categoryTotals[category] = amount;
+        // Check if expense is within current month based on receipt date
+        bool isInCurrentMonth = true;
+        if (data['receiptDate'] != null) {
+          try {
+            DateTime receiptDate = DateTime.parse(data['receiptDate']);
+            isInCurrentMonth = receiptDate
+                    .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                receiptDate.isBefore(startOfNextMonth);
+          } catch (e) {
+            // If receipt date parsing fails, use timestamp
+            isInCurrentMonth = true;
+          }
+        }
+
+        if (amount != null && isInCurrentMonth) {
+          double amountValue;
+          if (amount is num) {
+            amountValue = amount.toDouble();
+          } else if (amount is String) {
+            // Remove any minus sign and parse as double
+            String cleanAmount = amount.replaceAll('-', '');
+            amountValue = double.tryParse(cleanAmount) ?? 0.0;
+          } else {
+            amountValue = 0.0;
+          }
+
+          if (categoryTotals.containsKey(category)) {
+            categoryTotals[category] = categoryTotals[category]! + amountValue;
+          } else {
+            categoryTotals[category] = amountValue;
+          }
         }
       }
 
@@ -834,9 +902,10 @@ class BudgetController extends GetxController {
 
       // Update the RxMap
       expensesByCategory.assignAll(Map.fromEntries(sortedCategories));
-      // print(expensesByCategory);
+      dev.log(
+          'Expenses by category for current month (based on receipt date): $expensesByCategory');
     } catch (e) {
-      // dev.log('Error fetching expenses by category: $e');
+      dev.log('Error fetching expenses by category: $e');
       expensesByCategory.clear();
     }
   }

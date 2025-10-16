@@ -85,8 +85,18 @@ class GraphController extends GetxController {
           date = (data['timestamp'] as Timestamp).toDate();
         }
 
-        updateDailyExpenses(date, amount);
-        updateMonthlyExpenses(date, amount);
+        // Debug logging to see what dates we're processing
+        log('Processing expense: ${data['category']} - Amount: $amount - Date: ${date.toString()} - ReceiptDate: ${data['receiptDate']} - Timestamp: ${data['timestamp']}');
+
+        // Only include records from October 2025 onwards (filter out September and earlier)
+        final now = DateTime.now();
+        if (date.year >= now.year && date.month >= now.month) {
+          updateDailyExpenses(date, amount);
+          updateMonthlyExpenses(date, amount);
+          log('Including expense in graph: ${data['category']} - ${date.toString()}');
+        } else {
+          log('Filtering out expense (too old): ${data['category']} - ${date.toString()}');
+        }
       }
 
       // Fetch and include favorites payments
@@ -201,8 +211,17 @@ class GraphController extends GetxController {
       double regularExpensesTotal = 0.0;
       for (var doc in querySnapshot.docs) {
         final data = doc.data();
-        String amountStr = data['amount'].replaceAll('-', '');
-        regularExpensesTotal += double.parse(amountStr);
+        double amountValue;
+        if (data['amount'] is num) {
+          amountValue = data['amount'].toDouble();
+        } else if (data['amount'] is String) {
+          // Remove any minus sign and parse as double
+          String cleanAmount = data['amount'].replaceAll('-', '');
+          amountValue = double.tryParse(cleanAmount) ?? 0.0;
+        } else {
+          amountValue = 0.0;
+        }
+        regularExpensesTotal += amountValue;
       }
 
       // Get favorites payments for current month (same as home controller)
@@ -300,11 +319,13 @@ class GraphController extends GetxController {
 
   void updateMonthlyExpenses(DateTime date, double amount) {
     String monthKey = DateFormat('yyyy-MM').format(date);
+    log('Adding to monthly expenses: $monthKey - Amount: $amount');
     if (monthlyExpenses.containsKey(monthKey)) {
       monthlyExpenses[monthKey] = monthlyExpenses[monthKey]! + amount;
     } else {
       monthlyExpenses[monthKey] = amount;
     }
+    log('Monthly expenses now: $monthlyExpenses');
   }
 
   List<double> getDailyExpensesForLastMonth() {
@@ -326,25 +347,26 @@ class GraphController extends GetxController {
     List<double> expenses = [];
 
     for (int i = 11; i >= 0; i--) {
-      // Get the exact month (not approximate days)
-      final monthDate = DateTime(now.year, now.month - i, 1);
-      String monthKey;
+      // Calculate the correct month and year
+      int targetMonth = now.month - i;
+      int targetYear = now.year;
 
-      // If we go into previous year
-      if (now.month - i <= 0) {
-        final adjustedMonth = monthDate.month + 12;
-        final adjustedYear = monthDate.year - 1;
-        final adjustedDate = DateTime(adjustedYear, adjustedMonth, 1);
-        monthKey = DateFormat('yyyy-MM').format(adjustedDate);
-      } else {
-        monthKey = DateFormat('yyyy-MM').format(monthDate);
+      // Handle negative months (go to previous year)
+      while (targetMonth <= 0) {
+        targetMonth += 12;
+        targetYear -= 1;
       }
+
+      final monthDate = DateTime(targetYear, targetMonth, 1);
+      final monthKey = DateFormat('yyyy-MM').format(monthDate);
 
       // Get both regular expenses and favorites payments for this specific month
       double regularExpenses = monthlyExpenses[monthKey] ?? 0.0;
       double favoritesPayments = _getFavoritesPaymentsForMonth(monthDate);
 
       expenses.add(regularExpenses + favoritesPayments);
+
+      log('Month $monthKey (i=$i): Regular=${regularExpenses.toStringAsFixed(2)}, Favorites=${favoritesPayments.toStringAsFixed(2)}, Total=${(regularExpenses + favoritesPayments).toStringAsFixed(2)}');
     }
 
     return expenses;

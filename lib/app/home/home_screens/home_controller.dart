@@ -52,18 +52,49 @@ class HomeController extends GetxController {
             .orderBy('timestamp', descending: true)
             .get();
 
-        final fetchedTransactions = querySnapshot.docs.map((doc) {
-          final data = doc.data();
-          return {
-            'id': doc.id,
-            "icon": _getCategoryIcon(data['category']),
-            "title": data['category'],
-            "date": _formatDate(data['timestamp']),
-            "amount": "-${data['amount'].toStringAsFixed(2)}",
-          };
-        }).toList();
+        DateTime now = DateTime.now();
+        DateTime startOfMonth = DateTime(now.year, now.month, 1);
+        DateTime startOfNextMonth = (now.month < 12)
+            ? DateTime(now.year, now.month + 1, 1)
+            : DateTime(now.year + 1, 1, 1);
+
+        final fetchedTransactions = querySnapshot.docs
+            .map((doc) {
+              final data = doc.data();
+
+              // Check if expense is within current month based on receipt date
+              bool isInCurrentMonth = true;
+              if (data['receiptDate'] != null) {
+                try {
+                  DateTime receiptDate = DateTime.parse(data['receiptDate']);
+                  isInCurrentMonth = receiptDate.isAfter(
+                          startOfMonth.subtract(const Duration(days: 1))) &&
+                      receiptDate.isBefore(startOfNextMonth);
+                } catch (e) {
+                  // If receipt date parsing fails, use timestamp
+                  isInCurrentMonth = true;
+                }
+              }
+
+              return {
+                'id': doc.id,
+                "icon": _getCategoryIcon(data['category']),
+                "title": data['category'],
+                "date": _formatDate(data['timestamp']),
+                "amount": "-${data['amount'].toStringAsFixed(2)}",
+                "isInCurrentMonth": isInCurrentMonth, // Add flag for filtering
+              };
+            })
+            .where((transaction) => transaction['isInCurrentMonth'] == true)
+            .map((transaction) {
+              // Remove the flag before adding to final list
+              transaction.remove('isInCurrentMonth');
+              return transaction;
+            })
+            .toList();
 
         transactionsHistory.assignAll(fetchedTransactions);
+        log('Fetched ${fetchedTransactions.length} transactions for current month (based on receipt date)');
       }
     } catch (e) {
       log('Error fetching transactions: $e');
@@ -81,21 +112,52 @@ class HomeController extends GetxController {
             .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
             .where('timestamp', isLessThan: monthRange['end'])
             .orderBy('timestamp', descending: true)
-            .limit(3)
-            .get();
+            .get(); // Remove limit to get all transactions for filtering
 
-        final fetchedTransactions = querySnapshot.docs.map((doc) {
-          final data = doc.data();
-          return {
-            'id': doc.id,
-            "icon": _getCategoryIcon(data['category']),
-            "title": data['category'],
-            "date": _formatDate(data['timestamp']),
-            "amount": "-${data['amount'].toStringAsFixed(2)}",
-          };
-        }).toList();
+        DateTime now = DateTime.now();
+        DateTime startOfMonth = DateTime(now.year, now.month, 1);
+        DateTime startOfNextMonth = (now.month < 12)
+            ? DateTime(now.year, now.month + 1, 1)
+            : DateTime(now.year + 1, 1, 1);
+
+        final fetchedTransactions = querySnapshot.docs
+            .map((doc) {
+              final data = doc.data();
+
+              // Check if expense is within current month based on receipt date
+              bool isInCurrentMonth = true;
+              if (data['receiptDate'] != null) {
+                try {
+                  DateTime receiptDate = DateTime.parse(data['receiptDate']);
+                  isInCurrentMonth = receiptDate.isAfter(
+                          startOfMonth.subtract(const Duration(days: 1))) &&
+                      receiptDate.isBefore(startOfNextMonth);
+                } catch (e) {
+                  // If receipt date parsing fails, use timestamp
+                  isInCurrentMonth = true;
+                }
+              }
+
+              return {
+                'id': doc.id,
+                "icon": _getCategoryIcon(data['category']),
+                "title": data['category'],
+                "date": _formatDate(data['timestamp']),
+                "amount": "-${data['amount'].toStringAsFixed(2)}",
+                "isInCurrentMonth": isInCurrentMonth, // Add flag for filtering
+              };
+            })
+            .where((transaction) => transaction['isInCurrentMonth'] == true)
+            .map((transaction) {
+              // Remove the flag before adding to final list
+              transaction.remove('isInCurrentMonth');
+              return transaction;
+            })
+            .take(3)
+            .toList(); // Take only first 3 after filtering
 
         transactions.assignAll(fetchedTransactions);
+        log('Fetched ${fetchedTransactions.length} recent transactions for current month (based on receipt date)');
       }
     } catch (e) {
       log('Error fetching transactions: $e');

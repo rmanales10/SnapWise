@@ -41,59 +41,25 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
       dev.log('Current month total from graph controller: $currentMonthTotal');
     }
 
-    // Calculate the max value for background bars
-    double maxValue = expenses.isEmpty || expenses.every((e) => e == 0)
-        ? (isDaily ? 100.0 : 1000.0) // Default max value for empty state
-        : expenses.reduce(max);
+    // Always generate data for the full period (30 days or 12 months)
+    int dataLength = isDaily ? 30 : 12;
 
-    // Add some padding above the max value for better visualization
-    double backgroundHeight = maxValue * 1.1;
+    return List.generate(dataLength, (index) {
+      // Get the expense value for this index, or 0 if no data
+      double expenseValue = index < expenses.length ? expenses[index] : 0.0;
 
-    // Ensure we have data to display
-    if (expenses.isEmpty || expenses.every((e) => e == 0)) {
-      // Return dummy data to show empty state
-      return List.generate(isDaily ? 30 : 12, (index) {
-        return BarChartGroupData(
-          x: index,
-          barRods: [
-            // Background bar (light blue, full height)
-            BarChartRodData(
-              toY: backgroundHeight,
-              color: Colors.blue.shade50,
-              width: isDaily ? 8 : 16,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            // Foreground bar (actual data, darker blue)
-            BarChartRodData(
-              toY: 0.0,
-              color: Colors.grey.shade300,
-              width: isDaily ? 6 : 12,
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ],
-        );
-      });
-    }
-
-    return List.generate(expenses.length, (index) {
+      // Always show single bars - no double bar design
       return BarChartGroupData(
         x: index,
         barRods: [
-          // Background bar (light blue, full height)
+          // Single bar for all data
           BarChartRodData(
-            toY: backgroundHeight,
-            color: Colors.blue.shade50,
+            toY: expenseValue,
+            color: expenseValue > 0
+                ? const Color(0xFF2196F3) // Blue for data
+                : Colors.grey.shade300, // Gray for no data
             width: isDaily ? 8 : 16,
             borderRadius: BorderRadius.circular(8),
-          ),
-          // Foreground bar (actual data, darker blue)
-          BarChartRodData(
-            toY: expenses[index],
-            color: expenses[index] > 0
-                ? const Color(0xFF2196F3) // Bright blue color
-                : Colors.grey.shade300,
-            width: isDaily ? 6 : 12,
-            borderRadius: BorderRadius.circular(6),
           ),
         ],
       );
@@ -281,10 +247,17 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                           "NOV",
                                           "DEC",
                                         ];
-                                        final currentMonthIndex = now.month - 1;
-                                        final monthIndex = (currentMonthIndex -
-                                                (11 - value.toInt())) %
-                                            12;
+                                        // Calculate the correct month and year based on the bar index
+                                        int monthsBack = 11 - value.toInt();
+                                        int targetMonth =
+                                            now.month - monthsBack;
+
+                                        // Handle negative months (go to previous year)
+                                        while (targetMonth <= 0) {
+                                          targetMonth += 12;
+                                        }
+
+                                        final monthIndex = targetMonth - 1;
                                         return Text(
                                           months[monthIndex],
                                           style: TextStyle(
@@ -337,14 +310,17 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                       }
                                     } else {
                                       final now = DateTime.now();
-                                      final monthIndex =
-                                          (now.month - (11 - groupIndex)) % 12;
-                                      final year =
-                                          now.month - (11 - groupIndex) <= 0
-                                              ? now.year - 1
-                                              : now.year;
-                                      final month =
-                                          monthIndex == 0 ? 12 : monthIndex;
+                                      // Calculate the correct month and year based on the bar index
+                                      int monthsBack = 11 - groupIndex;
+                                      int targetMonth = now.month - monthsBack;
+                                      int targetYear = now.year;
+
+                                      // Handle negative months (go to previous year)
+                                      while (targetMonth <= 0) {
+                                        targetMonth += 12;
+                                        targetYear -= 1;
+                                      }
+
                                       final monthNames = [
                                         'JAN',
                                         'FEB',
@@ -360,11 +336,11 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                         'DEC'
                                       ];
                                       dateLabel =
-                                          '${monthNames[month - 1]} $year';
+                                          '${monthNames[targetMonth - 1]} $targetYear';
 
                                       // For current month, use home controller's total
-                                      if (month == now.month &&
-                                          year == now.year) {
+                                      if (targetMonth == now.month &&
+                                          targetYear == now.year) {
                                         totalAmount =
                                             'PHP ${homeController.getTotalSpent()}';
                                       } else {
@@ -372,8 +348,13 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                       }
                                     }
 
+                                    // Show "No data" if amount is 0
+                                    String displayText = amount == 0
+                                        ? '$dateLabel\nTotal: PHP 0.00\n(No expenses recorded)'
+                                        : '$dateLabel\nTotal: $totalAmount\n(Expenses + Favorites)';
+
                                     return BarTooltipItem(
-                                      '$dateLabel\nTotal: $totalAmount\n(Expenses + Favorites)',
+                                      displayText,
                                       const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
@@ -421,15 +402,17 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                       }
                                     } else {
                                       final now = DateTime.now();
-                                      final monthIndex =
-                                          (now.month - (11 - touchedGroup.x)) %
-                                              12;
-                                      final year =
-                                          now.month - (11 - touchedGroup.x) <= 0
-                                              ? now.year - 1
-                                              : now.year;
-                                      final month =
-                                          monthIndex == 0 ? 12 : monthIndex;
+                                      // Calculate the correct month and year based on the bar index
+                                      int monthsBack = 11 - touchedGroup.x;
+                                      int targetMonth = now.month - monthsBack;
+                                      int targetYear = now.year;
+
+                                      // Handle negative months (go to previous year)
+                                      while (targetMonth <= 0) {
+                                        targetMonth += 12;
+                                        targetYear -= 1;
+                                      }
+
                                       final monthNames = [
                                         'JAN',
                                         'FEB',
@@ -444,16 +427,22 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                         'NOV',
                                         'DEC'
                                       ];
-                                      period = '${monthNames[month - 1]} $year';
+                                      period =
+                                          '${monthNames[targetMonth - 1]} $targetYear';
 
                                       // For current month, use home controller's total
-                                      if (month == now.month &&
-                                          year == now.year) {
+                                      if (targetMonth == now.month &&
+                                          targetYear == now.year) {
                                         displayAmount =
                                             'PHP ${homeController.getTotalSpent()}';
                                       } else {
                                         displayAmount = formattedAmount;
                                       }
+                                    }
+
+                                    // Show "0" if no data
+                                    if (amount == 0) {
+                                      displayAmount = 'PHP 0.00';
                                     }
 
                                     _showExpenseDetails(
@@ -624,12 +613,14 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                             ),
                           ),
                           SizedBox(width: 4),
-                          // Foreground bar (darker blue)
+                          // Foreground bar (darker blue or gray for zero)
                           Container(
                             width: 16,
-                            height: 40,
+                            height: amount == 'PHP 0.00' ? 10 : 40,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2196F3),
+                              color: amount == 'PHP 0.00'
+                                  ? Colors.grey.shade400
+                                  : const Color(0xFF2196F3),
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
@@ -676,7 +667,9 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'This total includes both regular expenses and favorites payments for ${isDaily ? "this day" : "this month"}.',
+                        amount == 'PHP 0.00'
+                            ? 'No expenses were recorded for ${isDaily ? "this day" : "this month"}.'
+                            : 'This total includes both regular expenses and favorites payments for ${isDaily ? "this day" : "this month"}.',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[700],
