@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:snapwise/app/home/predict_screens/predict_controller.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class PredictBudgetPage extends StatefulWidget {
   const PredictBudgetPage({super.key});
@@ -13,32 +13,8 @@ class PredictBudgetPage extends StatefulWidget {
 
 class _PredictBudgetPageState extends State<PredictBudgetPage> {
   final _controller = Get.put(PredictController());
-  bool isEditing = false;
-  final budgetAmount = TextEditingController();
 
   bool get isTablet => MediaQuery.of(context).size.shortestSide > 600;
-
-  List<Map<String, dynamic>> budgetCategories = [
-    {'name': 'Food', 'amount': 3500.0, 'icon': Icons.restaurant},
-    {'name': 'Transport', 'amount': 2000.0, 'icon': Icons.directions_car},
-    {'name': 'Shopping', 'amount': 2500.0, 'icon': Icons.shopping_bag},
-    {'name': 'Utilities', 'amount': 1500.0, 'icon': Icons.bolt},
-    {'name': 'Entertainment', 'amount': 1000.0, 'icon': Icons.movie},
-    {'name': 'Others', 'amount': 1500.0, 'icon': Icons.more_horiz},
-  ];
-  @override
-  void initState() {
-    super.initState();
-    _fetchData();
-  }
-
-  Future<void> _fetchData() async {
-    await _controller.fetchExistingBudget();
-    setState(() {
-      budgetAmount.text = _controller.totalBudget.value.toStringAsFixed(2);
-      budgetCategories = _controller.budgetCategories.toList();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,373 +40,705 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
             padding: const EdgeInsets.only(right: 10),
             child: IconButton(
               icon: Icon(
-                isEditing ? LucideIcons.checkCheck : LucideIcons.edit2,
+                LucideIcons.refreshCw,
                 color: Colors.black,
                 size: isTablet ? 28 : 20,
               ),
               onPressed: () {
-                if (isEditing) {
-                  _showConfirmation(context);
-                } else {
-                  setState(() {
-                    isEditing = true;
-                  });
-                }
+                _controller.generateDataDrivenPrediction();
               },
             ),
           ),
         ],
       ),
-      body: Obx(
-        () => SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: isTablet ? 30 : 20,
-            vertical: isTablet ? 25 : 15,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Overall Budget',
-                style: TextStyle(
-                  fontSize: isTablet ? 22 : 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: isTablet ? 25 : 15),
-
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(isTablet ? 25 : 20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(isTablet ? 20 : 15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'For Next Month',
-                      style: TextStyle(
-                        fontSize: isTablet ? 18 : 16,
-                        color: Colors.grey.shade600,
+      body: SafeArea(
+        child: Obx(
+          () => _controller.isLoading.value
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        color: const Color.fromARGB(255, 3, 30, 53),
                       ),
-                    ),
-                    SizedBox(height: isTablet ? 15 : 10),
-                    isEditing
-                        ? Container(
-                          alignment: Alignment.centerRight,
-                          child: SizedBox(
-                            width: isTablet ? 250 : 200,
-                            child: TextField(
-                              textAlign: TextAlign.right,
-                              keyboardType: TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              inputFormatters: <TextInputFormatter>[
-                                FilteringTextInputFormatter.allow(
-                                  RegExp(r'^\d*\.?\d*'),
-                                ),
-                              ],
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: 8,
-                                  horizontal: 12,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderSide: BorderSide.none,
-                                ),
-                                filled: true,
-                                fillColor: Colors.white,
-                              ),
-                              style: TextStyle(
-                                fontSize: isTablet ? 32 : 28,
-                                fontWeight: FontWeight.bold,
-                                color: const Color.fromARGB(255, 3, 30, 53),
-                              ),
-                              controller: budgetAmount,
-                            ),
-                          ),
-                        )
-                        : Text(
-                          'PHP ${budgetAmount.value.text}',
-                          style: TextStyle(
-                            fontSize: isTablet ? 32 : 28,
-                            fontWeight: FontWeight.bold,
-                            color: const Color.fromARGB(255, 3, 30, 53),
-                          ),
+                      SizedBox(height: 20),
+                      Text(
+                        'Analyzing your spending patterns...',
+                        style: TextStyle(
+                          fontSize: isTablet ? 18 : 16,
+                          color: Colors.grey[600],
                         ),
-                  ],
-                ),
-              ),
-              SizedBox(height: isTablet ? 30 : 20),
+                      ),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isTablet ? 30 : 16,
+                    vertical: isTablet ? 25 : 15,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Prediction Summary
+                      _buildPredictionSummary(),
+                      SizedBox(height: isTablet ? 30 : 20),
 
-              Text(
-                'Budget Categories',
-                style: TextStyle(
-                  fontSize: isTablet ? 22 : 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: isTablet ? 20 : 15),
+                      // Historical Graph
+                      _buildHistoricalGraph(),
+                      SizedBox(height: isTablet ? 30 : 20),
 
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _controller.budgetCategories.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: isTablet ? 3 : 2,
-                  crossAxisSpacing: isTablet ? 20 : 15,
-                  mainAxisSpacing: isTablet ? 20 : 15,
-                  childAspectRatio: isTablet ? 1.5 : 1.8,
+                      // Prediction Graph
+                      _buildPredictionGraph(),
+                      SizedBox(height: isTablet ? 30 : 20),
+
+                      // Insights
+                      _buildInsights(),
+                      SizedBox(height: isTablet ? 30 : 20),
+
+                      // Budget Categories
+                      _buildBudgetCategories(),
+                      SizedBox(height: isTablet ? 30 : 20),
+
+                      // Save Button
+                      _buildSaveButton(),
+                    ],
+                  ),
                 ),
-                itemBuilder: (context, index) {
-                  final category = _controller.budgetCategories[index];
-                  return _buildCategoryCard(
-                    category['name'],
-                    category['amount'],
-                    category['icon'],
-                    (newAmount) {
-                      _controller.updateCategory(category['name'], newAmount);
-                    },
-                  );
-                },
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 
-  Widget _buildCategoryCard(
-    String category,
-    double amount,
-    IconData icon,
-    Function(double) onAmountChanged,
-  ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Container(
-          padding: EdgeInsets.all(isTablet ? 20 : 15),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(isTablet ? 15 : 12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
+  Widget _buildPredictionSummary() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isTablet ? 20 : 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isTablet ? 20 : 15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    size: isTablet ? 28 : 24,
-                    color: const Color.fromARGB(255, 3, 30, 53),
-                  ),
-                  SizedBox(width: isTablet ? 10 : 8),
-                  Flexible(
-                    child: Text(
-                      category,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: isTablet ? 18 : 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+              Icon(
+                LucideIcons.trendingUp,
+                color: const Color.fromARGB(255, 3, 30, 53),
+                size: isTablet ? 28 : 24,
               ),
-              const Spacer(),
-              isEditing
-                  ? SizedBox(
-                    height: isTablet ? 30 : 28,
-                    child: TextField(
-                      textAlign: TextAlign.right,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          vertical: 0,
-                          horizontal: 8,
-                        ),
-                        border: OutlineInputBorder(borderSide: BorderSide.none),
-                      ),
-                      style: TextStyle(
-                        fontSize: isTablet ? 18 : 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade700,
-                      ),
-                      controller: TextEditingController(
-                        text: amount.toStringAsFixed(2),
-                      ),
-                      onChanged: (value) {
-                        double? newVal = double.tryParse(value);
-                        if (newVal != null) {
-                          onAmountChanged(newVal);
-                        }
-                      },
-                    ),
-                  )
-                  : Text(
-                    'PHP ${amount.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: isTablet ? 20 : 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade700,
-                    ),
-                  ),
+              SizedBox(width: 10),
+              Text(
+                'Predicted Budget for Next Month',
+                style: TextStyle(
+                  fontSize: isTablet ? 20 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color.fromARGB(255, 3, 30, 53),
+                ),
+              ),
             ],
           ),
-        );
-      },
+          SizedBox(height: isTablet ? 20 : 15),
+          Obx(() => Text(
+                'PHP ${_controller.totalBudget.value.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: isTablet ? 36 : 32,
+                  fontWeight: FontWeight.bold,
+                  color: const Color.fromARGB(255, 3, 30, 53),
+                ),
+              )),
+          SizedBox(height: isTablet ? 10 : 8),
+          Text(
+            'Based on your last 6 months of spending data',
+            style: TextStyle(
+              fontSize: isTablet ? 16 : 14,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  void _showConfirmation(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isTablet = screenWidth >= 600;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isTablet ? 40 : 25,
-            vertical: isTablet ? 30 : 20,
+  Widget _buildHistoricalGraph() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isTablet ? 20 : 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isTablet ? 20 : 15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Container(
-                height: 5,
-                width: 40,
-                margin: const EdgeInsets.only(bottom: 15),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+              Icon(
+                LucideIcons.barChart3,
+                color: const Color.fromARGB(255, 3, 30, 53),
+                size: isTablet ? 28 : 24,
               ),
+              SizedBox(width: 10),
               Text(
-                'Save Predicted Budget?',
+                'Historical Spending (Past 6-10 Mo.)',
                 style: TextStyle(
-                  fontSize: isTablet ? 22 : 18,
+                  fontSize: isTablet ? 20 : 18,
                   fontWeight: FontWeight.bold,
+                  color: const Color.fromARGB(255, 3, 30, 53),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Are you sure you want to save budget?',
-                style: TextStyle(
-                  color: Colors.black54,
-                  fontSize: isTablet ? 18 : 16,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade200,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          vertical: isTablet ? 16 : 12,
-                        ),
-                      ),
-                      child: Text(
-                        'No',
-                        style: TextStyle(fontSize: isTablet ? 18 : 16),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _controller.predictBudget(
-                          double.parse(budgetAmount.text),
-                        );
-                        double newBudgetAmount = double.parse(
-                          budgetAmount.text,
-                        );
-
-                        // Create a new list of budget categories with updated amounts
-                        List<Map<String, dynamic>> updatedCategories =
-                            _controller.budgetCategories.map((category) {
-                              return {
-                                ...category,
-                                'amount':
-                                    (category['amount'] as double) *
-                                    (newBudgetAmount /
-                                        _controller.totalBudget.value),
-                              };
-                            }).toList();
-
-                        // Update the controller without refreshing the UI
-                        _controller.updateBudgetWithoutRefresh(
-                          newBudgetAmount,
-                          updatedCategories,
-                        );
-
-                        // Close the confirmation dialog
-                        Navigator.pop(context);
-
-                        // Exit editing mode
-                        setState(() {
-                          isEditing = false;
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          vertical: isTablet ? 16 : 12,
-                        ),
-                      ),
-                      child: Text(
-                        'Yes',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: isTablet ? 18 : 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
-        );
-      },
+          SizedBox(height: isTablet ? 20 : 15),
+          Obx(() => _controller.historicalGraph.isEmpty
+              ? Container(
+                  height: 200,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          LucideIcons.barChart3,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'No historical data available',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Start tracking expenses to see your spending history',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: isTablet ? 14 : 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _controller.historicalGraph.isNotEmpty
+                  ? Container(
+                      height: 200,
+                      child: BarChart(
+                        BarChartData(
+                          barGroups: _controller.historicalGraph
+                              .asMap()
+                              .entries
+                              .map((entry) {
+                            return BarChartGroupData(
+                              x: entry.key,
+                              barRods: [
+                                BarChartRodData(
+                                  toY: entry.value['amount'] as double? ?? 0.0,
+                                  color: const Color.fromARGB(255, 3, 30, 53),
+                                  width: 16,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                          gridData: FlGridData(show: false),
+                          titlesData: FlTitlesData(
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 35,
+                                interval: _controller.historicalGraph.isNotEmpty
+                                    ? (_controller.historicalGraph
+                                                .map((d) =>
+                                                    (d['amount'] as double? ??
+                                                        0.0))
+                                                .reduce(
+                                                    (a, b) => a > b ? a : b) >
+                                            0
+                                        ? _controller.historicalGraph
+                                                .map((d) =>
+                                                    (d['amount'] as double? ??
+                                                        0.0))
+                                                .reduce(
+                                                    (a, b) => a > b ? a : b) /
+                                            5
+                                        : 200)
+                                    : 200,
+                                getTitlesWidget: (value, meta) {
+                                  if (value == 0) return Text('');
+                                  // Show actual amount if less than 1000, otherwise show in thousands
+                                  String displayText;
+                                  if (value < 1000) {
+                                    displayText =
+                                        '₱${value.toStringAsFixed(0)}';
+                                  } else {
+                                    displayText =
+                                        '₱${(value / 1000).toStringAsFixed(0)}k';
+                                  }
+                                  return Container(
+                                    width: 30,
+                                    child: Text(
+                                      displayText,
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.grey[600],
+                                      ),
+                                      textAlign: TextAlign.right,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                getTitlesWidget: (value, meta) {
+                                  int index = value.toInt();
+                                  if (index <
+                                      _controller.historicalGraph.length) {
+                                    String? monthName =
+                                        _controller.historicalGraph[index]
+                                            ['monthName'] as String?;
+                                    if (monthName != null) {
+                                      return Text(
+                                        monthName,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      );
+                                    }
+                                  }
+                                  return Text('');
+                                },
+                              ),
+                            ),
+                            rightTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            topTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                          ),
+                          borderData: FlBorderData(show: false),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      height: 200,
+                      child: Center(
+                        child: Text(
+                          'No historical data available',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: isTablet ? 16 : 14,
+                          ),
+                        ),
+                      ),
+                    )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPredictionGraph() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isTablet ? 20 : 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isTablet ? 20 : 15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Daily Spending Prediction for Next Month',
+            style: TextStyle(
+              fontSize: isTablet ? 20 : 18,
+              fontWeight: FontWeight.bold,
+              color: const Color.fromARGB(255, 3, 30, 53),
+            ),
+          ),
+          SizedBox(height: isTablet ? 20 : 15),
+          Obx(() => _controller.predictionGraph.isEmpty
+              ? Container(
+                  height: 200,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          LucideIcons.barChart3,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'No prediction data available',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Start tracking expenses to see daily predictions',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: isTablet ? 14 : 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _controller.predictionGraph.isNotEmpty
+                  ? Container(
+                      height: 200,
+                      child: LineChart(
+                        LineChartData(
+                          minX: 0,
+                          maxX: (_controller.predictionGraph.length - 1)
+                              .toDouble(),
+                          minY: 0,
+                          maxY: _controller.predictionGraph
+                                  .map((d) => (d['amount'] as double? ?? 0.0))
+                                  .reduce((a, b) => a > b ? a : b) *
+                              1.1,
+                          gridData: FlGridData(show: false),
+                          titlesData: FlTitlesData(
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 35,
+                                interval: _controller.predictionGraph.isNotEmpty
+                                    ? _controller.predictionGraph
+                                            .map((d) =>
+                                                (d['amount'] as double? ?? 0.0))
+                                            .reduce((a, b) => a > b ? a : b) /
+                                        5
+                                    : 200,
+                                getTitlesWidget: (value, meta) {
+                                  if (value == 0) return Text('');
+                                  // Show actual amount if less than 1000, otherwise show in thousands
+                                  String displayText;
+                                  if (value < 1000) {
+                                    displayText =
+                                        '₱${value.toStringAsFixed(0)}';
+                                  } else {
+                                    displayText =
+                                        '₱${(value / 1000).toStringAsFixed(0)}k';
+                                  }
+                                  return Container(
+                                    width: 30,
+                                    child: Text(
+                                      displayText,
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.grey[600],
+                                      ),
+                                      textAlign: TextAlign.right,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                getTitlesWidget: (value, meta) {
+                                  int index = value.toInt();
+                                  if (index <
+                                      _controller.predictionGraph.length) {
+                                    int? day = _controller
+                                        .predictionGraph[index]['day'] as int?;
+                                    if (day != null &&
+                                        (day % 5 == 0 || day == 1)) {
+                                      return Text(
+                                        '$day',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      );
+                                    }
+                                  }
+                                  return Text('');
+                                },
+                              ),
+                            ),
+                            rightTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            topTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                          ),
+                          borderData: FlBorderData(show: false),
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: _controller.predictionGraph
+                                  .asMap()
+                                  .entries
+                                  .map((entry) {
+                                return FlSpot(entry.key.toDouble(),
+                                    entry.value['amount']);
+                              }).toList(),
+                              isCurved: true,
+                              color: const Color.fromARGB(255, 3, 30, 53),
+                              barWidth: 3,
+                              isStrokeCapRound: true,
+                              dotData: FlDotData(
+                                show: true,
+                                getDotPainter: (spot, percent, barData, index) {
+                                  // Show dots only on every 5th day to avoid crowding
+                                  if (index <
+                                      _controller.predictionGraph.length) {
+                                    int? day = _controller
+                                        .predictionGraph[index]['day'] as int?;
+                                    if (day != null &&
+                                        day % 5 != 0 &&
+                                        day != 1) {
+                                      return FlDotCirclePainter(radius: 0);
+                                    }
+                                  }
+
+                                  return FlDotCirclePainter(
+                                    radius: 4,
+                                    color: const Color.fromARGB(255, 3, 30, 53),
+                                    strokeWidth: 2,
+                                    strokeColor: Colors.white,
+                                  );
+                                },
+                              ),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: const Color.fromARGB(255, 3, 30, 53)
+                                    .withOpacity(0.1),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : Container(
+                      height: 200,
+                      child: Center(
+                        child: Text(
+                          'No prediction data available',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: isTablet ? 16 : 14,
+                          ),
+                        ),
+                      ),
+                    )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsights() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isTablet ? 20 : 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isTablet ? 20 : 15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                LucideIcons.lightbulb,
+                color: Colors.orange,
+                size: isTablet ? 28 : 24,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'Insights & Analysis',
+                style: TextStyle(
+                  fontSize: isTablet ? 20 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color.fromARGB(255, 3, 30, 53),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isTablet ? 20 : 15),
+          Obx(() => Text(
+                _controller.insights.value,
+                style: TextStyle(
+                  fontSize: isTablet ? 16 : 14,
+                  color: Colors.grey[700],
+                  height: 1.5,
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBudgetCategories() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Predicted Category Breakdown',
+          style: TextStyle(
+            fontSize: isTablet ? 22 : 18,
+            fontWeight: FontWeight.bold,
+            color: const Color.fromARGB(255, 3, 30, 53),
+          ),
+        ),
+        SizedBox(height: isTablet ? 20 : 15),
+        Obx(() => GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _controller.budgetCategories.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: isTablet ? 3 : 2,
+                crossAxisSpacing: isTablet ? 20 : 15,
+                mainAxisSpacing: isTablet ? 20 : 15,
+                childAspectRatio: isTablet ? 1.1 : 1.2,
+              ),
+              itemBuilder: (context, index) {
+                final category = _controller.budgetCategories[index];
+                return _buildCategoryCard(category);
+              },
+            )),
+      ],
+    );
+  }
+
+  Widget _buildCategoryCard(Map<String, dynamic> category) {
+    return Container(
+      padding: EdgeInsets.all(isTablet ? 16 : 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isTablet ? 15 : 12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: (category['color'] as Color? ?? Colors.grey)
+                      .withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  category['icon'],
+                  size: isTablet ? 20 : 18,
+                  color: category['color'] as Color? ?? Colors.grey,
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  category['name'],
+                  style: TextStyle(
+                    fontSize: isTablet ? 14 : 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+          Text(
+            'PHP ${(category['amount'] as double? ?? 0.0).toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: isTablet ? 16 : 14,
+              fontWeight: FontWeight.bold,
+              color: const Color.fromARGB(255, 3, 30, 53),
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            '${(category['percentage'] as double? ?? 0.0).toStringAsFixed(1)}% of total',
+            style: TextStyle(
+              fontSize: isTablet ? 12 : 10,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return Container(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () {
+          _controller.savePrediction();
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color.fromARGB(255, 3, 30, 53),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: EdgeInsets.symmetric(
+            vertical: isTablet ? 18 : 16,
+          ),
+        ),
+        child: Text(
+          'Save Prediction',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: isTablet ? 18 : 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
     );
   }
 }
