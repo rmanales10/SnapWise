@@ -504,11 +504,12 @@ class PredictController extends GetxController {
     return 0.0;
   }
 
-  // Save prediction to Firebase
+  // Save prediction to Firebase and auto-set budget for next month
   Future<void> savePrediction() async {
     try {
       final user = _auth.currentUser;
       if (user != null) {
+        // Save prediction data
         await _firestore.collection('predictionBudget').doc(user.uid).set({
           'totalBudget': totalBudget.value,
           'categories': budgetCategories
@@ -521,12 +522,65 @@ class PredictController extends GetxController {
           'insights': insights.value,
           'timestamp': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
+
+        // Auto-set budget for next month
+        await _autoSetBudgetForNextMonth();
+
         SnackbarService.showSuccess(
-            title: 'Success', message: 'Prediction saved successfully');
+            title: 'Success',
+            message: 'Prediction saved and budget set for next month!');
       }
     } catch (e) {
       SnackbarService.showError(
           title: 'Error', message: 'Failed to save prediction: $e');
+    }
+  }
+
+  // Auto-set budget for next month based on prediction
+  Future<void> _autoSetBudgetForNextMonth() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final now = DateTime.now();
+      final nextMonth = DateTime(now.year, now.month + 1, 1);
+      final nextMonthKey =
+          '${nextMonth.year}-${nextMonth.month.toString().padLeft(2, '0')}';
+
+      // Set overall budget for next month
+      await _firestore.collection('budget').doc(user.uid).set({
+        'budgetData': {
+          nextMonthKey: {
+            'totalBudget': totalBudget.value,
+            'alertPercentage': 80.0, // Default alert at 80%
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }
+        }
+      }, SetOptions(merge: true));
+
+      // Set category budgets for next month
+      for (var category in budgetCategories) {
+        await _firestore.collection('budget').doc(user.uid).set({
+          'budgetData': {
+            nextMonthKey: {
+              'categories': {
+                category['name']: {
+                  'limit': category['amount'],
+                  'alertPercentage': 80.0,
+                  'createdAt': FieldValue.serverTimestamp(),
+                }
+              }
+            }
+          }
+        }, SetOptions(merge: true));
+      }
+
+      dev.log('Auto-set budget for next month: $nextMonthKey');
+      dev.log('Total budget: ${totalBudget.value}');
+      dev.log('Categories: ${budgetCategories.length}');
+    } catch (e) {
+      dev.log('Error auto-setting budget for next month: $e');
     }
   }
 }

@@ -88,15 +88,10 @@ class GraphController extends GetxController {
         // Debug logging to see what dates we're processing
         log('Processing expense: ${data['category']} - Amount: $amount - Date: ${date.toString()} - ReceiptDate: ${data['receiptDate']} - Timestamp: ${data['timestamp']}');
 
-        // Only include records from October 2025 onwards (filter out September and earlier)
-        final now = DateTime.now();
-        if (date.year >= now.year && date.month >= now.month) {
-          updateDailyExpenses(date, amount);
-          updateMonthlyExpenses(date, amount);
-          log('Including expense in graph: ${data['category']} - ${date.toString()}');
-        } else {
-          log('Filtering out expense (too old): ${data['category']} - ${date.toString()}');
-        }
+        // Include all records based on receipt date for historical graph
+        updateDailyExpenses(date, amount);
+        updateMonthlyExpenses(date, amount);
+        log('Including expense in graph: ${data['category']} - ${date.toString()}');
       }
 
       // Fetch and include favorites payments

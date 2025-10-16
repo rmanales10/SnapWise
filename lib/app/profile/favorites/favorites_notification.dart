@@ -80,9 +80,20 @@ class FavoritesNotification extends GetxController {
     required DateTime startDate,
     required String frequency,
     required DateTime endDate,
+    required List<Map<String, dynamic>> paymentHistory,
+    required double totalAmount,
   }) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+
+    // Calculate total paid amount
+    double totalPaid = 0.0;
+    for (var payment in paymentHistory) {
+      totalPaid += (payment['amount'] ?? 0.0).toDouble();
+    }
+
+    // Check if fully paid
+    bool isFullyPaid = totalPaid >= totalAmount;
 
     // Calculate all payment dates from start to end
     List<DateTime> paymentDates = [];
@@ -107,7 +118,9 @@ class FavoritesNotification extends GetxController {
     }
 
     // Determine status
-    if (nextDueDate != null) {
+    if (isFullyPaid) {
+      return {'status': 'completed', 'days': 0};
+    } else if (nextDueDate != null) {
       final daysUntilDue = nextDueDate.difference(today).inDays;
       if (daysUntilDue == 0) {
         return {'status': 'due_today', 'days': 0};
@@ -119,7 +132,7 @@ class FavoritesNotification extends GetxController {
     } else if (lastDueDate != null) {
       final daysOverdue = today.difference(lastDueDate).inDays;
       if (daysOverdue > 0) {
-        return {'status': 'overdue', 'days': daysOverdue};
+        return {'status': 'missed', 'days': daysOverdue};
       }
     }
 

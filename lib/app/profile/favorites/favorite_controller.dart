@@ -37,6 +37,68 @@ class FavoriteController extends GetxController {
     }
   }
 
+  // Update favorites status based on due dates
+  Future<void> updateFavoritesStatus() async {
+    try {
+      for (var favorite in favorites) {
+        String currentStatus = favorite['status'] ?? 'Pending';
+
+        // Skip if already paid or missed
+        if (currentStatus == 'Paid' || currentStatus == 'Missed') continue;
+
+        String frequency = favorite['frequency'] ?? 'monthly';
+        String startDateStr = favorite['startDate'] ?? '';
+        String endDateStr = favorite['endDate'] ?? '';
+
+        if (startDateStr.isEmpty || endDateStr.isEmpty) continue;
+
+        DateTime startDate = DateFormat('yyyy-MM-dd').parse(startDateStr);
+        DateTime endDate = DateFormat('yyyy-MM-dd').parse(endDateStr);
+
+        // Get payment history
+        List<Map<String, dynamic>> paymentHistory =
+            List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
+        double totalAmount = (favorite['totalAmount'] ?? 0.0).toDouble();
+
+        // Check payment status
+        Map<String, dynamic> paymentStatus =
+            _favoritesNotification.checkPaymentStatus(
+          startDate: startDate,
+          frequency: frequency,
+          endDate: endDate,
+          paymentHistory: paymentHistory,
+          totalAmount: totalAmount,
+        );
+
+        String newStatus = 'Pending';
+        switch (paymentStatus['status']) {
+          case 'completed':
+            newStatus = 'Paid';
+            break;
+          case 'missed':
+            newStatus = 'Missed';
+            break;
+          case 'due_today':
+          case 'due_soon':
+          case 'upcoming':
+            newStatus = 'Pending';
+            break;
+        }
+
+        // Update status in Firestore if it changed
+        if (newStatus != currentStatus) {
+          await _firestore.collection('favorites').doc(favorite['id']).update({
+            'status': newStatus,
+          });
+          dev.log(
+              'Updated favorite ${favorite['title']} status from $currentStatus to $newStatus');
+        }
+      }
+    } catch (e) {
+      dev.log('Error updating favorites status: $e');
+    }
+  }
+
   // Check notification for a specific favorite
   Future<void> _checkFavoriteNotification(Map<String, dynamic> favorite) async {
     try {
@@ -52,11 +114,18 @@ class FavoriteController extends GetxController {
       DateTime startDate = DateFormat('yyyy-MM-dd').parse(startDateStr);
       DateTime endDate = DateFormat('yyyy-MM-dd').parse(endDateStr);
 
+      // Get payment history from favorite data
+      List<Map<String, dynamic>> paymentHistory =
+          List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
+      double totalAmount = (favorite['totalAmount'] ?? 0.0).toDouble();
+
       Map<String, dynamic> paymentStatus =
           _favoritesNotification.checkPaymentStatus(
         startDate: startDate,
         frequency: frequency,
         endDate: endDate,
+        paymentHistory: paymentHistory,
+        totalAmount: totalAmount,
       );
 
       String title = favorite['title'] ?? 'Payment';
@@ -131,6 +200,9 @@ class FavoriteController extends GetxController {
 
         // Check notifications when favorites data changes
         checkAllFavoritesNotifications();
+
+        // Update status based on due dates
+        updateFavoritesStatus();
       },
       onError: (error) {
         SnackbarService.showFavoritesError(
@@ -211,11 +283,40 @@ class FavoriteController extends GetxController {
       // Add new payment to history
       paymentHistory.add({'amount': paidAmount, 'timestamp': DateTime.now()});
 
+      // Determine new status based on payment and due dates
+      String newStatus = 'Pending';
+      if (newPaidAmount >= totalAmount) {
+        newStatus = 'Paid';
+      } else {
+        // Check if payment is missed based on due dates
+        String frequency = data['frequency'] ?? 'monthly';
+        String startDateStr = data['startDate'] ?? '';
+        String endDateStr = data['endDate'] ?? '';
+
+        if (startDateStr.isNotEmpty && endDateStr.isNotEmpty) {
+          DateTime startDate = DateFormat('yyyy-MM-dd').parse(startDateStr);
+          DateTime endDate = DateFormat('yyyy-MM-dd').parse(endDateStr);
+
+          Map<String, dynamic> paymentStatus =
+              _favoritesNotification.checkPaymentStatus(
+            startDate: startDate,
+            frequency: frequency,
+            endDate: endDate,
+            paymentHistory: paymentHistory,
+            totalAmount: totalAmount,
+          );
+
+          if (paymentStatus['status'] == 'missed') {
+            newStatus = 'Missed';
+          }
+        }
+      }
+
       // Update the document with new payment information
       await _firestore.collection('favorites').doc(favoriteId).update({
         'paidAmount': newPaidAmount,
         'paymentHistory': paymentHistory,
-        'status': newPaidAmount >= totalAmount ? 'Paid' : 'Pending',
+        'status': newStatus,
       });
 
       // Send completion notification if payment is fully completed

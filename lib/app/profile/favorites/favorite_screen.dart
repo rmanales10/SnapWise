@@ -83,40 +83,62 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Summary cards - responsive layout
-              isLargeTablet
-                  ? Row(
-                      children: [
-                        Expanded(
-                            child: _summaryCard(
-                          'Total\nPayment',
-                          'PHP ${totalAmount.toStringAsFixed(2)}',
-                          isTablet: isTablet,
-                        )),
-                        SizedBox(width: 16),
-                        Expanded(
-                            child: _summaryCard(
-                          'Total Paid\nPayment',
-                          'PHP ${totalPaid.toStringAsFixed(2)}',
-                          isTablet: isTablet,
-                        )),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Summary cards - row layout (side by side)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  // Determine layout based on available width
+                  final availableWidth = constraints.maxWidth;
+                  final isVerySmallScreen = availableWidth < 350;
+
+                  if (isVerySmallScreen) {
+                    // Only stack vertically for extremely small screens
+                    return Column(
                       children: [
                         _summaryCard(
                           'Total\nPayment',
                           'PHP ${totalAmount.toStringAsFixed(2)}',
                           isTablet: isTablet,
+                          isLargeTablet: isLargeTablet,
+                          availableWidth: availableWidth,
                         ),
+                        SizedBox(height: 12),
                         _summaryCard(
                           'Total Paid\nPayment',
                           'PHP ${totalPaid.toStringAsFixed(2)}',
                           isTablet: isTablet,
+                          isLargeTablet: isLargeTablet,
+                          availableWidth: availableWidth,
                         ),
                       ],
-                    ),
+                    );
+                  } else {
+                    // Row layout for all other screen sizes
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: _summaryCard(
+                            'Total\nPayment',
+                            'PHP ${totalAmount.toStringAsFixed(2)}',
+                            isTablet: isTablet,
+                            isLargeTablet: isLargeTablet,
+                            availableWidth: availableWidth,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: _summaryCard(
+                            'Total Paid\nPayment',
+                            'PHP ${totalPaid.toStringAsFixed(2)}',
+                            isTablet: isTablet,
+                            isLargeTablet: isLargeTablet,
+                            availableWidth: availableWidth,
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                },
+              ),
               SizedBox(height: isTablet ? 24 : 20),
               _searchBar(isTablet: isTablet),
               SizedBox(height: isTablet ? 20 : 16),
@@ -188,10 +210,47 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
     );
   }
 
-  Widget _summaryCard(String title, String amount, {bool isTablet = false}) {
+  Widget _summaryCard(
+    String title,
+    String amount, {
+    bool isTablet = false,
+    bool isLargeTablet = false,
+    double? availableWidth,
+  }) {
+    // Calculate responsive dimensions based on available width
+    final screenWidth = availableWidth ?? MediaQuery.of(context).size.width;
+    final isVerySmallScreen = screenWidth < 350;
+    final isSmallScreen = screenWidth < 600;
+
+    // Calculate card dimensions
+    double cardWidth;
+    double cardHeight;
+    double padding;
+    double titleFontSize;
+    double amountFontSize;
+    double subtitleFontSize;
+
+    if (isVerySmallScreen) {
+      // Very small screens - full width, compact height
+      cardWidth = screenWidth - 32; // Account for padding
+      cardHeight = 120;
+      padding = 12;
+      titleFontSize = 16;
+      amountFontSize = 18;
+      subtitleFontSize = 10;
+    } else {
+      // Row layout for all other screen sizes - cards will be expanded
+      cardWidth = double.infinity; // Will be constrained by Expanded
+      cardHeight = isSmallScreen ? 140 : (isLargeTablet ? 180 : 160);
+      padding = isSmallScreen ? 14 : (isLargeTablet ? 20 : 16);
+      titleFontSize = isSmallScreen ? 18 : (isLargeTablet ? 24 : 20);
+      amountFontSize = isSmallScreen ? 20 : (isLargeTablet ? 26 : 22);
+      subtitleFontSize = isSmallScreen ? 11 : (isLargeTablet ? 14 : 12);
+    }
+
     return Container(
-      width: isTablet ? 220 : 180,
-      height: isTablet ? 180 : 150,
+      width: cardWidth,
+      height: cardHeight,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
@@ -200,35 +259,50 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
           end: Alignment.bottomRight,
         ),
         boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(2, 4)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(2, 4),
+          ),
         ],
       ),
-      padding: EdgeInsets.all(isTablet ? 20 : 16),
+      padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: isTablet ? 24 : 20,
+          Flexible(
+            child: Text(
+              title,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: titleFontSize,
+                height: 1.2,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text(
-            amount,
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: isTablet ? 22 : 18,
+          Flexible(
+            child: Text(
+              amount,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: amountFontSize,
+                height: 1.1,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Text(
             'This Month',
             style: TextStyle(
               color: Colors.white70,
-              fontSize: isTablet ? 14 : 12,
+              fontSize: subtitleFontSize,
+              height: 1.2,
             ),
           ),
         ],
