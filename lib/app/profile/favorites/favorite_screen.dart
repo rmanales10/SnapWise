@@ -416,12 +416,27 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(
-                    bill['title'] ?? '',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: isTablet ? 20 : 16,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        bill['title'] ?? '',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: isTablet ? 20 : 16,
+                        ),
+                      ),
+                      // Show payment date for paid items
+                      if (bill['status'] == 'Paid' &&
+                          (bill['paymentHistory'] as List?)?.isNotEmpty == true)
+                        Text(
+                          _getPaymentDateText(bill['paymentHistory'] as List),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: isTablet ? 14 : 12,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 Container(
@@ -738,34 +753,113 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                         ),
                       ),
                     )
+                  else if (bill['status'] == 'Missed')
+                    Column(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Text(
+                              'Payment Missed',
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: () async {
+                            await controller.resetMissedPayment(bill['id']);
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: Size(double.infinity, 50),
+                            backgroundColor: Colors.orange.shade500,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Retry Payment',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
                   else
-                    ElevatedButton(
-                      onPressed: paidToday
-                          ? null
-                          : () async {
-                              await controller.updatePaymentStatus(
-                                bill['id'],
-                                bill['amountToPay'] ?? 0.0,
-                              );
+                    Column(
+                      children: [
+                        // Pay Now button
+                        ElevatedButton(
+                          onPressed: paidToday
+                              ? null
+                              : () async {
+                                  await controller.updatePaymentStatus(
+                                    bill['id'],
+                                    bill['amountToPay'] ?? 0.0,
+                                  );
+                                  Navigator.pop(context);
+                                },
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: Size(double.infinity, 50),
+                            backgroundColor: Colors.green.shade500,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            paidToday ? 'Already Paid Today' : 'Pay Now',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        // Mark as Paid button (only show if payment amount is sufficient)
+                        if ((bill['paidAmount'] ?? 0.0) >=
+                            (bill['totalAmount'] ?? 0.0))
+                          ElevatedButton(
+                            onPressed: () async {
+                              await controller.markAsPaid(bill['id']);
                               Navigator.pop(context);
                             },
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: Size(double.infinity, 50),
-                        backgroundColor: Colors.green.shade500,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        paidToday ? 'Already Paid Today' : 'Pay Now',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: Size(double.infinity, 50),
+                              backgroundColor: Color(0xFF6A4DFE),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              'Mark as Paid',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   SizedBox(height: 15),
                   if ((bill['paymentHistory'] as List?)?.isNotEmpty ?? false)
@@ -904,15 +998,47 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
     final difference = now.difference(paymentDate);
 
     if (difference.inDays == 0) {
-      return 'Paid Today';
+      return 'Paid Today at ${DateFormat('h:mm a').format(paymentDate)}';
+    } else if (difference.inDays == 1) {
+      return 'Paid Yesterday at ${DateFormat('h:mm a').format(paymentDate)}';
     } else if (difference.inDays < 7) {
-      return 'Paid This Week';
+      return 'Paid ${DateFormat('EEEE').format(paymentDate)} at ${DateFormat('h:mm a').format(paymentDate)}';
     } else if (difference.inDays < 30) {
-      return 'Paid This Month';
+      return 'Paid ${DateFormat('MMM d').format(paymentDate)} at ${DateFormat('h:mm a').format(paymentDate)}';
     } else if (difference.inDays < 365) {
-      return 'Paid This Year';
+      return 'Paid ${DateFormat('MMM d, yyyy').format(paymentDate)}';
     } else {
-      return 'Paid ${DateFormat('yyyy').format(paymentDate)}';
+      return 'Paid ${DateFormat('MMM d, yyyy').format(paymentDate)}';
+    }
+  }
+
+  // Get the most recent payment date text for display in the card
+  String _getPaymentDateText(List paymentHistory) {
+    if (paymentHistory.isEmpty) return '';
+
+    // Get the most recent payment
+    final mostRecentPayment = paymentHistory.last;
+    final paymentDateRaw = mostRecentPayment['timestamp'];
+    final paymentDate = paymentDateRaw is Timestamp
+        ? paymentDateRaw.toDate()
+        : paymentDateRaw as DateTime;
+
+    final now = DateTime.now();
+    final difference = now.difference(paymentDate);
+
+    if (difference.inDays == 0) {
+      // Show time for today's payments
+      return 'Paid Today at ${DateFormat('h:mm a').format(paymentDate)}';
+    } else if (difference.inDays == 1) {
+      return 'Paid Yesterday at ${DateFormat('h:mm a').format(paymentDate)}';
+    } else if (difference.inDays < 7) {
+      return 'Paid ${DateFormat('EEEE').format(paymentDate)} at ${DateFormat('h:mm a').format(paymentDate)}';
+    } else if (difference.inDays < 30) {
+      return 'Paid ${DateFormat('MMM d').format(paymentDate)} at ${DateFormat('h:mm a').format(paymentDate)}';
+    } else if (difference.inDays < 365) {
+      return 'Paid ${DateFormat('MMM d, yyyy').format(paymentDate)}';
+    } else {
+      return 'Paid ${DateFormat('MMM d, yyyy').format(paymentDate)}';
     }
   }
 }

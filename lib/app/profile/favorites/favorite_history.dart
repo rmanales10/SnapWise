@@ -154,15 +154,17 @@ class _FavoriteHistoryState extends State<FavoriteHistory> {
     final difference = now.difference(paymentDate);
 
     if (difference.inDays == 0) {
-      return 'Paid Today';
+      return 'Paid Today at ${DateFormat('h:mm a').format(paymentDate)}';
+    } else if (difference.inDays == 1) {
+      return 'Paid Yesterday at ${DateFormat('h:mm a').format(paymentDate)}';
     } else if (difference.inDays < 7) {
-      return 'Paid This Week';
+      return 'Paid ${DateFormat('EEEE').format(paymentDate)} at ${DateFormat('h:mm a').format(paymentDate)}';
     } else if (difference.inDays < 30) {
-      return 'Paid This Month';
+      return 'Paid ${DateFormat('MMM d').format(paymentDate)} at ${DateFormat('h:mm a').format(paymentDate)}';
     } else if (difference.inDays < 365) {
-      return 'Paid This Year';
+      return 'Paid ${DateFormat('MMM d, yyyy').format(paymentDate)}';
     } else {
-      return 'Paid ${paymentDate.year}';
+      return 'Paid ${DateFormat('MMM d, yyyy').format(paymentDate)}';
     }
   }
 }

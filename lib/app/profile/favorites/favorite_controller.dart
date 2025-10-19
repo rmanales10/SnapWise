@@ -37,7 +37,7 @@ class FavoriteController extends GetxController {
     }
   }
 
-  // Update favorites status based on due dates
+  // Update favorites status based on due dates - only move to Missed, never auto-Paid
   Future<void> updateFavoritesStatus() async {
     try {
       for (var favorite in favorites) {
@@ -71,22 +71,13 @@ class FavoriteController extends GetxController {
         );
 
         String newStatus = 'Pending';
-        switch (paymentStatus['status']) {
-          case 'completed':
-            newStatus = 'Paid';
-            break;
-          case 'missed':
-            newStatus = 'Missed';
-            break;
-          case 'due_today':
-          case 'due_soon':
-          case 'upcoming':
-            newStatus = 'Pending';
-            break;
+        // Only move to Missed if overdue, never auto-mark as Paid
+        if (paymentStatus['status'] == 'missed') {
+          newStatus = 'Missed';
         }
 
-        // Update status in Firestore if it changed
-        if (newStatus != currentStatus) {
+        // Update status in Firestore if it changed to Missed
+        if (newStatus != currentStatus && newStatus == 'Missed') {
           await _firestore.collection('favorites').doc(favorite['id']).update({
             'status': newStatus,
           });
@@ -147,7 +138,7 @@ class FavoriteController extends GetxController {
             daysUntilDue: paymentStatus['days'],
           );
           break;
-        case 'overdue':
+        case 'missed':
           await _favoritesNotification.sendMissedPaymentNotification(
             title: title,
             amountToPay: amountToPay,
@@ -262,6 +253,49 @@ class FavoriteController extends GetxController {
     }
   }
 
+  // Method to manually mark a favorite as paid (user confirmation required)
+  Future<void> markAsPaid(String favoriteId) async {
+    try {
+      // Get the current favorite document
+      final doc =
+          await _firestore.collection('favorites').doc(favoriteId).get();
+      if (!doc.exists) {
+        throw Exception('Favorite not found');
+      }
+
+      final data = doc.data() as Map<String, dynamic>;
+      final totalAmount = (data['totalAmount'] ?? 0.0).toDouble();
+      final currentPaidAmount = (data['paidAmount'] ?? 0.0).toDouble();
+
+      // Only mark as paid if the total amount is reached
+      if (currentPaidAmount >= totalAmount) {
+        await _firestore.collection('favorites').doc(favoriteId).update({
+          'status': 'Paid',
+        });
+        SnackbarService.showFavoritesSuccess('Payment confirmed successfully');
+      } else {
+        SnackbarService.showFavoritesError(
+            'Cannot mark as paid. Amount paid (₱${currentPaidAmount.toStringAsFixed(2)}) is less than total amount (₱${totalAmount.toStringAsFixed(2)})');
+      }
+    } catch (e) {
+      SnackbarService.showFavoritesError(
+          'Failed to mark as paid: ${e.toString()}');
+    }
+  }
+
+  // Method to reset a missed payment back to pending
+  Future<void> resetMissedPayment(String favoriteId) async {
+    try {
+      await _firestore.collection('favorites').doc(favoriteId).update({
+        'status': 'Pending',
+      });
+      SnackbarService.showFavoritesSuccess('Payment reset to pending');
+    } catch (e) {
+      SnackbarService.showFavoritesError(
+          'Failed to reset payment: ${e.toString()}');
+    }
+  }
+
   Future<void> updatePaymentStatus(String favoriteId, double paidAmount) async {
     try {
       // Get the current favorite document
@@ -286,6 +320,7 @@ class FavoriteController extends GetxController {
       // Determine new status based on payment and due dates
       String newStatus = 'Pending';
       if (newPaidAmount >= totalAmount) {
+        // Only mark as Paid when user manually confirms payment
         newStatus = 'Paid';
       } else {
         // Check if payment is missed based on due dates

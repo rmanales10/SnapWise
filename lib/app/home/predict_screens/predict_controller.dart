@@ -19,6 +19,7 @@ class PredictController extends GetxController {
       <Map<String, dynamic>>[].obs;
   final RxString insights = ''.obs;
   final RxBool isLoading = false.obs;
+  final RxInt dataDurationMonths = 0.obs; // Track actual data duration used
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -66,13 +67,14 @@ class PredictController extends GetxController {
       final now = DateTime.now();
       final tenMonthsAgo = DateTime(now.year, now.month - 10, now.day);
 
-      // Get expenses from last 10 months
+      // Get expenses from last 10 months (using receiptDate like dashboard)
       final expensesQuery = await _firestore
           .collection('expenses')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(tenMonthsAgo))
-          .orderBy('timestamp', descending: true)
+          .where('receiptDate',
+              isGreaterThanOrEqualTo:
+                  tenMonthsAgo.toIso8601String().split('T')[0])
+          .orderBy('receiptDate', descending: false)
           .get();
 
       // Get favorites payments from last 10 months
@@ -85,9 +87,12 @@ class PredictController extends GetxController {
 
       for (var doc in expensesQuery.docs) {
         final data = doc.data();
-        final timestamp = (data['timestamp'] as Timestamp).toDate();
+        final receiptDateStr = data['receiptDate'] as String?;
+        if (receiptDateStr == null || receiptDateStr.isEmpty) continue;
+
+        final receiptDate = DateTime.parse(receiptDateStr);
         final monthKey =
-            '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}';
+            '${receiptDate.year}-${receiptDate.month.toString().padLeft(2, '0')}';
         final category = data['category'] ?? 'Others';
         final amount = _parseAmount(data['amount']);
 
@@ -106,14 +111,21 @@ class PredictController extends GetxController {
       });
 
       // Store historical data (last 6 months for analysis)
-      final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
-      historicalData.value = monthlyExpenses.entries.where((entry) {
-        final parts = entry.key.split('-');
-        final year = int.parse(parts[0]);
-        final month = int.parse(parts[1]);
-        final entryDate = DateTime(year, month, 1);
-        return entryDate.isAfter(sixMonthsAgo);
-      }).map((entry) {
+      // Sort by month key to get the most recent months
+      var sortedEntries = monthlyExpenses.entries.toList()
+        ..sort(
+            (a, b) => b.key.compareTo(a.key)); // Sort descending (newest first)
+
+      // Take the last 6 months of data, or all available if less than 6
+      var selectedEntries = sortedEntries.take(6).toList();
+
+      // If we don't have enough recent data, try to get more from a longer period
+      if (selectedEntries.length < 3 && monthlyExpenses.length > 6) {
+        dev.log('Not enough recent data, extending range to get more months');
+        selectedEntries = sortedEntries.take(6).toList();
+      }
+
+      historicalData.value = selectedEntries.map((entry) {
         return {
           'month': entry.key,
           'total': entry.value,
@@ -121,7 +133,14 @@ class PredictController extends GetxController {
         };
       }).toList();
 
+      // Set the actual data duration used for prediction
+      dataDurationMonths.value = historicalData.length;
       dev.log('Historical data fetched: ${historicalData.length} months');
+      dev.log('Monthly expenses keys: ${monthlyExpenses.keys.toList()}');
+      dev.log(
+          'Selected entries: ${selectedEntries.map((e) => '${e.key}: ₱${e.value}').join(', ')}');
+      dev.log(
+          'Historical data: ${historicalData.map((d) => '${d['month']}: ₱${d['total']}').join(', ')}');
     } catch (e) {
       dev.log('Error fetching historical data: $e');
     }
@@ -136,13 +155,14 @@ class PredictController extends GetxController {
       final now = DateTime.now();
       final tenMonthsAgo = DateTime(now.year, now.month - 10, now.day);
 
-      // Get expenses from last 10 months
+      // Get expenses from last 10 months (using receiptDate like dashboard)
       final expensesQuery = await _firestore
           .collection('expenses')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(tenMonthsAgo))
-          .orderBy('timestamp', descending: false)
+          .where('receiptDate',
+              isGreaterThanOrEqualTo:
+                  tenMonthsAgo.toIso8601String().split('T')[0])
+          .orderBy('receiptDate', descending: false)
           .get();
 
       // Get favorites payments from last 10 months
@@ -154,9 +174,12 @@ class PredictController extends GetxController {
 
       for (var doc in expensesQuery.docs) {
         final data = doc.data();
-        final timestamp = (data['timestamp'] as Timestamp).toDate();
+        final receiptDateStr = data['receiptDate'] as String?;
+        if (receiptDateStr == null || receiptDateStr.isEmpty) continue;
+
+        final receiptDate = DateTime.parse(receiptDateStr);
         final monthKey =
-            '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}';
+            '${receiptDate.year}-${receiptDate.month.toString().padLeft(2, '0')}';
         final amount = _parseAmount(data['amount']);
 
         // Add to monthly totals
@@ -195,6 +218,7 @@ class PredictController extends GetxController {
       historicalGraph.value = graphData;
       dev.log('Historical graph created: ${graphData.length} months');
       dev.log('Month names: $monthNames');
+      dev.log('Monthly expenses data: $monthlyExpenses');
       dev.log(
           'Graph data: ${graphData.map((d) => '${d['monthName']}: ₱${d['amount']}').join(', ')}');
 
@@ -416,8 +440,13 @@ class PredictController extends GetxController {
     double increase =
         ((predictedTotal - averageMonthly) / averageMonthly) * 100;
 
+    // Use the tracked data duration for consistency
+    int actualMonths = dataDurationMonths.value;
+    String durationText =
+        actualMonths == 1 ? "1 month" : "$actualMonths months";
+
     String insight =
-        "Based on your spending patterns over the last ${historicalData.length} months:\n\n";
+        "Based on your spending patterns over the last $durationText:\n\n";
     insight +=
         "• Average monthly spending: ₱${averageMonthly.toStringAsFixed(2)}\n";
     insight +=
