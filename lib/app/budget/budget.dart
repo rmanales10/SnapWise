@@ -246,6 +246,24 @@ class _BudgetPageState extends State<BudgetPage> {
       // Send notification if the alert percentage threshold is reached
       if (percentageSpent >= alertPercentage) {
         double exceededAmount = amountSpent - categoryLimit;
+
+        // Debug logging
+        dev.log('=== CATEGORY BUDGET NOTIFICATION DEBUG ===');
+        dev.log('Category: $category');
+        dev.log('Amount Spent: $amountSpent');
+        dev.log('Category Limit: $categoryLimit');
+        dev.log('Exceeded Amount: $exceededAmount');
+        dev.log('Percentage Spent: $percentageSpent%');
+        dev.log('Alert Percentage: $alertPercentage%');
+        dev.log('==========================================');
+
+        // Skip notification if category is "Budget" to avoid duplicate with overall budget notification
+        if (category.toLowerCase() == 'budget') {
+          dev.log(
+              'Skipping category notification for "Budget" - handled by overall budget notification');
+          return;
+        }
+
         await _budgetNotification.sendCategoryBudgetExceededNotification(
           category: category,
           categoryExpenses: amountSpent,
@@ -609,7 +627,7 @@ class _BudgetPageState extends State<BudgetPage> {
                                           _checkCategoryBudgetNotification(
                                             category['title'],
                                             amountSpent,
-                                            totalBudget,
+                                            category['budget'] ?? 0.0,
                                             alertPercentage,
                                           );
                                         }

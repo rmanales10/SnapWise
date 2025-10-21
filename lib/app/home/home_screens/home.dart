@@ -17,23 +17,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  double _calculateBalance(String income, String spent) {
-    double incomeValue = _parseFormattedAmount(income);
-    double spentValue = _parseFormattedAmount(spent);
-    return incomeValue - spentValue - controller.totalPaymentHistory.value;
-  }
-
-  double _parseFormattedAmount(String amount) {
-    amount = amount.replaceAll('\$', '').replaceAll('PHP', '').trim();
-    if (amount.endsWith('k')) {
-      return double.parse(amount.substring(0, amount.length - 1)) * 1000;
-    } else if (amount.endsWith('M')) {
-      return double.parse(amount.substring(0, amount.length - 1)) * 1000000;
-    } else {
-      return double.parse(amount);
-    }
-  }
-
   final HomeController controller = Get.put(HomeController());
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -170,14 +153,39 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 5),
             Obx(() {
-              String income = controller.totalIncome.value;
-              String spent = controller.getTotalSpent();
-              double balance = _calculateBalance(income, spent);
+              // Get raw values directly from controller for accurate calculation
+              double rawIncome = controller.getRawIncome();
+              double rawSpent = controller.getRawTotalSpent();
+              double balance = rawSpent - rawIncome;
+
+              // Format balance with proper sign (no rounding)
+              String balanceText;
+              if (balance > 0) {
+                balanceText =
+                    '₱ -${balance.toStringAsFixed(2)}'; // Show negative for overspending
+              } else if (balance < 0) {
+                balanceText =
+                    '₱ ${(-balance).toStringAsFixed(2)}'; // Show positive for remaining
+              } else {
+                balanceText = '₱ 0.00';
+              }
+
+              // Debug logging
+              print('=== ACCOUNT BALANCE CALCULATION (RAW VALUES) ===');
+              print('Raw Income: $rawIncome');
+              print('Raw Spent: $rawSpent');
+              print('Balance: $balance');
+              print('Display: $balanceText');
+              print('===============================================');
+
               return Text(
-                '₱ ${balance.toStringAsFixed(2)}',
+                balanceText,
                 style: TextStyle(
                   fontSize: isTablet ? 32 : 28,
                   fontWeight: FontWeight.bold,
+                  color: balance > 0
+                      ? Colors.red // Red for overspent
+                      : Color(0xFF1A252F), // Darker blue for remaining money
                 ),
               );
             }),

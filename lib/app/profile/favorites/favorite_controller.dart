@@ -18,23 +18,51 @@ class FavoriteController extends GetxController {
   final RxBool isLoading = false.obs;
   StreamSubscription? _favoritesSubscription;
 
+  // Track last notification times to prevent spam
+  final Map<String, DateTime> _lastNotificationTimes = {};
+
   @override
   void onInit() {
     super.onInit();
     setupFavoritesStream();
     // Check for notifications every time favorites are loaded
     checkAllFavoritesNotifications();
+    // Set up periodic notification checks
+    _setupPeriodicNotificationCheck();
+  }
+
+  // Set up periodic notification checks (every 30 minutes)
+  void _setupPeriodicNotificationCheck() {
+    Timer.periodic(Duration(minutes: 30), (timer) {
+      if (favorites.isNotEmpty) {
+        checkAllFavoritesNotifications();
+      }
+    });
   }
 
   // Check notifications for all favorites
   Future<void> checkAllFavoritesNotifications() async {
     try {
+      dev.log(
+          'Checking favorites notifications for ${favorites.length} favorites');
       for (var favorite in favorites) {
         await _checkFavoriteNotification(favorite);
       }
     } catch (e) {
       dev.log('Error checking favorites notifications: $e');
     }
+  }
+
+  // Check notifications when app becomes active
+  Future<void> checkNotificationsOnAppResume() async {
+    dev.log('App resumed - checking favorites notifications');
+    await checkAllFavoritesNotifications();
+  }
+
+  // Manual notification check (can be called from UI)
+  Future<void> refreshNotifications() async {
+    dev.log('Manual notification refresh triggered');
+    await checkAllFavoritesNotifications();
   }
 
   // Update favorites status based on due dates - only move to Missed, never auto-Paid
@@ -107,6 +135,7 @@ class FavoriteController extends GetxController {
       bool receiveAlert = favorite['receiveAlert'] ?? false;
       if (!receiveAlert) return;
 
+      String favoriteId = favorite['id'] ?? favorite['title'] ?? 'unknown';
       String frequency = favorite['frequency'] ?? 'monthly';
       String startDateStr = favorite['startDate'] ?? '';
       String endDateStr = favorite['endDate'] ?? '';
@@ -132,14 +161,34 @@ class FavoriteController extends GetxController {
 
       String title = favorite['title'] ?? 'Payment';
       double amountToPay = (favorite['amountToPay'] ?? 0.0).toDouble();
+      String status = paymentStatus['status'];
 
-      switch (paymentStatus['status']) {
+      // Check if we should send notification (cooldown period)
+      String notificationKey = '$favoriteId-$status';
+      DateTime now = DateTime.now();
+      DateTime? lastNotification = _lastNotificationTimes[notificationKey];
+
+      // Cooldown periods: 1 hour for due_today, 6 hours for due_soon, 12 hours for missed
+      Duration cooldownPeriod = Duration(hours: 1);
+      if (status == 'due_soon') cooldownPeriod = Duration(hours: 6);
+      if (status == 'missed') cooldownPeriod = Duration(hours: 12);
+
+      if (lastNotification != null &&
+          now.difference(lastNotification) < cooldownPeriod) {
+        dev.log('Skipping notification for $title ($status) - cooldown active');
+        return;
+      }
+
+      bool notificationSent = false;
+      switch (status) {
         case 'due_today':
           await _favoritesNotification.sendPaymentDueTodayNotification(
             title: title,
             amountToPay: amountToPay,
             frequency: frequency,
           );
+          notificationSent = true;
+          dev.log('Sent due today notification for $title');
           break;
         case 'due_soon':
           await _favoritesNotification.sendPaymentDueSoonNotification(
@@ -148,6 +197,9 @@ class FavoriteController extends GetxController {
             frequency: frequency,
             daysUntilDue: paymentStatus['days'],
           );
+          notificationSent = true;
+          dev.log(
+              'Sent due soon notification for $title (${paymentStatus['days']} days)');
           break;
         case 'missed':
           await _favoritesNotification.sendMissedPaymentNotification(
@@ -156,7 +208,15 @@ class FavoriteController extends GetxController {
             frequency: frequency,
             daysOverdue: paymentStatus['days'],
           );
+          notificationSent = true;
+          dev.log(
+              'Sent missed payment notification for $title (${paymentStatus['days']} days overdue)');
           break;
+      }
+
+      // Update last notification time if notification was sent
+      if (notificationSent) {
+        _lastNotificationTimes[notificationKey] = now;
       }
     } catch (e) {
       dev.log('Error checking favorite notification: $e');

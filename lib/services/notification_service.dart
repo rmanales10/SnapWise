@@ -1,10 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class NotificationService extends GetxController {
   static final FlutterLocalNotificationsPlugin
       _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Notification IDs for different types
   static const int OVERALL_BUDGET_ID = 1;
@@ -30,6 +35,33 @@ class NotificationService extends GetxController {
   void onInit() {
     super.onInit();
     _initializeNotifications();
+  }
+
+  // Save notification to Firestore for history
+  Future<void> _saveNotificationToFirestore({
+    required String title,
+    required String body,
+    required String type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      await _firestore.collection('notifications').add({
+        'userId': user.uid,
+        'title': title,
+        'body': body,
+        'type': type,
+        'data': data ?? {},
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving notification to Firestore: $e');
+      }
+    }
   }
 
   /// Initialize notification service with proper settings
@@ -295,6 +327,20 @@ class NotificationService extends GetxController {
         notificationDetails,
         payload: 'budget',
       );
+
+      // Save to Firestore for notification history
+      await _saveNotificationToFirestore(
+        title: '🚨 Budget Limit Exceeded!',
+        body:
+            'You\'ve exceeded your overall budget by ₱${exceededAmount.toStringAsFixed(2)}. Total spent: ₱${totalExpenses.toStringAsFixed(2)}',
+        type: 'budget_exceeded',
+        data: {
+          'budgetType': 'overall',
+          'exceededAmount': exceededAmount,
+          'totalExpenses': totalExpenses,
+          'budgetLimit': budgetLimit,
+        },
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Error showing overall budget notification: $e');
@@ -310,6 +356,16 @@ class NotificationService extends GetxController {
     required double exceededAmount,
   }) async {
     try {
+      // Debug logging
+      if (kDebugMode) {
+        print('=== NOTIFICATION SERVICE DEBUG ===');
+        print('Category: $category');
+        print('Category Expenses: $categoryExpenses');
+        print('Category Limit: $categoryLimit');
+        print('Exceeded Amount: $exceededAmount');
+        print('==================================');
+      }
+
       AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         CATEGORY_BUDGET_CHANNEL,
         'Category Budget Alerts',
@@ -335,10 +391,26 @@ class NotificationService extends GetxController {
 
       await _flutterLocalNotificationsPlugin.show(
         CATEGORY_BUDGET_ID,
-        '⚠️ $category Budget Exceeded!',
+        '⚠️ ${category == 'Budget' ? 'Overall' : category} Budget Exceeded!',
         'You\'ve exceeded your $category budget by ₱${exceededAmount.toStringAsFixed(2)}. Spent: ₱${categoryExpenses.toStringAsFixed(2)}',
         notificationDetails,
         payload: 'budget',
+      );
+
+      // Save to Firestore for notification history
+      await _saveNotificationToFirestore(
+        title:
+            '⚠️ ${category == 'Budget' ? 'Overall' : category} Budget Exceeded!',
+        body:
+            'You\'ve exceeded your $category budget by ₱${exceededAmount.toStringAsFixed(2)}. Spent: ₱${categoryExpenses.toStringAsFixed(2)}',
+        type: 'budget_exceeded',
+        data: {
+          'budgetType': 'category',
+          'category': category,
+          'exceededAmount': exceededAmount,
+          'categoryExpenses': categoryExpenses,
+          'categoryLimit': categoryLimit,
+        },
       );
     } catch (e) {
       if (kDebugMode) {
@@ -381,6 +453,18 @@ class NotificationService extends GetxController {
         'You\'ve spent ${(spentPercentage * 100).toStringAsFixed(2)}% of your income. Remaining: ₱${remainingIncome.toStringAsFixed(2)}',
         notificationDetails,
         payload: 'income',
+      );
+
+      // Save to Firestore for notification history
+      await _saveNotificationToFirestore(
+        title: '💰 Income Alert',
+        body:
+            'You\'ve spent ${(spentPercentage * 100).toStringAsFixed(2)}% of your income. Remaining: ₱${remainingIncome.toStringAsFixed(2)}',
+        type: 'income_alert',
+        data: {
+          'percentageSpent': spentPercentage * 100,
+          'remainingIncome': remainingIncome,
+        },
       );
     } catch (e) {
       if (kDebugMode) {
@@ -425,6 +509,18 @@ class NotificationService extends GetxController {
         notificationDetails,
         payload: 'expense',
       );
+
+      // Save to Firestore for notification history
+      await _saveNotificationToFirestore(
+        title: '💸 Expense Added',
+        body: '₱${amount.toStringAsFixed(2)} for $category on $receiptDate',
+        type: 'expense_added',
+        data: {
+          'category': category,
+          'amount': amount,
+          'receiptDate': receiptDate,
+        },
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Error showing expense added notification: $e');
@@ -468,6 +564,19 @@ class NotificationService extends GetxController {
         '$title payment of ₱${amountToPay.toStringAsFixed(2)} is due today ($frequency)',
         notificationDetails,
         payload: 'favorites',
+      );
+
+      // Save to Firestore for notification history
+      await _saveNotificationToFirestore(
+        title: '💰 Payment Due Today!',
+        body:
+            '$title payment of ₱${amountToPay.toStringAsFixed(2)} is due today ($frequency)',
+        type: 'payment_due_today',
+        data: {
+          'paymentTitle': title,
+          'amountToPay': amountToPay,
+          'frequency': frequency,
+        },
       );
     } catch (e) {
       if (kDebugMode) {
@@ -514,6 +623,20 @@ class NotificationService extends GetxController {
         '$title payment of ₱${amountToPay.toStringAsFixed(2)} is due $dayText ($frequency)',
         notificationDetails,
         payload: 'favorites',
+      );
+
+      // Save to Firestore for notification history
+      await _saveNotificationToFirestore(
+        title: '⏰ Payment Due Soon!',
+        body:
+            '$title payment of ₱${amountToPay.toStringAsFixed(2)} is due $dayText ($frequency)',
+        type: 'payment_due_soon',
+        data: {
+          'paymentTitle': title,
+          'amountToPay': amountToPay,
+          'frequency': frequency,
+          'daysUntilDue': daysUntilDue,
+        },
       );
     } catch (e) {
       if (kDebugMode) {
@@ -562,6 +685,20 @@ class NotificationService extends GetxController {
         notificationDetails,
         payload: 'favorites',
       );
+
+      // Save to Firestore for notification history
+      await _saveNotificationToFirestore(
+        title: '🚨 Payment Overdue!',
+        body:
+            '$title payment of ₱${amountToPay.toStringAsFixed(2)} was due $dayText ($frequency)',
+        type: 'payment_overdue',
+        data: {
+          'paymentTitle': title,
+          'amountToPay': amountToPay,
+          'frequency': frequency,
+          'daysOverdue': daysOverdue,
+        },
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Error showing payment overdue notification: $e');
@@ -603,6 +740,18 @@ class NotificationService extends GetxController {
         '$title payment of ₱${totalAmount.toStringAsFixed(2)} has been completed successfully!',
         notificationDetails,
         payload: 'favorites',
+      );
+
+      // Save to Firestore for notification history
+      await _saveNotificationToFirestore(
+        title: '✅ Payment Completed!',
+        body:
+            '$title payment of ₱${totalAmount.toStringAsFixed(2)} has been completed successfully!',
+        type: 'payment_completed',
+        data: {
+          'paymentTitle': title,
+          'totalAmount': totalAmount,
+        },
       );
     } catch (e) {
       if (kDebugMode) {

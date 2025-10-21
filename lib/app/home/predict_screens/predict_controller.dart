@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:snapwise/services/snackbar_service.dart';
-import 'package:snapwise/app/profile/favorites/favorite_controller.dart';
 import 'dart:developer' as dev;
 import 'dart:math';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
@@ -70,7 +69,19 @@ class PredictController extends GetxController {
       if (user == null) return;
 
       final now = DateTime.now();
-      final tenMonthsAgo = DateTime(now.year, now.month - 10, now.day);
+      // Calculate 10 months ago properly, handling year boundaries
+      DateTime tenMonthsAgo;
+      if (now.month > 10) {
+        tenMonthsAgo = DateTime(now.year, now.month - 10, 1);
+      } else {
+        tenMonthsAgo = DateTime(now.year - 1, now.month + 2, 1);
+      }
+
+      dev.log('=== FETCHING HISTORICAL DATA ===');
+      dev.log('Current date: $now');
+      dev.log('Ten months ago: $tenMonthsAgo');
+      dev.log(
+          'Date range: ${tenMonthsAgo.toIso8601String().split('T')[0]} to ${now.toIso8601String().split('T')[0]}');
 
       // Get expenses from last 10 months (using receiptDate like dashboard)
       final expensesQuery = await _firestore
@@ -82,9 +93,7 @@ class PredictController extends GetxController {
           .orderBy('receiptDate', descending: false)
           .get();
 
-      // Get favorites payments from last 10 months
-      double favoritesTotal =
-          await _getFavoritesPaymentsForPeriod(tenMonthsAgo, now);
+      dev.log('Total expenses found: ${expensesQuery.docs.length}');
 
       // Process expenses data by month
       Map<String, double> monthlyExpenses = {};
@@ -106,14 +115,16 @@ class PredictController extends GetxController {
 
         // Add to category totals
         categoryTotals[category] = (categoryTotals[category] ?? 0.0) + amount;
+
+        dev.log('Expense: $category - $amount - $monthKey');
       }
 
-      // Add favorites to monthly data
-      double monthlyFavorites = favoritesTotal /
-          monthlyExpenses.length; // Distribute across available months
-      monthlyExpenses.forEach((key, value) {
-        monthlyExpenses[key] = value + monthlyFavorites;
-      });
+      dev.log('Monthly expenses before favorites: $monthlyExpenses');
+
+      // Add favorites to monthly data properly
+      await _addFavoritesToMonthlyData(monthlyExpenses, tenMonthsAgo, now);
+
+      dev.log('Monthly expenses after favorites: $monthlyExpenses');
 
       // Store historical data (last 6 months for analysis)
       // Sort by month key to get the most recent months
@@ -170,10 +181,6 @@ class PredictController extends GetxController {
           .orderBy('receiptDate', descending: false)
           .get();
 
-      // Get favorites payments from last 10 months
-      double favoritesTotal =
-          await _getFavoritesPaymentsForPeriod(tenMonthsAgo, now);
-
       // Process expenses data by month
       Map<String, double> monthlyExpenses = {};
 
@@ -191,12 +198,8 @@ class PredictController extends GetxController {
         monthlyExpenses[monthKey] = (monthlyExpenses[monthKey] ?? 0.0) + amount;
       }
 
-      // Add favorites to monthly data
-      double monthlyFavorites = favoritesTotal /
-          monthlyExpenses.length; // Distribute across available months
-      monthlyExpenses.forEach((key, value) {
-        monthlyExpenses[key] = value + monthlyFavorites;
-      });
+      // Add favorites to monthly data properly
+      await _addFavoritesToMonthlyData(monthlyExpenses, tenMonthsAgo, now);
 
       // Create graph data for all available months (up to 10 months)
       List<Map<String, dynamic>> graphData = [];
@@ -236,6 +239,76 @@ class PredictController extends GetxController {
       }
     } catch (e) {
       dev.log('Error creating historical graph: $e');
+    }
+  }
+
+  // Add favorites payments to monthly data properly
+  Future<void> _addFavoritesToMonthlyData(Map<String, double> monthlyExpenses,
+      DateTime startDate, DateTime endDate) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      dev.log('=== ADDING FAVORITES TO MONTHLY DATA ===');
+      dev.log('Date range: $startDate to $endDate');
+
+      // Get all favorites for the user
+      final querySnapshot = await _firestore
+          .collection('favorites')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      dev.log('Total favorites found: ${querySnapshot.docs.length}');
+
+      // Process each favorite's payment history
+      for (var doc in querySnapshot.docs) {
+        final favoriteData = doc.data();
+        String favoriteName = favoriteData['title'] ?? 'Unknown';
+        List<Map<String, dynamic>> paymentHistory =
+            List<Map<String, dynamic>>.from(
+                favoriteData['paymentHistory'] ?? []);
+
+        dev.log(
+            'Processing favorite: $favoriteName with ${paymentHistory.length} payments');
+
+        // Calculate payments made in each month
+        for (var payment in paymentHistory) {
+          final paymentDateRaw = payment['timestamp'];
+          DateTime paymentDate;
+
+          if (paymentDateRaw is Timestamp) {
+            paymentDate = paymentDateRaw.toDate();
+          } else if (paymentDateRaw is DateTime) {
+            paymentDate = paymentDateRaw;
+          } else {
+            dev.log('Skipping invalid payment date: $paymentDateRaw');
+            continue; // Skip invalid dates
+          }
+
+          // Check if payment is within the date range
+          if (paymentDate
+                  .isAfter(startDate.subtract(const Duration(days: 1))) &&
+              paymentDate.isBefore(endDate)) {
+            double amount = (payment['amount'] ?? 0.0).toDouble();
+            final monthKey =
+                '${paymentDate.year}-${paymentDate.month.toString().padLeft(2, '0')}';
+
+            // Add to monthly expenses
+            monthlyExpenses[monthKey] =
+                (monthlyExpenses[monthKey] ?? 0.0) + amount;
+            dev.log(
+                'Added favorites payment: $favoriteName - $amount - $monthKey');
+          } else {
+            dev.log(
+                'Payment outside date range: $favoriteName - ${payment['amount']} - $paymentDate');
+          }
+        }
+      }
+
+      dev.log('Final monthly expenses: $monthlyExpenses');
+      dev.log('==========================================');
+    } catch (e) {
+      dev.log('Error adding favorites to monthly data: $e');
     }
   }
 
@@ -481,50 +554,6 @@ class PredictController extends GetxController {
     }
 
     insights.value = insight;
-  }
-
-  // Helper method to get favorites payments for a period
-  Future<double> _getFavoritesPaymentsForPeriod(
-      DateTime startDate, DateTime endDate) async {
-    try {
-      FavoriteController favoriteController;
-      try {
-        favoriteController = Get.find<FavoriteController>();
-      } catch (e) {
-        favoriteController = Get.put(FavoriteController());
-        await favoriteController.setupFavoritesStream();
-      }
-
-      double totalFavoritesExpenses = 0.0;
-
-      for (var favorite in favoriteController.favorites) {
-        List<Map<String, dynamic>> paymentHistory =
-            List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
-
-        for (var payment in paymentHistory) {
-          final paymentDateRaw = payment['timestamp'];
-          DateTime paymentDate;
-
-          if (paymentDateRaw is Timestamp) {
-            paymentDate = paymentDateRaw.toDate();
-          } else if (paymentDateRaw is DateTime) {
-            paymentDate = paymentDateRaw;
-          } else {
-            continue;
-          }
-
-          if (paymentDate.isAfter(startDate) && paymentDate.isBefore(endDate)) {
-            double amount = (payment['amount'] ?? 0.0).toDouble();
-            totalFavoritesExpenses += amount;
-          }
-        }
-      }
-
-      return totalFavoritesExpenses;
-    } catch (e) {
-      dev.log('Error getting favorites payments: $e');
-      return 0.0;
-    }
   }
 
   // Helper method to parse amount

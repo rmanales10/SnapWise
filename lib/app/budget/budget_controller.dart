@@ -236,12 +236,19 @@ class BudgetController extends GetxController {
       double income = incomeData.value['amount'] ?? 0.0;
       double totalExpenses = await fetchTotalExpenses();
 
+      dev.log('=== INCOME CALCULATION ===');
+      dev.log('Income: $income');
+      dev.log('Total Expenses: $totalExpenses');
+      dev.log('Remaining Income: ${income - totalExpenses}');
+
       if (income <= 0) {
         remainingIncomePercentage.value = 0.0;
+        dev.log('Income is 0 or negative, setting percentage to 0');
       } else {
         remainingIncome.value = income - totalExpenses;
         double percentageSpent = totalExpenses / income;
-        // print(remainingIncome.value);
+        dev.log(
+            'Percentage spent: ${(percentageSpent * 100).toStringAsFixed(1)}%');
 
         // Calculate the remaining percentage as a decimal
         remainingIncomePercentage.value = 1.0 - percentageSpent;
@@ -252,10 +259,15 @@ class BudgetController extends GetxController {
           1.0,
         );
 
+        dev.log(
+            'Remaining percentage: ${(remainingIncomePercentage.value * 100).toStringAsFixed(1)}%');
+        dev.log('========================');
+
         // Check for income notification
         await _checkIncomeNotification();
       }
     } catch (e) {
+      dev.log('Error in totalOverallIncome: $e');
       // Handle any errors
       remainingIncomePercentage.value = 0.0;
     }
@@ -732,12 +744,11 @@ class BudgetController extends GetxController {
       if (user == null) {
         throw Exception('User not authenticated');
       }
-      final monthRange = _getCurrentMonthRange();
+
+      // Get all expenses for the user (no date filtering in query)
       final QuerySnapshot expensesSnapshot = await _firestore
           .collection('expenses')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
           .get();
 
       double totalExpenses = 0.0;
@@ -747,22 +758,44 @@ class BudgetController extends GetxController {
           ? DateTime(now.year, now.month + 1, 1)
           : DateTime(now.year + 1, 1, 1);
 
+      dev.log('=== FETCHING TOTAL EXPENSES ===');
+      dev.log(
+          'Current month: ${now.year}-${now.month.toString().padLeft(2, '0')}');
+      dev.log(
+          'Date range: ${startOfMonth.toString()} to ${startOfNextMonth.toString()}');
+      dev.log('Total documents fetched: ${expensesSnapshot.docs.length}');
+
       for (var doc in expensesSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final amount = data['amount'];
 
         // Check if expense is within current month based on receipt date
-        bool isInCurrentMonth = true;
-        if (data['receiptDate'] != null) {
+        bool isInCurrentMonth = false;
+        String dateSource = '';
+
+        if (data['receiptDate'] != null &&
+            data['receiptDate'].toString().isNotEmpty) {
           try {
             DateTime receiptDate = DateTime.parse(data['receiptDate']);
             isInCurrentMonth = receiptDate
                     .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
                 receiptDate.isBefore(startOfNextMonth);
+            dateSource = 'receiptDate';
           } catch (e) {
-            // If receipt date parsing fails, use timestamp
-            isInCurrentMonth = true;
+            // If receipt date parsing fails, check timestamp as fallback
+            DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+            isInCurrentMonth = timestamp
+                    .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                timestamp.isBefore(startOfNextMonth);
+            dateSource = 'timestamp (fallback)';
           }
+        } else {
+          // If no receipt date, use timestamp
+          DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+          isInCurrentMonth = timestamp
+                  .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+              timestamp.isBefore(startOfNextMonth);
+          dateSource = 'timestamp';
         }
 
         if (amount != null && isInCurrentMonth) {
@@ -777,14 +810,19 @@ class BudgetController extends GetxController {
             amountValue = 0.0;
           }
           totalExpenses += amountValue;
+          dev.log(
+              'Expense: ${data['category']} - Amount: $amountValue - Source: $dateSource');
         }
       }
 
       // Add favorites expenses to total
-      totalExpenses += await _getTotalFavoritesExpenses();
+      double favoritesExpenses = await _getTotalFavoritesExpenses();
+      totalExpenses += favoritesExpenses;
 
-      dev.log(
-          'Total expenses for current month (based on receipt date): $totalExpenses');
+      dev.log('Regular expenses: ${totalExpenses - favoritesExpenses}');
+      dev.log('Favorites expenses: $favoritesExpenses');
+      dev.log('Total expenses for current month: $totalExpenses');
+      dev.log('===============================');
       return totalExpenses;
     } catch (e) {
       dev.log('Error fetching total expenses: $e');

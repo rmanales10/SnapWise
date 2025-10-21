@@ -155,6 +155,10 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
     labels = labels.map((label) => (label / step).round() * step).toList();
     labels = labels.where((label) => label >= 0).toList();
 
+    // Remove duplicates while preserving order
+    labels = labels.toSet().toList();
+    labels.sort();
+
     // Limit to maximum 6 labels to prevent overflow
     if (labels.length > 6) {
       labels = labels.take(6).toList();
@@ -375,12 +379,21 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                       dateLabel =
                                           '${date.day}/${date.month}/${date.year}';
 
-                                      // For current day, use home controller's total
-                                      if (day == now.day) {
-                                        totalAmount =
-                                            'PHP ${homeController.getTotalSpent()}';
+                                      // Get the actual amount from the graph data for this specific day
+                                      final expenses = graphController
+                                          .getCurrentMonthExpenses();
+                                      final actualAmount =
+                                          groupIndex < expenses.length
+                                              ? expenses[groupIndex]
+                                              : 0.0;
+
+                                      // Format the amount based on actual data
+                                      if (actualAmount > 0) {
+                                        totalAmount = actualAmount >= 1000
+                                            ? 'PHP ${(actualAmount / 1000).toStringAsFixed(1)}k'
+                                            : 'PHP ${actualAmount.toStringAsFixed(2)}';
                                       } else {
-                                        totalAmount = formattedAmount;
+                                        totalAmount = 'PHP 0.00';
                                       }
                                     } else {
                                       final now = DateTime.now();
@@ -467,12 +480,21 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                       period =
                                           '${date.day}/${date.month}/${date.year}';
 
-                                      // For current day, use home controller's total
-                                      if (day == now.day) {
-                                        displayAmount =
-                                            'PHP ${homeController.getTotalSpent()}';
+                                      // Get the actual amount from the graph data for this specific day
+                                      final expenses = graphController
+                                          .getCurrentMonthExpenses();
+                                      final actualAmount =
+                                          touchedGroup.x < expenses.length
+                                              ? expenses[touchedGroup.x]
+                                              : 0.0;
+
+                                      // Format the amount based on actual data
+                                      if (actualAmount > 0) {
+                                        displayAmount = actualAmount >= 1000
+                                            ? 'PHP ${(actualAmount / 1000).toStringAsFixed(1)}k'
+                                            : 'PHP ${actualAmount.toStringAsFixed(2)}';
                                       } else {
-                                        displayAmount = formattedAmount;
+                                        displayAmount = 'PHP 0.00';
                                       }
                                     } else {
                                       final now = DateTime.now();

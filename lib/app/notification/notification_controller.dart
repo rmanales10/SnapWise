@@ -37,7 +37,7 @@ class NotificationController extends GetxController {
       }
       final monthRange = _getCurrentMonthRange();
       final QuerySnapshot querySnapshot = await _firestore
-          .collection('notification')
+          .collection('notifications')
           .where('userId', isEqualTo: user.uid)
           .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
           .where('timestamp', isLessThan: monthRange['end'])
@@ -49,12 +49,12 @@ class NotificationController extends GetxController {
 
         return {
           'id': doc.id,
-          'title': data['category'],
-          'description':
-              'Your ${data['category']} budget has exceeded the limit',
+          'title': data['title'] ?? 'Notification',
+          'description': data['body'] ?? 'No description available',
           'timestamp': data['timestamp'],
-          'icon': _getCategoryIcon(data['category']),
-          'color': _getCategoryColor(data['category']),
+          'type': data['type'] ?? 'general',
+          'icon': _getNotificationIcon(data['type']),
+          'color': _getNotificationColor(data['type']),
           'isRead': data['isRead'] ?? false,
         };
       }).toList();
@@ -68,7 +68,7 @@ class NotificationController extends GetxController {
   void markAllAsRead() {
     for (var notification in notifications) {
       notification['isRead'] = true;
-      _firestore.collection('notification').doc(notification['id']).update({
+      _firestore.collection('notifications').doc(notification['id']).update({
         'isRead': true,
       });
     }
@@ -77,34 +77,48 @@ class NotificationController extends GetxController {
 
   void removeAllNotifications() {
     for (var notification in notifications) {
-      _firestore.collection('notification').doc(notification['id']).delete();
+      _firestore.collection('notifications').doc(notification['id']).delete();
     }
     notifications.clear();
   }
 
-  IconData _getCategoryIcon(String category) {
-    // Implement this method to return the appropriate icon for each category
-    // For example:
-    switch (category.toLowerCase()) {
-      case 'shopping':
-        return Icons.shopping_bag;
-      case 'utilities':
-        return Icons.bolt;
-      // Add more cases as needed
+  IconData _getNotificationIcon(String type) {
+    switch (type) {
+      case 'budget_exceeded':
+        return Icons.warning;
+      case 'income_alert':
+        return Icons.account_balance_wallet;
+      case 'payment_due_today':
+        return Icons.schedule;
+      case 'payment_due_soon':
+        return Icons.alarm;
+      case 'payment_overdue':
+        return Icons.error;
+      case 'payment_completed':
+        return Icons.check_circle;
+      case 'expense_added':
+        return Icons.add_shopping_cart;
       default:
         return Icons.notifications;
     }
   }
 
-  Color _getCategoryColor(String category) {
-    // Implement this method to return the appropriate color for each category
-    // For example:
-    switch (category.toLowerCase()) {
-      case 'shopping':
-        return Colors.orange;
-      case 'utilities':
+  Color _getNotificationColor(String type) {
+    switch (type) {
+      case 'budget_exceeded':
+        return Colors.red;
+      case 'income_alert':
         return Colors.blue;
-      // Add more cases as needed
+      case 'payment_due_today':
+        return Colors.orange;
+      case 'payment_due_soon':
+        return Colors.amber;
+      case 'payment_overdue':
+        return Colors.red.shade700;
+      case 'payment_completed':
+        return Colors.green;
+      case 'expense_added':
+        return Colors.purple;
       default:
         return Colors.grey;
     }

@@ -18,12 +18,105 @@ class HomeController extends GetxController {
   RxString totalIncome = '0.0'.obs;
   RxDouble totalPaymentHistory = 0.0.obs;
 
+  // Prevent multiple simultaneous calls
+  bool _isFetchingTransactions = false;
+
   @override
   void onInit() {
     super.onInit();
-    fetchTransactions();
-    fetchTransactionsHistory();
-    getTotalPaymentHistory();
+    refreshAllData();
+  }
+
+  Future<void> refreshAllData() async {
+    await Future.wait([
+      fetchTransactions(),
+      fetchTransactionsHistory(),
+      getTotalPaymentHistory(),
+      getTotalIncome(),
+      getTotalBudget(),
+    ]);
+
+    // Verify the calculation with direct Firestore query
+    await _verifyMonthlyCalculation();
+
+    // Log the final cached values to ensure consistency
+    log('=== FINAL CACHED VALUES ===');
+    log('transactionsHistory.length: ${transactionsHistory.length}');
+    log('totalPaymentHistory.value: ${totalPaymentHistory.value}');
+    log('Current getTotalSpent(): ${getTotalSpent()}');
+    log('==========================');
+  }
+
+  // Method to verify monthly calculation by directly querying Firestore
+  Future<void> _verifyMonthlyCalculation() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      DateTime now = DateTime.now();
+      DateTime startOfMonth = DateTime(now.year, now.month, 1);
+      DateTime endOfMonth = DateTime(now.year, now.month + 1, 1);
+
+      // Get all expenses for the user
+      final querySnapshot = await _firestore
+          .collection('expenses')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      double directTotal = 0.0;
+      int currentMonthExpenses = 0;
+
+      // Filter by receipt date for current month
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        final receiptDateStr = data['receiptDate'] as String?;
+
+        if (receiptDateStr != null && receiptDateStr.isNotEmpty) {
+          try {
+            final receiptDate = DateTime.parse(receiptDateStr);
+            if (receiptDate
+                    .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                receiptDate.isBefore(endOfMonth)) {
+              final amount = (data['amount'] as num).toDouble();
+              directTotal += amount;
+              currentMonthExpenses++;
+            }
+          } catch (e) {
+            // If receipt date parsing fails, check timestamp as fallback
+            final timestamp = (data['timestamp'] as Timestamp).toDate();
+            if (timestamp
+                    .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                timestamp.isBefore(endOfMonth)) {
+              final amount = (data['amount'] as num).toDouble();
+              directTotal += amount;
+              currentMonthExpenses++;
+            }
+          }
+        } else {
+          // If no receipt date, use timestamp
+          final timestamp = (data['timestamp'] as Timestamp).toDate();
+          if (timestamp
+                  .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+              timestamp.isBefore(endOfMonth)) {
+            final amount = (data['amount'] as num).toDouble();
+            directTotal += amount;
+            currentMonthExpenses++;
+          }
+        }
+      }
+
+      // Add favorites payments
+      directTotal += totalPaymentHistory.value;
+
+      log('=== MONTHLY CALCULATION VERIFICATION ===');
+      log('Current month: ${now.year}-${now.month.toString().padLeft(2, '0')}');
+      log('Date range: ${startOfMonth.toString()} to ${endOfMonth.toString()}');
+      log('Direct calculation: $directTotal (${currentMonthExpenses} expenses + favorites)');
+      log('Method calculation: ${getTotalSpent()}');
+      log('========================================');
+    } catch (e) {
+      log('Error verifying monthly calculation: $e');
+    }
   }
 
   // Helper function to get start and end of current month
@@ -43,13 +136,12 @@ class HomeController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final monthRange = _getCurrentMonthRange();
+        // Fetch all expenses and filter by receipt date for current month
         final querySnapshot = await _firestore
             .collection('expenses')
             .where('userId', isEqualTo: user.uid)
-            .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-            .where('timestamp', isLessThan: monthRange['end'])
             .orderBy('timestamp', descending: true)
+            .limit(10)
             .get();
 
         DateTime now = DateTime.now();
@@ -63,7 +155,7 @@ class HomeController extends GetxController {
               final data = doc.data();
 
               // Check if expense is within current month based on receipt date
-              bool isInCurrentMonth = true;
+              bool isInCurrentMonth = false;
               if (data['receiptDate'] != null) {
                 try {
                   DateTime receiptDate = DateTime.parse(data['receiptDate']);
@@ -71,16 +163,40 @@ class HomeController extends GetxController {
                           startOfMonth.subtract(const Duration(days: 1))) &&
                       receiptDate.isBefore(startOfNextMonth);
                 } catch (e) {
-                  // If receipt date parsing fails, use timestamp
-                  isInCurrentMonth = true;
+                  // If receipt date parsing fails, check timestamp as fallback
+                  DateTime timestamp =
+                      (data['timestamp'] as Timestamp).toDate();
+                  isInCurrentMonth = timestamp.isAfter(
+                          startOfMonth.subtract(const Duration(days: 1))) &&
+                      timestamp.isBefore(startOfNextMonth);
                 }
+              } else {
+                // If no receipt date, use timestamp
+                DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+                isInCurrentMonth = timestamp.isAfter(
+                        startOfMonth.subtract(const Duration(days: 1))) &&
+                    timestamp.isBefore(startOfNextMonth);
+              }
+
+              // Use receipt date for display if available, otherwise use timestamp
+              String displayDate;
+              if (data['receiptDate'] != null &&
+                  data['receiptDate'].toString().isNotEmpty) {
+                try {
+                  DateTime receiptDate = DateTime.parse(data['receiptDate']);
+                  displayDate = _formatDateFromDateTime(receiptDate);
+                } catch (e) {
+                  displayDate = _formatDate(data['timestamp']);
+                }
+              } else {
+                displayDate = _formatDate(data['timestamp']);
               }
 
               return {
                 'id': doc.id,
                 "icon": _getCategoryIcon(data['category']),
                 "title": data['category'],
-                "date": _formatDate(data['timestamp']),
+                "date": displayDate,
                 "amount": "-${data['amount'].toStringAsFixed(2)}",
                 "isInCurrentMonth": isInCurrentMonth, // Add flag for filtering
               };
@@ -102,17 +218,23 @@ class HomeController extends GetxController {
   }
 
   Future<void> fetchTransactionsHistory() async {
+    // Prevent multiple simultaneous calls
+    if (_isFetchingTransactions) {
+      log('fetchTransactionsHistory already in progress, skipping...');
+      return;
+    }
+
+    _isFetchingTransactions = true;
+
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final monthRange = _getCurrentMonthRange();
+        // Fetch all expenses and filter by receipt date for current month
         final querySnapshot = await _firestore
             .collection('expenses')
             .where('userId', isEqualTo: user.uid)
-            .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-            .where('timestamp', isLessThan: monthRange['end'])
             .orderBy('timestamp', descending: true)
-            .get(); // Remove limit to get all transactions for filtering
+            .get();
 
         DateTime now = DateTime.now();
         DateTime startOfMonth = DateTime(now.year, now.month, 1);
@@ -120,47 +242,88 @@ class HomeController extends GetxController {
             ? DateTime(now.year, now.month + 1, 1)
             : DateTime(now.year + 1, 1, 1);
 
-        final fetchedTransactions = querySnapshot.docs
-            .map((doc) {
-              final data = doc.data();
+        log('=== FETCHING TRANSACTIONS HISTORY ===');
+        log('Total documents from Firestore: ${querySnapshot.docs.length}');
+        log('Date range: ${startOfMonth.toString()} to ${startOfNextMonth.toString()}');
 
-              // Check if expense is within current month based on receipt date
-              bool isInCurrentMonth = true;
-              if (data['receiptDate'] != null) {
-                try {
-                  DateTime receiptDate = DateTime.parse(data['receiptDate']);
-                  isInCurrentMonth = receiptDate.isAfter(
-                          startOfMonth.subtract(const Duration(days: 1))) &&
-                      receiptDate.isBefore(startOfNextMonth);
-                } catch (e) {
-                  // If receipt date parsing fails, use timestamp
-                  isInCurrentMonth = true;
-                }
+        final allTransactions = <Map<String, dynamic>>[];
+
+        for (var doc in querySnapshot.docs) {
+          final data = doc.data();
+
+          // Check if expense is within current month based on receipt date
+          bool isInCurrentMonth = false;
+          String dateSource = '';
+
+          if (data['receiptDate'] != null &&
+              data['receiptDate'].toString().isNotEmpty) {
+            try {
+              DateTime receiptDate = DateTime.parse(data['receiptDate']);
+              isInCurrentMonth = receiptDate.isAfter(
+                      startOfMonth.subtract(const Duration(days: 1))) &&
+                  receiptDate.isBefore(startOfNextMonth);
+              dateSource = 'receiptDate';
+            } catch (e) {
+              // If receipt date parsing fails, check timestamp as fallback
+              DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+              isInCurrentMonth = timestamp.isAfter(
+                      startOfMonth.subtract(const Duration(days: 1))) &&
+                  timestamp.isBefore(startOfNextMonth);
+              dateSource = 'timestamp (fallback)';
+            }
+          } else {
+            // If no receipt date, use timestamp
+            DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+            isInCurrentMonth = timestamp
+                    .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                timestamp.isBefore(startOfNextMonth);
+            dateSource = 'timestamp';
+          }
+
+          if (isInCurrentMonth) {
+            // Use receipt date for display if available, otherwise use timestamp
+            String displayDate;
+            if (data['receiptDate'] != null &&
+                data['receiptDate'].toString().isNotEmpty) {
+              try {
+                DateTime receiptDate = DateTime.parse(data['receiptDate']);
+                displayDate = _formatDateFromDateTime(receiptDate);
+              } catch (e) {
+                displayDate = _formatDate(data['timestamp']);
               }
+            } else {
+              displayDate = _formatDate(data['timestamp']);
+            }
 
-              return {
-                'id': doc.id,
-                "icon": _getCategoryIcon(data['category']),
-                "title": data['category'],
-                "date": _formatDate(data['timestamp']),
-                "amount": "-${data['amount'].toStringAsFixed(2)}",
-                "isInCurrentMonth": isInCurrentMonth, // Add flag for filtering
-              };
-            })
-            .where((transaction) => transaction['isInCurrentMonth'] == true)
-            .map((transaction) {
-              // Remove the flag before adding to final list
-              transaction.remove('isInCurrentMonth');
-              return transaction;
-            })
-            .take(3)
-            .toList(); // Take only first 3 after filtering
+            final transaction = {
+              'id': doc.id,
+              "icon": _getCategoryIcon(data['category']),
+              "title": data['category'],
+              "date": displayDate,
+              "amount": "-${data['amount'].toStringAsFixed(2)}",
+            };
+            allTransactions.add(transaction);
+            log('Added transaction: ${data['category']} - ${data['amount']} - Source: $dateSource - Date: $displayDate');
+          } else {
+            log('Skipped transaction: ${data['category']} - ${data['amount']} - Source: $dateSource');
+          }
+        }
 
-        transactions.assignAll(fetchedTransactions);
-        log('Fetched ${fetchedTransactions.length} recent transactions for current month (based on receipt date)');
+        // Store ALL transactions for the current month in transactionsHistory
+        transactionsHistory.assignAll(allTransactions);
+
+        // Take only first 3 for display in transactions
+        final displayTransactions = allTransactions.take(3).toList();
+        transactions.assignAll(displayTransactions);
+
+        log('Final result: ${allTransactions.length} total transactions for current month');
+        log('Displaying ${displayTransactions.length} recent transactions');
+        log('==========================================');
       }
     } catch (e) {
       log('Error fetching transactions: $e');
+    } finally {
+      _isFetchingTransactions = false;
     }
   }
 
@@ -187,6 +350,11 @@ class HomeController extends GetxController {
     return '$month ${date.day}, ${date.year}';
   }
 
+  String _formatDateFromDateTime(DateTime date) {
+    final month = _getMonthAbbreviation(date.month);
+    return '$month ${date.day}, ${date.year}';
+  }
+
   String _getMonthAbbreviation(int month) {
     const months = [
       'Jan',
@@ -206,15 +374,24 @@ class HomeController extends GetxController {
   }
 
   String getTotalSpent() {
-    // Calculate from regular expenses
-    double total = transactionsHistory.fold(0.0, (double sum, transaction) {
-      // Assuming 'amount' is stored as a string with '-' prefix
+    // Use cached values for immediate display, but log the calculation
+    double regularExpenses =
+        transactionsHistory.fold(0.0, (double sum, transaction) {
       String amountStr = transaction['amount'].replaceAll('-', '');
-      return sum + double.parse(amountStr);
+      double amount = double.parse(amountStr);
+      return sum + amount;
     });
 
-    // Add favorites payments from current month
-    total += totalPaymentHistory.value;
+    double favoritesPayments = totalPaymentHistory.value;
+    double total = regularExpenses + favoritesPayments;
+
+    // Debug logging
+    log('=== HOME SCREEN TOTAL SPENT (CACHED VALUES) ===');
+    log('Regular expenses (${transactionsHistory.length} transactions): $regularExpenses');
+    log('Favorites payments: $favoritesPayments');
+    log('Total: $total');
+    log('Note: Using cached values - may not match BudgetController exactly');
+    log('==============================================');
 
     if (total >= 1000000) {
       double inMillions = total / 1000000;
@@ -224,6 +401,48 @@ class HomeController extends GetxController {
       return '${inThousands.toStringAsFixed(1)}k';
     } else {
       return total.toStringAsFixed(2);
+    }
+  }
+
+  // Get raw total spent value without formatting
+  double getRawTotalSpent() {
+    double regularExpenses =
+        transactionsHistory.fold(0.0, (double sum, transaction) {
+      String amountStr = transaction['amount'].replaceAll('-', '');
+      double amount = double.parse(amountStr);
+      return sum + amount;
+    });
+
+    double favoritesPayments = totalPaymentHistory.value;
+    return regularExpenses + favoritesPayments;
+  }
+
+  // Get raw income value without formatting
+  double getRawIncome() {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) return 0.0;
+
+      // Get the raw income value from the cached data
+      // We need to parse the formatted string back to raw value
+      String formattedIncome = totalIncome.value;
+      return _parseFormattedAmount(formattedIncome);
+    } catch (e) {
+      log('Error getting raw income: $e');
+      return 0.0;
+    }
+  }
+
+  // Helper method to parse formatted amounts back to raw values
+  double _parseFormattedAmount(String amount) {
+    amount = amount.replaceAll('\$', '').replaceAll('PHP', '').trim();
+
+    if (amount.endsWith('k')) {
+      return double.parse(amount.substring(0, amount.length - 1)) * 1000;
+    } else if (amount.endsWith('M')) {
+      return double.parse(amount.substring(0, amount.length - 1)) * 1000000;
+    } else {
+      return double.parse(amount);
     }
   }
 
@@ -296,15 +515,22 @@ class HomeController extends GetxController {
 
       double total = amount.toDouble();
 
+      log('=== INCOME FETCH ===');
+      log('Raw income amount: $total');
+
       if (total >= 1000000) {
         double inMillions = total / 1000000;
         totalIncome.value = '${inMillions.toStringAsFixed(1)}M';
+        log('Formatted income: ${totalIncome.value}');
       } else if (total >= 1000) {
         double inThousands = total / 1000;
         totalIncome.value = '${inThousands.toStringAsFixed(1)}k';
+        log('Formatted income: ${totalIncome.value}');
       } else {
         totalIncome.value = total.toStringAsFixed(2);
+        log('Formatted income: ${totalIncome.value}');
       }
+      log('==================');
     } catch (e) {
       SnackbarService.showError(
           title: 'Income Error',
@@ -330,12 +556,19 @@ class HomeController extends GetxController {
       double totalAmount = 0.0;
       final monthRange = _getCurrentMonthRange();
 
+      log('=== FAVORITES PAYMENT CALCULATION ===');
+      log('Current month range: ${monthRange['start']?.toDate()} to ${monthRange['end']?.toDate()}');
+      log('Total favorites found: ${querySnapshot.docs.length}');
+
       // Process each favorite's payment history
       for (var doc in querySnapshot.docs) {
         final favoriteData = doc.data();
+        String favoriteName = favoriteData['title'] ?? 'Unknown';
         List<Map<String, dynamic>> paymentHistory =
             List<Map<String, dynamic>>.from(
                 favoriteData['paymentHistory'] ?? []);
+
+        log('Processing favorite: $favoriteName with ${paymentHistory.length} payments');
 
         // Calculate payments made in current month
         for (var payment in paymentHistory) {
@@ -347,6 +580,7 @@ class HomeController extends GetxController {
           } else if (paymentDateRaw is DateTime) {
             paymentDate = paymentDateRaw;
           } else {
+            log('Skipping invalid payment date: $paymentDateRaw');
             continue; // Skip invalid dates
           }
 
@@ -360,6 +594,9 @@ class HomeController extends GetxController {
               paymentDate.isBefore(endDate)) {
             double amount = (payment['amount'] ?? 0.0).toDouble();
             totalAmount += amount;
+            log('Favorites payment: $favoriteName - Amount: $amount - Date: $paymentDate');
+          } else {
+            log('Payment outside current month: $favoriteName - Amount: ${payment['amount']} - Date: $paymentDate');
           }
         }
       }
@@ -371,14 +608,5 @@ class HomeController extends GetxController {
       log('Error fetching payment history: $e');
       totalPaymentHistory.value = 0.0;
     }
-  }
-
-  // Method to refresh all data
-  Future<void> refreshAllData() async {
-    await fetchTransactions();
-    await fetchTransactionsHistory();
-    await getTotalPaymentHistory();
-    await getTotalBudget();
-    await getTotalIncome();
   }
 }
