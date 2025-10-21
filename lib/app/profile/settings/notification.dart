@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:get_storage/get_storage.dart';
-import '../../../services/snackbar_service.dart';
+import '../../../services/notification_settings_service.dart';
+import 'package:get/get.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -11,33 +11,29 @@ class NotificationSettingsPage extends StatefulWidget {
 }
 
 class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
-  final GetStorage _storage = GetStorage();
-  bool _expenseAlertsEnabled = true;
-  bool _budgetAlertsEnabled = true;
-  bool _incomeAlertsEnabled = true;
-  bool _favoritesAlertsEnabled = true;
+  late NotificationSettingsService _settingsService;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    // Initialize the notification settings service
+    _settingsService = Get.put(NotificationSettingsService());
   }
 
-  void _loadSettings() {
-    setState(() {
-      _expenseAlertsEnabled = _storage.read('expenseAlertsEnabled') ?? true;
-      _budgetAlertsEnabled = _storage.read('budgetAlertsEnabled') ?? true;
-      _incomeAlertsEnabled = _storage.read('incomeAlertsEnabled') ?? true;
-      _favoritesAlertsEnabled = _storage.read('favoritesAlertsEnabled') ?? true;
-    });
+  void _updateExpenseAlerts(bool value) {
+    _settingsService.updateExpenseAlerts(value);
   }
 
-  void _saveSetting(String key, bool value) {
-    _storage.write(key, value);
-    SnackbarService.showSuccess(
-      title: 'Settings Updated',
-      message: 'Notification preference saved successfully',
-    );
+  void _updateBudgetAlerts(bool value) {
+    _settingsService.updateBudgetAlerts(value);
+  }
+
+  void _updateIncomeAlerts(bool value) {
+    _settingsService.updateIncomeAlerts(value);
+  }
+
+  void _updateFavoritesAlerts(bool value) {
+    _settingsService.updateFavoritesAlerts(value);
   }
 
   @override
@@ -133,29 +129,25 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                           const SizedBox(width: 5),
                           Transform.scale(
                             scale: 0.8,
-                            child: Switch(
-                              value: _expenseAlertsEnabled,
-                              onChanged: (value) {
-                                setState(() {
-                                  _expenseAlertsEnabled = value;
-                                });
-                                _saveSetting('expenseAlertsEnabled', value);
-                              },
-                              activeTrackColor: const Color.fromARGB(
-                                255,
-                                3,
-                                30,
-                                53,
-                              ),
-                              inactiveTrackColor: const Color.fromARGB(
-                                255,
-                                3,
-                                30,
-                                53,
-                              ),
-                              activeColor: Colors.white,
-                              inactiveThumbColor: Colors.white,
-                            ),
+                            child: Obx(() => Switch(
+                                  value:
+                                      _settingsService.isExpenseAlertsEnabled,
+                                  onChanged: _updateExpenseAlerts,
+                                  activeTrackColor: const Color.fromARGB(
+                                    255,
+                                    3,
+                                    30,
+                                    53,
+                                  ),
+                                  inactiveTrackColor: const Color.fromARGB(
+                                    255,
+                                    3,
+                                    30,
+                                    53,
+                                  ),
+                                  activeColor: Colors.white,
+                                  inactiveThumbColor: Colors.white,
+                                )),
                           ),
                         ],
                       ),
@@ -198,21 +190,16 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                           const SizedBox(width: 5),
                           Transform.scale(
                             scale: 0.8,
-                            child: Switch(
-                              value: _incomeAlertsEnabled,
-                              onChanged: (value) {
-                                setState(() {
-                                  _incomeAlertsEnabled = value;
-                                });
-                                _saveSetting('incomeAlertsEnabled', value);
-                              },
-                              activeTrackColor:
-                                  const Color.fromARGB(255, 3, 30, 53),
-                              inactiveTrackColor:
-                                  const Color.fromARGB(255, 3, 30, 53),
-                              activeColor: Colors.white,
-                              inactiveThumbColor: Colors.white,
-                            ),
+                            child: Obx(() => Switch(
+                                  value: _settingsService.isIncomeAlertsEnabled,
+                                  onChanged: _updateIncomeAlerts,
+                                  activeTrackColor:
+                                      const Color.fromARGB(255, 3, 30, 53),
+                                  inactiveTrackColor:
+                                      const Color.fromARGB(255, 3, 30, 53),
+                                  activeColor: Colors.white,
+                                  inactiveThumbColor: Colors.white,
+                                )),
                           ),
                         ],
                       ),
@@ -255,21 +242,17 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                           const SizedBox(width: 5),
                           Transform.scale(
                             scale: 0.8,
-                            child: Switch(
-                              value: _favoritesAlertsEnabled,
-                              onChanged: (value) {
-                                setState(() {
-                                  _favoritesAlertsEnabled = value;
-                                });
-                                _saveSetting('favoritesAlertsEnabled', value);
-                              },
-                              activeTrackColor:
-                                  const Color.fromARGB(255, 3, 30, 53),
-                              inactiveTrackColor:
-                                  const Color.fromARGB(255, 3, 30, 53),
-                              activeColor: Colors.white,
-                              inactiveThumbColor: Colors.white,
-                            ),
+                            child: Obx(() => Switch(
+                                  value:
+                                      _settingsService.isFavoritesAlertsEnabled,
+                                  onChanged: _updateFavoritesAlerts,
+                                  activeTrackColor:
+                                      const Color.fromARGB(255, 3, 30, 53),
+                                  inactiveTrackColor:
+                                      const Color.fromARGB(255, 3, 30, 53),
+                                  activeColor: Colors.white,
+                                  inactiveThumbColor: Colors.white,
+                                )),
                           ),
                         ],
                       ),
@@ -316,29 +299,24 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                           const SizedBox(width: 5),
                           Transform.scale(
                             scale: 0.8,
-                            child: Switch(
-                              value: _budgetAlertsEnabled,
-                              onChanged: (value) {
-                                setState(() {
-                                  _budgetAlertsEnabled = value;
-                                });
-                                _saveSetting('budgetAlertsEnabled', value);
-                              },
-                              activeTrackColor: const Color.fromARGB(
-                                255,
-                                3,
-                                30,
-                                53,
-                              ),
-                              inactiveTrackColor: const Color.fromARGB(
-                                255,
-                                3,
-                                30,
-                                53,
-                              ),
-                              activeColor: Colors.white,
-                              inactiveThumbColor: Colors.white,
-                            ),
+                            child: Obx(() => Switch(
+                                  value: _settingsService.isBudgetAlertsEnabled,
+                                  onChanged: _updateBudgetAlerts,
+                                  activeTrackColor: const Color.fromARGB(
+                                    255,
+                                    3,
+                                    30,
+                                    53,
+                                  ),
+                                  inactiveTrackColor: const Color.fromARGB(
+                                    255,
+                                    3,
+                                    30,
+                                    53,
+                                  ),
+                                  activeColor: Colors.white,
+                                  inactiveThumbColor: Colors.white,
+                                )),
                           ),
                         ],
                       ),

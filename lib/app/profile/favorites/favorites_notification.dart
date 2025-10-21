@@ -1,9 +1,24 @@
 import 'package:get/get.dart';
 import '../../../services/notification_service.dart';
+import '../../../services/notification_settings_service.dart';
+import 'package:flutter/foundation.dart';
 
 class FavoritesNotification extends GetxController {
-  final NotificationService _notificationService =
-      Get.find<NotificationService>();
+  NotificationService? _notificationService;
+  NotificationSettingsService? _settingsService;
+
+  @override
+  void onInit() {
+    super.onInit();
+    // Only initialize notification service if not on web and service is available
+    if (!kIsWeb && Get.isRegistered<NotificationService>()) {
+      _notificationService = Get.find<NotificationService>();
+    }
+    // Initialize settings service
+    if (Get.isRegistered<NotificationSettingsService>()) {
+      _settingsService = Get.find<NotificationSettingsService>();
+    }
+  }
 
   // Payment Due Today Notification
   Future<void> sendPaymentDueTodayNotification({
@@ -11,11 +26,19 @@ class FavoritesNotification extends GetxController {
     required double amountToPay,
     required String frequency,
   }) async {
-    await _notificationService.showPaymentDueToday(
-      title: title,
-      amountToPay: amountToPay,
-      frequency: frequency,
-    );
+    // Check if favorites notifications are enabled
+    if (_settingsService != null &&
+        !_settingsService!.isFavoritesAlertsEnabled) {
+      return;
+    }
+
+    if (_notificationService != null) {
+      await _notificationService!.showPaymentDueToday(
+        title: title,
+        amountToPay: amountToPay,
+        frequency: frequency,
+      );
+    }
   }
 
   // Payment Due Soon Notification (1-3 days before)
@@ -25,12 +48,20 @@ class FavoritesNotification extends GetxController {
     required String frequency,
     required int daysUntilDue,
   }) async {
-    await _notificationService.showPaymentDueSoon(
-      title: title,
-      amountToPay: amountToPay,
-      frequency: frequency,
-      daysUntilDue: daysUntilDue,
-    );
+    // Check if favorites notifications are enabled
+    if (_settingsService != null &&
+        !_settingsService!.isFavoritesAlertsEnabled) {
+      return;
+    }
+
+    if (_notificationService != null) {
+      await _notificationService!.showPaymentDueSoon(
+        title: title,
+        amountToPay: amountToPay,
+        frequency: frequency,
+        daysUntilDue: daysUntilDue,
+      );
+    }
   }
 
   // Missed Payment Notification
@@ -40,12 +71,20 @@ class FavoritesNotification extends GetxController {
     required String frequency,
     required int daysOverdue,
   }) async {
-    await _notificationService.showPaymentOverdue(
-      title: title,
-      amountToPay: amountToPay,
-      frequency: frequency,
-      daysOverdue: daysOverdue,
-    );
+    // Check if favorites notifications are enabled
+    if (_settingsService != null &&
+        !_settingsService!.isFavoritesAlertsEnabled) {
+      return;
+    }
+
+    if (_notificationService != null) {
+      await _notificationService!.showPaymentOverdue(
+        title: title,
+        amountToPay: amountToPay,
+        frequency: frequency,
+        daysOverdue: daysOverdue,
+      );
+    }
   }
 
   // Payment Completed Notification
@@ -53,10 +92,18 @@ class FavoritesNotification extends GetxController {
     required String title,
     required double totalAmount,
   }) async {
-    await _notificationService.showPaymentCompleted(
-      title: title,
-      totalAmount: totalAmount,
-    );
+    // Check if favorites notifications are enabled
+    if (_settingsService != null &&
+        !_settingsService!.isFavoritesAlertsEnabled) {
+      return;
+    }
+
+    if (_notificationService != null) {
+      await _notificationService!.showPaymentCompleted(
+        title: title,
+        totalAmount: totalAmount,
+      );
+    }
   }
 
   // Helper method to calculate next payment date based on frequency

@@ -1,5 +1,4 @@
 // ignore_for_file: use_key_in_widget_constructors, library_private_types_in_public_api
-import 'dart:math';
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -28,25 +27,43 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
   final HomeController homeController = Get.find<HomeController>();
 
   bool isDaily = true;
+  bool isRefreshing = false;
 
   List<BarChartGroupData> getGraphData() {
     List<double> expenses = isDaily
         ? graphController.getCurrentMonthExpenses()
         : graphController.getMonthlyExpensesForLastYear();
 
-    // For monthly view, ensure we show the correct current month total
-    if (!isDaily) {
-      // Get the current month total to ensure accuracy
-      double currentMonthTotal = graphController.getCurrentMonthTotal();
-      dev.log('Current month total from graph controller: $currentMonthTotal');
+    // Debug logging
+    dev.log(
+        'Graph data - isDaily: $isDaily, expenses length: ${expenses.length}');
+    if (expenses.isNotEmpty) {
+      dev.log('First few expenses: ${expenses.take(5).toList()}');
+      dev.log(
+          'Total expenses: ${expenses.fold(0.0, (sum, expense) => sum + expense)}');
     }
 
-    // Always generate data for the full period (30 days or 12 months)
-    int dataLength = isDaily ? 30 : 12;
+    // Use the actual length of the data, not a fixed length
+    int dataLength = expenses.length;
+
+    // For daily view, limit to 30 days for better visualization
+    if (isDaily && dataLength > 30) {
+      dataLength = 30;
+    }
+
+    // For monthly view, limit to 12 months
+    if (!isDaily && dataLength > 12) {
+      dataLength = 12;
+    }
 
     return List.generate(dataLength, (index) {
       // Get the expense value for this index, or 0 if no data
       double expenseValue = index < expenses.length ? expenses[index] : 0.0;
+
+      // Debug logging for first few values
+      if (index < 5) {
+        dev.log('Bar $index: expenseValue = $expenseValue');
+      }
 
       // Always show single bars - no double bar design
       return BarChartGroupData(
@@ -74,44 +91,55 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
 
   // Generate Y-axis labels based on actual data range
   List<double> generateYAxisLabels(double maxValue) {
+    dev.log(
+        'Generating Y-axis labels - maxValue: $maxValue, isDaily: $isDaily');
+
     // If no data, return default scale
     if (maxValue <= 0) {
+      dev.log('No data, returning default scale');
       return isDaily ? [0, 25, 50, 75, 100] : [0, 1000, 2000, 3000, 4000];
     }
 
-    // Calculate appropriate step size based on max value
+    // Add 20% padding above max value for better visualization
+    double paddedMax = maxValue * 1.2;
+
+    // Calculate appropriate step size based on padded max value
     double step;
-    if (maxValue <= 100) {
-      step = 25;
-    } else if (maxValue <= 500) {
+    if (paddedMax <= 50) {
+      step = 10;
+    } else if (paddedMax <= 100) {
+      step = 20;
+    } else if (paddedMax <= 200) {
+      step = 50;
+    } else if (paddedMax <= 500) {
       step = 100;
-    } else if (maxValue <= 1000) {
+    } else if (paddedMax <= 1000) {
       step = 200;
-    } else if (maxValue <= 5000) {
+    } else if (paddedMax <= 5000) {
       step = 1000;
-    } else if (maxValue <= 10000) {
+    } else if (paddedMax <= 10000) {
       step = 2000;
-    } else if (maxValue <= 50000) {
+    } else if (paddedMax <= 50000) {
       step = 10000;
-    } else if (maxValue <= 100000) {
+    } else if (paddedMax <= 100000) {
       step = 20000;
-    } else if (maxValue <= 500000) {
+    } else if (paddedMax <= 500000) {
       step = 100000;
-    } else if (maxValue <= 1000000) {
+    } else if (paddedMax <= 1000000) {
       step = 200000;
     } else {
       step = 500000;
     }
 
-    // Generate labels
+    // Generate labels from 0 to padded max
     List<double> labels = [];
     double current = 0;
-    while (current <= maxValue) {
+    while (current <= paddedMax) {
       labels.add(current);
       current += step;
     }
 
-    // Ensure we have at least 4 labels and add some padding above max value
+    // Ensure we have at least 4 labels
     if (labels.length < 4) {
       double paddedMax = maxValue * 1.2; // Add 20% padding
       labels = [
@@ -121,32 +149,72 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
         paddedMax * 0.75,
         paddedMax
       ];
-    } else {
-      // Add one more step above the max value for better visualization
-      labels.add(labels.last + step);
     }
+
+    // Round labels to nice numbers for better display
+    labels = labels.map((label) => (label / step).round() * step).toList();
+    labels = labels.where((label) => label >= 0).toList();
 
     // Limit to maximum 6 labels to prevent overflow
     if (labels.length > 6) {
       labels = labels.take(6).toList();
     }
 
+    dev.log('Generated Y-axis labels: $labels');
     return labels;
   }
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+
+    // Force refresh data when view changes
     final expenses = isDaily
         ? graphController.getCurrentMonthExpenses()
         : graphController.getMonthlyExpensesForLastYear();
 
-    // Handle empty data
-    final maxValue = expenses.isEmpty || expenses.every((e) => e == 0)
-        ? 100.0 // Default max value for empty state
-        : expenses.reduce(max);
+    // Handle empty data and calculate max value properly
+    double maxValue;
+    if (expenses.isEmpty || expenses.every((e) => e == 0)) {
+      maxValue = 100.0; // Default max value for empty state
+    } else {
+      // Use the maximum individual expense
+      double maxIndividualExpense = expenses.reduce((a, b) => a > b ? a : b);
+
+      // For daily view, use a reasonable scale based on individual expenses
+      // For monthly view, use a larger scale
+      if (isDaily) {
+        // For daily view, use max individual expense * 1.5 for better visualization
+        maxValue = maxIndividualExpense * 1.5;
+      } else {
+        // For monthly view, use max individual expense * 2 for better visualization
+        maxValue = maxIndividualExpense * 2;
+      }
+
+      // Ensure minimum scale for better visualization
+      if (maxValue < 100) maxValue = 100;
+
+      dev.log('Max individual expense: $maxIndividualExpense');
+      dev.log('Calculated maxValue: $maxValue');
+    }
+
+    dev.log('=== BUILD METHOD ===');
+    dev.log('isDaily: $isDaily');
+    dev.log('isRefreshing: $isRefreshing');
+    dev.log('Expenses data: $expenses');
+    dev.log('Calculated maxValue: $maxValue');
 
     final yAxisLabels = generateYAxisLabels(maxValue);
+
+    if (isRefreshing) {
+      return Container(
+        height: 200,
+        child: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Column(
       children: [
         Padding(
@@ -172,6 +240,8 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
             child: Row(
               children: [
                 Column(
+                  key: ValueKey(
+                      'yaxis_${isDaily ? 'daily' : 'monthly'}_${yAxisLabels.length}'),
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: yAxisLabels.reversed.map((label) {
                     String labelText;
@@ -182,6 +252,8 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                     } else {
                       labelText = label.toStringAsFixed(0);
                     }
+
+                    dev.log('Y-axis label: $label -> $labelText');
 
                     return Container(
                       height: 20, // Fixed height to prevent overflow
@@ -207,6 +279,8 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                         width: isDaily ? 900 : 600,
                         child: Obx(
                           () => BarChart(
+                            key: ValueKey(
+                                '${isDaily ? 'daily' : 'monthly'}_${expenses.length}'),
                             BarChartData(
                               barGroups: getGraphData(),
                               borderData: FlBorderData(show: false),
@@ -445,8 +519,8 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                       displayAmount = 'PHP 0.00';
                                     }
 
-                                    _showExpenseDetails(
-                                        context, period, displayAmount);
+                                    _showExpenseDetails(context, period,
+                                        displayAmount, isDaily);
                                   }
                                 },
                                 handleBuiltInTouches: true,
@@ -505,8 +579,13 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () async {
-                        setState(() => isDaily = true);
+                        if (isRefreshing) return;
+                        setState(() => isRefreshing = true);
                         await graphController.refreshData();
+                        setState(() {
+                          isDaily = true;
+                          isRefreshing = false;
+                        });
                       },
                       child: Container(
                         alignment: Alignment.center,
@@ -524,8 +603,13 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                   Expanded(
                     child: GestureDetector(
                       onTap: () async {
-                        setState(() => isDaily = false);
+                        if (isRefreshing) return;
+                        setState(() => isRefreshing = true);
                         await graphController.refreshData();
+                        setState(() {
+                          isDaily = false;
+                          isRefreshing = false;
+                        });
                       },
                       child: Container(
                         alignment: Alignment.center,
@@ -549,7 +633,8 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
     );
   }
 
-  void _showExpenseDetails(BuildContext context, String period, String amount) {
+  void _showExpenseDetails(
+      BuildContext context, String period, String amount, bool isDailyView) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -668,8 +753,8 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                     Expanded(
                       child: Text(
                         amount == 'PHP 0.00'
-                            ? 'No expenses were recorded for ${isDaily ? "this day" : "this month"}.'
-                            : 'This total includes both regular expenses and favorites payments for ${isDaily ? "this day" : "this month"}.',
+                            ? 'No expenses were recorded for ${isDailyView ? "this day" : "this month"}.'
+                            : 'This total includes both regular expenses and favorites payments for ${isDailyView ? "this day" : "this month"}.',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[700],

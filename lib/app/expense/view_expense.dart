@@ -119,13 +119,13 @@ class _ViewExpenseState extends State<ViewExpense> {
                 ),
                 child: Column(
                   children: [
-                    _buildCategorySelector(),
+                    _buildCategorySelectorWithLabel(),
                     const SizedBox(height: 20),
-                    _buildAmountInput(),
+                    _buildAmountInputWithLabel(),
                     const SizedBox(height: 20),
-                    _buildDateInput(),
+                    _buildDateInputWithLabel(),
                     const SizedBox(height: 20),
-                    _buildReceiptDateInput(),
+                    _buildReceiptDateInputWithLabel(),
                     const SizedBox(height: 20),
                     Row(
                       children: [
@@ -682,6 +682,24 @@ class _ViewExpenseState extends State<ViewExpense> {
     'Rent',
     'Entertainment',
   ];
+  Widget _buildCategorySelectorWithLabel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Category',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildCategorySelector(),
+      ],
+    );
+  }
+
   Widget _buildCategorySelector() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1132,6 +1150,24 @@ class _ViewExpenseState extends State<ViewExpense> {
     );
   }
 
+  Widget _buildAmountInputWithLabel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Amount',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildAmountInput(),
+      ],
+    );
+  }
+
   Widget _buildAmountInput() {
     return TextField(
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
@@ -1162,6 +1198,24 @@ class _ViewExpenseState extends State<ViewExpense> {
     );
   }
 
+  Widget _buildDateInputWithLabel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Transaction Date (When Entered)',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildDateInput(),
+      ],
+    );
+  }
+
   Widget _buildDateInput() {
     return TextField(
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
@@ -1181,7 +1235,7 @@ class _ViewExpenseState extends State<ViewExpense> {
         }
       },
       decoration: InputDecoration(
-        hintText: "Date",
+        hintText: "Select transaction date",
         suffixIcon: Icon(Icons.calendar_today, color: Colors.grey.shade600),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -1200,6 +1254,24 @@ class _ViewExpenseState extends State<ViewExpense> {
           borderSide: BorderSide(color: Colors.grey.shade300),
         ),
       ),
+    );
+  }
+
+  Widget _buildReceiptDateInputWithLabel() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Receipt Date (Purchase Date)',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildReceiptDateInput(),
+      ],
     );
   }
 
@@ -1223,7 +1295,7 @@ class _ViewExpenseState extends State<ViewExpense> {
         }
       },
       decoration: InputDecoration(
-        hintText: "Receipt Date (Purchase Date)",
+        hintText: "Select receipt date",
         suffixIcon: Icon(Icons.receipt_long, color: Colors.grey.shade600),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -1254,6 +1326,11 @@ class _ViewExpenseState extends State<ViewExpense> {
 
     if (amountController.text.isEmpty) {
       _showErrorSnackbar('Please enter an amount');
+      return;
+    }
+
+    if (dateController.text.isEmpty) {
+      _showErrorSnackbar('Please select a transaction date');
       return;
     }
 

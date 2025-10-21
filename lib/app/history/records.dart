@@ -65,15 +65,37 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
         final timestamp = data['timestamp'] as Timestamp;
         final date = timestamp.toDate();
 
+        // Parse receipt date and transaction date
+        DateTime? receiptDate;
+        DateTime? transactionDate;
+
+        if (data['receiptDate'] != null) {
+          if (data['receiptDate'] is Timestamp) {
+            receiptDate = (data['receiptDate'] as Timestamp).toDate();
+          } else if (data['receiptDate'] is String) {
+            receiptDate = DateTime.parse(data['receiptDate']);
+          }
+        }
+
+        if (data['transactionDate'] != null) {
+          if (data['transactionDate'] is Timestamp) {
+            transactionDate = (data['transactionDate'] as Timestamp).toDate();
+          } else if (data['transactionDate'] is String) {
+            transactionDate = DateTime.parse(data['transactionDate']);
+          }
+        }
+
         allRecords.add({
           'id': doc.id,
           'type': 'expense',
           'title': data['category'] ?? 'Unknown',
           'amount': data['amount'] ?? 0.0,
-          'date': date,
+          'date': receiptDate ??
+              date, // Use receipt date if available, otherwise timestamp
           'icon': _getCategoryIcon(data['category'] ?? ''),
-          'receiptDate': data['receiptDate'],
-          'transactionDate': data['transactionDate'],
+          'receiptDate': receiptDate,
+          'transactionDate': transactionDate ??
+              date, // Use transaction date if available, otherwise timestamp
         });
       }
 
@@ -96,6 +118,10 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
             'date': paymentDate,
             'icon': Icons.favorite,
             'favoriteId': favorite['id'],
+            'receiptDate':
+                paymentDate, // For favorites, receipt date is the same as payment date
+            'transactionDate':
+                paymentDate, // For favorites, transaction date is the same as payment date
           });
         }
       }
@@ -727,8 +753,13 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
               _buildDetailRow('Title', payment['title']),
               _buildDetailRow(
                   'Amount', '₱${payment['amount'].toStringAsFixed(2)}'),
-              _buildDetailRow('Date',
+              _buildDetailRow('Payment Date',
                   DateFormat('MMM d, yyyy • h:mm a').format(payment['date'])),
+              if (payment['transactionDate'] != null)
+                _buildDetailRow(
+                    'Transaction Date',
+                    DateFormat('MMM d, yyyy • h:mm a')
+                        .format(payment['transactionDate'])),
               _buildDetailRow('Type', 'Favorite Payment'),
             ],
           ),
@@ -803,8 +834,13 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
               _buildDetailRow('Category', expense['title']),
               _buildDetailRow(
                   'Amount', '₱${expense['amount'].toStringAsFixed(2)}'),
-              _buildDetailRow('Date',
+              _buildDetailRow('Receipt Date',
                   DateFormat('MMM d, yyyy • h:mm a').format(expense['date'])),
+              if (expense['transactionDate'] != null)
+                _buildDetailRow(
+                    'Transaction Date',
+                    DateFormat('MMM d, yyyy • h:mm a')
+                        .format(expense['transactionDate'])),
               _buildDetailRow('Type', 'Expense'),
             ],
           ),

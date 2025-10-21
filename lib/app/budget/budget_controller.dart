@@ -251,6 +251,9 @@ class BudgetController extends GetxController {
           0.0,
           1.0,
         );
+
+        // Check for income notification
+        await _checkIncomeNotification();
       }
     } catch (e) {
       // Handle any errors
@@ -513,6 +516,9 @@ class BudgetController extends GetxController {
       // Check for overall budget exceeded notification
       await _checkOverallBudgetNotification(overallBudget);
 
+      // Check for income notification
+      await _checkIncomeNotification();
+
       // print('Total Category Budgets: $totalCategoryBudgets');
       // print('Overall Budget: $overallBudget');
       // print('Remaining Budget: ${remainingBudget.value}');
@@ -536,15 +542,44 @@ class BudgetController extends GetxController {
       // Send notification if alert percentage threshold is reached
       if (receiveAlert && percentageSpent >= alertPercentage) {
         double exceededAmount = totalExpenses - overallBudget;
-        final budgetNotification = Get.find<BudgetNotification>();
-        await budgetNotification.sendOverallBudgetExceededNotification(
-          totalExpenses: totalExpenses,
-          budgetLimit: overallBudget,
-          exceededAmount: exceededAmount,
-        );
+        if (Get.isRegistered<BudgetNotification>()) {
+          final budgetNotification = Get.find<BudgetNotification>();
+          await budgetNotification.sendOverallBudgetExceededNotification(
+            totalExpenses: totalExpenses,
+            budgetLimit: overallBudget,
+            exceededAmount: exceededAmount,
+          );
+        }
       }
     } catch (e) {
       dev.log('Error checking overall budget notification: $e');
+    }
+  }
+
+  // Check if income alert percentage threshold is reached and send notification
+  Future<void> _checkIncomeNotification() async {
+    try {
+      double income = incomeData.value['amount'] ?? 0.0;
+      if (income <= 0) return;
+
+      double totalExpenses = await fetchTotalExpenses();
+      double percentageSpent = (totalExpenses / income) * 100;
+      double alertPercentage = incomeData.value['alertPercentage'] ?? 80.0;
+      bool receiveAlert = incomeData.value['receiveAlert'] ?? false;
+
+      // Send notification if alert percentage threshold is reached
+      if (receiveAlert && percentageSpent >= alertPercentage) {
+        double remainingIncome = income - totalExpenses;
+        if (Get.isRegistered<BudgetNotification>()) {
+          final budgetNotification = Get.find<BudgetNotification>();
+          await budgetNotification.sendIncomeRemaining(
+            spentPercentage: percentageSpent / 100,
+            remainingBudget: remainingIncome,
+          );
+        }
+      }
+    } catch (e) {
+      dev.log('Error checking income notification: $e');
     }
   }
 

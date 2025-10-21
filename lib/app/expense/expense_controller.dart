@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/snackbar_service.dart';
+import '../budget/budget_notification.dart';
 
 class ExpenseController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -49,6 +50,17 @@ class ExpenseController extends GetxController {
         'transactionDate': transactionDate, // Date when user input the expense
         'timestamp': FieldValue.serverTimestamp(),
       });
+
+      // Send expense added notification
+      if (Get.isRegistered<BudgetNotification>()) {
+        final budgetNotification = Get.find<BudgetNotification>();
+        await budgetNotification.sendExpenseAddedNotification(
+          category: category,
+          amount: amount,
+          receiptDate: receiptDate,
+        );
+      }
+
       isSuccess.value = true;
       SnackbarService.showExpenseSuccess('Expense added successfully');
     } catch (e) {

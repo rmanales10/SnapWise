@@ -6,6 +6,7 @@ import 'package:snapwise/app/expense/view_expense.dart';
 import 'package:snapwise/app/home/home_screens/home_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
 import 'package:snapwise/app/widget/graph.dart';
+import 'package:snapwise/services/notification_settings_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -190,10 +191,20 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Obx(
                         () => GestureDetector(
-                          onTap: () => sendBudgetExceededNotification(
-                            remainingBudget: 10,
-                            spentPercentage: 10,
-                          ),
+                          onTap: () {
+                            // Only send notification if budget alerts are enabled
+                            if (Get.isRegistered<
+                                NotificationSettingsService>()) {
+                              final settingsService =
+                                  Get.find<NotificationSettingsService>();
+                              if (settingsService.isBudgetAlertsEnabled) {
+                                sendBudgetExceededNotification(
+                                  remainingBudget: 10,
+                                  spentPercentage: 10,
+                                );
+                              }
+                            }
+                          },
                           child: _buildBalanceCard(
                             'assets/money-management 1.png',
                             'Budget',

@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:snapwise/app/home/predict_screens/predict_controller.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class PredictBudgetPage extends StatefulWidget {
   const PredictBudgetPage({super.key});
@@ -98,6 +100,10 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
 
                       // Budget Categories
                       _buildBudgetCategories(),
+                      SizedBox(height: isTablet ? 30 : 20),
+
+                      // Saved Predictions
+                      _buildSavedPredictions(),
                       SizedBox(height: isTablet ? 30 : 20),
 
                       // Save Button
@@ -695,31 +701,219 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
           SizedBox(height: 12),
           Text(
             'PHP ${(category['amount'] as double? ?? 0.0).toStringAsFixed(2)}',
-                      style: TextStyle(
+            style: TextStyle(
               fontSize: isTablet ? 16 : 14,
-                        fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.bold,
               color: const Color.fromARGB(255, 3, 30, 53),
             ),
           ),
           SizedBox(height: 4),
           Text(
             '${(category['percentage'] as double? ?? 0.0).toStringAsFixed(1)}% of total',
-                    style: TextStyle(
+            style: TextStyle(
               fontSize: isTablet ? 12 : 10,
               color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSavedPredictions() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isTablet ? 20 : 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.history,
+                color: const Color.fromARGB(255, 3, 30, 53),
+                size: isTablet ? 24 : 20,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'Saved Predictions',
+                    style: TextStyle(
+                      fontSize: isTablet ? 20 : 18,
+                      fontWeight: FontWeight.bold,
+                  color: const Color.fromARGB(255, 3, 30, 53),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isTablet ? 20 : 15),
+          Obx(() => _controller.savedPredictions.isEmpty
+              ? Container(
+                  padding: EdgeInsets.all(isTablet ? 40 : 30),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.analytics_outlined,
+                          size: isTablet ? 60 : 50,
+                          color: Colors.grey[400],
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'No saved predictions yet',
+                          style: TextStyle(
+                            fontSize: isTablet ? 18 : 16,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Save your first prediction to see it here',
+                          style: TextStyle(
+                            fontSize: isTablet ? 14 : 12,
+                            color: Colors.grey[500],
                     ),
                   ),
             ],
           ),
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: NeverScrollableScrollPhysics(),
+                  itemCount: _controller.savedPredictions.length,
+                  itemBuilder: (context, index) {
+                    final prediction = _controller.savedPredictions[index];
+                    return _buildPredictionCard(prediction);
+                  },
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPredictionCard(Map<String, dynamic> prediction) {
+    final totalBudget = (prediction['totalBudget'] ?? 0.0).toDouble();
+    final categories =
+        List<Map<String, dynamic>>.from(prediction['categories'] ?? []);
+    final timestamp = prediction['timestamp'] as Timestamp?;
+    final date = timestamp != null ? timestamp.toDate() : DateTime.now();
+
+    return Container(
+      margin: EdgeInsets.only(bottom: isTablet ? 16 : 12),
+      padding: EdgeInsets.all(isTablet ? 20 : 16),
+      decoration: BoxDecoration(
+        color: Color(0xFFF8F9FE),
+        borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+          ),
+          child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total Budget',
+                style: TextStyle(
+                  fontSize: isTablet ? 16 : 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              Text(
+                '₱${totalBudget.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: isTablet ? 20 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color.fromARGB(255, 3, 30, 53),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isTablet ? 12 : 8),
+              Text(
+            'Categories:',
+            style: TextStyle(
+              fontSize: isTablet ? 14 : 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          SizedBox(height: isTablet ? 8 : 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: categories.map((category) {
+              final name = category['name'] ?? '';
+              final amount = (category['amount'] ?? 0.0).toDouble();
+              final percentage = (category['percentage'] ?? 0.0).toDouble();
+
+              return Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isTablet ? 12 : 10,
+                  vertical: isTablet ? 6 : 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                ),
+                child: Text(
+                  '$name: ₱${amount.toStringAsFixed(0)} (${percentage.toStringAsFixed(1)}%)',
+                style: TextStyle(
+                    fontSize: isTablet ? 12 : 10,
+                    color: Colors.grey[700],
+                ),
+              ),
+              );
+            }).toList(),
+          ),
+          SizedBox(height: isTablet ? 12 : 8),
+              Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+              Text(
+                'Saved on ${DateFormat('MMM d, yyyy').format(date)}',
+                style: TextStyle(
+                  fontSize: isTablet ? 12 : 10,
+                  color: Colors.grey[500],
+                ),
+              ),
+              Text(
+                '${DateFormat('h:mm a').format(date)}',
+                style: TextStyle(
+                  fontSize: isTablet ? 12 : 10,
+                  color: Colors.grey[500],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildSaveButton() {
     return Container(
       width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-          _controller.savePrediction();
+      child: Obx(
+        () => ElevatedButton(
+          onPressed: _controller.isSaving.value
+              ? null
+              : () {
+                  _controller.savePrediction();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color.fromARGB(255, 3, 30, 53),
@@ -727,15 +921,39 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         padding: EdgeInsets.symmetric(
-            vertical: isTablet ? 18 : 16,
-                        ),
+              vertical: isTablet ? 18 : 16,
+            ),
+          ),
+          child: _controller.isSaving.value
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
-                      child: Text(
-          'Save Prediction',
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'Saving...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isTablet ? 18 : 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                )
+              : Text(
+                  'Save Prediction',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: isTablet ? 18 : 16,
-            fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),

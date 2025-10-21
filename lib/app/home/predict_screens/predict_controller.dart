@@ -6,6 +6,7 @@ import 'package:snapwise/services/snackbar_service.dart';
 import 'package:snapwise/app/profile/favorites/favorite_controller.dart';
 import 'dart:developer' as dev;
 import 'dart:math';
+import 'package:snapwise/app/widget/bottomnavbar.dart';
 
 class PredictController extends GetxController {
   final RxDouble totalBudget = 0.0.obs;
@@ -19,7 +20,10 @@ class PredictController extends GetxController {
       <Map<String, dynamic>>[].obs;
   final RxString insights = ''.obs;
   final RxBool isLoading = false.obs;
+  final RxBool isSaving = false.obs; // Loading state for saving prediction
   final RxInt dataDurationMonths = 0.obs; // Track actual data duration used
+  final RxList<Map<String, dynamic>> savedPredictions =
+      <Map<String, dynamic>>[].obs;
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -37,6 +41,7 @@ class PredictController extends GetxController {
   void onInit() {
     super.onInit();
     generateDataDrivenPrediction();
+    fetchSavedPredictions();
   }
 
   // Generate prediction based on historical data from last 6 months
@@ -536,6 +541,7 @@ class PredictController extends GetxController {
   // Save prediction to Firebase and auto-set budget for next month
   Future<void> savePrediction() async {
     try {
+      isSaving.value = true;
       final user = _auth.currentUser;
       if (user != null) {
         // Save prediction data
@@ -555,13 +561,25 @@ class PredictController extends GetxController {
         // Auto-set budget for next month
         await _autoSetBudgetForNextMonth();
 
+        // Refresh saved predictions list
+        await fetchSavedPredictions();
+
         SnackbarService.showSuccess(
             title: 'Success',
-            message: 'Prediction saved and budget set for next month!');
+            message:
+                'Prediction saved! Overall budget (₱${totalBudget.value.toStringAsFixed(2)}) and category budgets automatically set for next month.');
+
+        // Navigate back to home after successful save
+        await Future.delayed(
+            Duration(milliseconds: 500)); // Small delay to show success message
+        Get.offAll(() =>
+            BottomNavBar()); // Navigate to predict and clear all previous routes
       }
     } catch (e) {
       SnackbarService.showError(
           title: 'Error', message: 'Failed to save prediction: $e');
+    } finally {
+      isSaving.value = false;
     }
   }
 
@@ -608,8 +626,40 @@ class PredictController extends GetxController {
       dev.log('Auto-set budget for next month: $nextMonthKey');
       dev.log('Total budget: ${totalBudget.value}');
       dev.log('Categories: ${budgetCategories.length}');
+      dev.log(
+          'Category details: ${budgetCategories.map((c) => '${c['name']}: ₱${c['amount']}').join(', ')}');
     } catch (e) {
       dev.log('Error auto-setting budget for next month: $e');
+    }
+  }
+
+  // Fetch saved predictions
+  Future<void> fetchSavedPredictions() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final doc =
+          await _firestore.collection('predictionBudget').doc(user.uid).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        savedPredictions.value = [
+          {
+            'id': doc.id,
+            'totalBudget': data['totalBudget'] ?? 0.0,
+            'categories': data['categories'] ?? [],
+            'insights': data['insights'] ?? '',
+            'timestamp': data['timestamp'],
+            'createdAt': data['createdAt'],
+          }
+        ];
+        dev.log('Fetched saved predictions: ${savedPredictions.length}');
+      } else {
+        savedPredictions.value = [];
+      }
+    } catch (e) {
+      dev.log('Error fetching saved predictions: $e');
+      savedPredictions.value = [];
     }
   }
 }

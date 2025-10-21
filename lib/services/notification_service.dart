@@ -10,6 +10,7 @@ class NotificationService extends GetxController {
   static const int OVERALL_BUDGET_ID = 1;
   static const int CATEGORY_BUDGET_ID = 2;
   static const int INCOME_ALERT_ID = 3;
+  static const int EXPENSE_ADDED_ID = 4;
   static const int PAYMENT_DUE_TODAY_ID = 10;
   static const int PAYMENT_DUE_SOON_ID = 11;
   static const int PAYMENT_OVERDUE_ID = 12;
@@ -19,6 +20,7 @@ class NotificationService extends GetxController {
   static const String OVERALL_BUDGET_CHANNEL = 'overall_budget_channel';
   static const String CATEGORY_BUDGET_CHANNEL = 'category_budget_channel';
   static const String INCOME_ALERT_CHANNEL = 'income_alert_channel';
+  static const String EXPENSE_ADDED_CHANNEL = 'expense_added_channel';
   static const String PAYMENT_DUE_TODAY_CHANNEL = 'payment_due_today_channel';
   static const String PAYMENT_DUE_SOON_CHANNEL = 'payment_due_soon_channel';
   static const String PAYMENT_OVERDUE_CHANNEL = 'payment_overdue_channel';
@@ -34,8 +36,8 @@ class NotificationService extends GetxController {
   Future<void> _initializeNotifications() async {
     try {
       // Android initialization settings
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/launcher_icon');
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/launcher_icon');
 
       // iOS initialization settings
       const DarwinInitializationSettings initializationSettingsIOS =
@@ -110,6 +112,17 @@ class NotificationService extends GetxController {
         enableVibration: true,
       );
 
+      // Expense Added Channel
+      const AndroidNotificationChannel expenseAddedChannel =
+          AndroidNotificationChannel(
+        EXPENSE_ADDED_CHANNEL,
+        'Expense Added',
+        description: 'Notifications for when expenses are added',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      );
+
       // Payment Due Today Channel
       const AndroidNotificationChannel paymentDueTodayChannel =
           AndroidNotificationChannel(
@@ -169,6 +182,11 @@ class NotificationService extends GetxController {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(incomeAlertChannel);
+
+      await _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(expenseAddedChannel);
 
       await _flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
@@ -371,6 +389,49 @@ class NotificationService extends GetxController {
     }
   }
 
+  /// Show expense added notification
+  Future<void> showExpenseAdded({
+    required String category,
+    required double amount,
+    required String receiptDate,
+  }) async {
+    try {
+      AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        EXPENSE_ADDED_CHANNEL,
+        'Expense Added',
+        channelDescription: 'Notifications for when expenses are added',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/launcher_icon',
+        playSound: true,
+        enableVibration: true,
+      );
+
+      DarwinNotificationDetails iOSDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      NotificationDetails notificationDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iOSDetails,
+      );
+
+      await _flutterLocalNotificationsPlugin.show(
+        EXPENSE_ADDED_ID,
+        '💸 Expense Added',
+        '₱${amount.toStringAsFixed(2)} for $category on $receiptDate',
+        notificationDetails,
+        payload: 'expense',
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error showing expense added notification: $e');
+      }
+    }
+  }
+
   /// Show payment due today notification
   Future<void> showPaymentDueToday({
     required String title,
@@ -473,9 +534,9 @@ class NotificationService extends GetxController {
         PAYMENT_OVERDUE_CHANNEL,
         'Payment Overdue',
         channelDescription: 'Notifications for overdue payments',
-      importance: Importance.max,
-      priority: Priority.high,
-      icon: '@mipmap/launcher_icon',
+        importance: Importance.max,
+        priority: Priority.high,
+        icon: '@mipmap/launcher_icon',
         playSound: true,
         enableVibration: true,
         vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]),
@@ -534,9 +595,9 @@ class NotificationService extends GetxController {
       NotificationDetails notificationDetails = NotificationDetails(
         android: androidDetails,
         iOS: iOSDetails,
-    );
+      );
 
-    await _flutterLocalNotificationsPlugin.show(
+      await _flutterLocalNotificationsPlugin.show(
         PAYMENT_COMPLETED_ID,
         '✅ Payment Completed!',
         '$title payment of ₱${totalAmount.toStringAsFixed(2)} has been completed successfully!',

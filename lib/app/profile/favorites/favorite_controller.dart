@@ -46,6 +46,17 @@ class FavoriteController extends GetxController {
         // Skip if already paid or missed
         if (currentStatus == 'Paid' || currentStatus == 'Missed') continue;
 
+        // Skip if recently retried (within last 5 minutes)
+        if (favorite['lastRetryDate'] != null) {
+          DateTime lastRetryDate = favorite['lastRetryDate'] is Timestamp
+              ? (favorite['lastRetryDate'] as Timestamp).toDate()
+              : favorite['lastRetryDate'] as DateTime;
+          if (DateTime.now().difference(lastRetryDate).inMinutes < 5) {
+            dev.log('Skipping recently retried payment: ${favorite['title']}');
+            continue;
+          }
+        }
+
         String frequency = favorite['frequency'] ?? 'monthly';
         String startDateStr = favorite['startDate'] ?? '';
         String endDateStr = favorite['endDate'] ?? '';
@@ -286,10 +297,57 @@ class FavoriteController extends GetxController {
   // Method to reset a missed payment back to pending
   Future<void> resetMissedPayment(String favoriteId) async {
     try {
+      // Get the current favorite document to check its details
+      final doc =
+          await _firestore.collection('favorites').doc(favoriteId).get();
+      if (!doc.exists) {
+        SnackbarService.showFavoritesError('Favorite not found');
+        return;
+      }
+
+      final data = doc.data() as Map<String, dynamic>;
+      String frequency = data['frequency'] ?? 'monthly';
+      String startDateStr = data['startDate'] ?? '';
+      String endDateStr = data['endDate'] ?? '';
+
+      if (startDateStr.isEmpty || endDateStr.isEmpty) {
+        SnackbarService.showFavoritesError('Invalid payment dates');
+        return;
+      }
+
+      DateTime now = DateTime.now();
+
+      // Calculate new dates based on frequency
+      DateTime newStartDate = now;
+      DateTime newEndDate;
+
+      switch (frequency) {
+        case 'daily':
+          newEndDate = now.add(Duration(days: 1));
+          break;
+        case 'weekly':
+          newEndDate = now.add(Duration(days: 7));
+          break;
+        case 'monthly':
+          newEndDate = DateTime(now.year, now.month + 1, now.day);
+          break;
+        case 'yearly':
+          newEndDate = DateTime(now.year + 1, now.month, now.day);
+          break;
+        default:
+          newEndDate = now.add(Duration(days: 1));
+      }
+
+      // Update the favorite with new dates and reset status
       await _firestore.collection('favorites').doc(favoriteId).update({
         'status': 'Pending',
+        'startDate': DateFormat('yyyy-MM-dd').format(newStartDate),
+        'endDate': DateFormat('yyyy-MM-dd').format(newEndDate),
+        'lastRetryDate': FieldValue.serverTimestamp(),
       });
-      SnackbarService.showFavoritesSuccess('Payment reset to pending');
+
+      SnackbarService.showFavoritesSuccess(
+          'Payment reset to pending with new due date');
     } catch (e) {
       SnackbarService.showFavoritesError(
           'Failed to reset payment: ${e.toString()}');

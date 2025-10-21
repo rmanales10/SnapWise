@@ -28,9 +28,11 @@ class GraphController extends GetxController {
   // Get total expenses for current period (includes both regular expenses and favorites)
   double getTotalExpenses({bool isDaily = true}) {
     if (isDaily) {
+      // For daily view, return sum of current month daily expenses
       return getCurrentMonthExpenses()
           .fold(0.0, (double sum, expense) => sum + expense);
     } else {
+      // For monthly view, return sum of last 12 months
       return getMonthlyExpensesForLastYear()
           .fold(0.0, (double sum, expense) => sum + expense);
     }
@@ -156,17 +158,21 @@ class GraphController extends GetxController {
     final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
     final currentMonthKey = DateFormat('yyyy-MM').format(now);
 
-    return List.generate(daysInMonth, (index) {
+    log('Getting current month expenses for $currentMonthKey, $daysInMonth days');
+    log('Daily expenses keys: ${dailyExpenses.keys.take(5).toList()}');
+
+    List<double> result = List.generate(daysInMonth, (index) {
       final day = index + 1;
       final dateKey = '$currentMonthKey-${day.toString().padLeft(2, '0')}';
 
-      // Get both regular expenses and favorites payments for this specific day
+      // Get regular expenses (favorites are already included in dailyExpenses)
       double regularExpenses = dailyExpenses[dateKey] ?? 0.0;
-      double favoritesPayments =
-          _getFavoritesPaymentsForDate(DateTime(now.year, now.month, day));
 
-      return regularExpenses + favoritesPayments;
+      return regularExpenses;
     });
+
+    log('Current month expenses total: ${result.fold(0.0, (sum, expense) => sum + expense)}');
+    return result;
   }
 
   // Update current month total to match home controller calculation exactly
@@ -341,6 +347,9 @@ class GraphController extends GetxController {
     final now = DateTime.now();
     List<double> expenses = [];
 
+    log('Getting monthly expenses for last year');
+    log('Monthly expenses keys: ${monthlyExpenses.keys.take(5).toList()}');
+
     for (int i = 11; i >= 0; i--) {
       // Calculate the correct month and year
       int targetMonth = now.month - i;
@@ -355,111 +364,15 @@ class GraphController extends GetxController {
       final monthDate = DateTime(targetYear, targetMonth, 1);
       final monthKey = DateFormat('yyyy-MM').format(monthDate);
 
-      // Get both regular expenses and favorites payments for this specific month
+      // Get regular expenses (favorites are already included in monthlyExpenses)
       double regularExpenses = monthlyExpenses[monthKey] ?? 0.0;
-      double favoritesPayments = _getFavoritesPaymentsForMonth(monthDate);
 
-      expenses.add(regularExpenses + favoritesPayments);
+      expenses.add(regularExpenses);
 
-      log('Month $monthKey (i=$i): Regular=${regularExpenses.toStringAsFixed(2)}, Favorites=${favoritesPayments.toStringAsFixed(2)}, Total=${(regularExpenses + favoritesPayments).toStringAsFixed(2)}');
+      log('Month $monthKey (i=$i): Total=${regularExpenses.toStringAsFixed(2)}');
     }
 
+    log('Monthly expenses total: ${expenses.fold(0.0, (sum, expense) => sum + expense)}');
     return expenses;
-  }
-
-  // Get favorites payments for a specific date
-  double _getFavoritesPaymentsForDate(DateTime date) {
-    try {
-      FavoriteController favoriteController;
-      try {
-        favoriteController = Get.find<FavoriteController>();
-      } catch (e) {
-        favoriteController = Get.put(FavoriteController());
-        // Setup the stream to load favorites data
-        favoriteController.setupFavoritesStream();
-      }
-
-      double totalAmount = 0.0;
-      final targetDate = DateTime(date.year, date.month, date.day);
-
-      for (var favorite in favoriteController.favorites) {
-        List<Map<String, dynamic>> paymentHistory =
-            List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
-
-        for (var payment in paymentHistory) {
-          final paymentDateRaw = payment['timestamp'];
-          DateTime paymentDate;
-
-          if (paymentDateRaw is Timestamp) {
-            paymentDate = paymentDateRaw.toDate();
-          } else if (paymentDateRaw is DateTime) {
-            paymentDate = paymentDateRaw;
-          } else {
-            continue;
-          }
-
-          // Check if payment is on the same day
-          if (paymentDate.year == targetDate.year &&
-              paymentDate.month == targetDate.month &&
-              paymentDate.day == targetDate.day) {
-            double amount = (payment['amount'] ?? 0.0).toDouble();
-            totalAmount += amount;
-          }
-        }
-      }
-
-      return totalAmount;
-    } catch (e) {
-      log('Error getting favorites payments for date: $e');
-      return 0.0;
-    }
-  }
-
-  // Get favorites payments for a specific month
-  double _getFavoritesPaymentsForMonth(DateTime monthDate) {
-    try {
-      FavoriteController favoriteController;
-      try {
-        favoriteController = Get.find<FavoriteController>();
-      } catch (e) {
-        favoriteController = Get.put(FavoriteController());
-        // Setup the stream to load favorites data
-        favoriteController.setupFavoritesStream();
-      }
-
-      double totalAmount = 0.0;
-      final targetYear = monthDate.year;
-      final targetMonth = monthDate.month;
-
-      for (var favorite in favoriteController.favorites) {
-        List<Map<String, dynamic>> paymentHistory =
-            List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
-
-        for (var payment in paymentHistory) {
-          final paymentDateRaw = payment['timestamp'];
-          DateTime paymentDate;
-
-          if (paymentDateRaw is Timestamp) {
-            paymentDate = paymentDateRaw.toDate();
-          } else if (paymentDateRaw is DateTime) {
-            paymentDate = paymentDateRaw;
-          } else {
-            continue;
-          }
-
-          // Check if payment is in the same month
-          if (paymentDate.year == targetYear &&
-              paymentDate.month == targetMonth) {
-            double amount = (payment['amount'] ?? 0.0).toDouble();
-            totalAmount += amount;
-          }
-        }
-      }
-
-      return totalAmount;
-    } catch (e) {
-      log('Error getting favorites payments for month: $e');
-      return 0.0;
-    }
   }
 }
