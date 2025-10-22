@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -20,31 +21,64 @@ class HomeController extends GetxController {
 
   // Prevent multiple simultaneous calls
   bool _isFetchingTransactions = false;
+  bool _isFetchingTransactionHistory = false;
+
+  // Add a flag to track if data is being refreshed
+  bool _isRefreshingData = false;
+  Timer? _refreshTimer;
 
   @override
   void onInit() {
     super.onInit();
     refreshAllData();
+    _startPeriodicRefresh();
+  }
+
+  @override
+  void onClose() {
+    _refreshTimer?.cancel();
+    super.onClose();
+  }
+
+  // Start periodic refresh every 30 seconds to ensure data consistency
+  void _startPeriodicRefresh() {
+    _refreshTimer = Timer.periodic(Duration(seconds: 30), (timer) {
+      if (!_isRefreshingData) {
+        log('Periodic refresh triggered');
+        refreshAllData();
+      }
+    });
   }
 
   Future<void> refreshAllData() async {
-    await Future.wait([
-      fetchTransactions(),
-      fetchTransactionsHistory(),
-      getTotalPaymentHistory(),
-      getTotalIncome(),
-      getTotalBudget(),
-    ]);
+    // Prevent multiple simultaneous refreshes
+    if (_isRefreshingData) {
+      log('refreshAllData already in progress, skipping...');
+      return;
+    }
 
-    // Verify the calculation with direct Firestore query
-    await _verifyMonthlyCalculation();
+    _isRefreshingData = true;
 
-    // Log the final cached values to ensure consistency
-    log('=== FINAL CACHED VALUES ===');
-    log('transactionsHistory.length: ${transactionsHistory.length}');
-    log('totalPaymentHistory.value: ${totalPaymentHistory.value}');
-    log('Current getTotalSpent(): ${getTotalSpent()}');
-    log('==========================');
+    try {
+      await Future.wait([
+        fetchTransactions(),
+        getTotalPaymentHistory(),
+        getTotalIncome(),
+        getTotalBudget(),
+      ]);
+
+      // Verify the calculation with direct Firestore query
+      await _verifyMonthlyCalculation();
+
+      // Log the final cached values to ensure consistency
+      log('=== FINAL CACHED VALUES ===');
+      log('transactionsHistory.length: ${transactionsHistory.length}');
+      log('totalPaymentHistory.value: ${totalPaymentHistory.value}');
+      log('Current getTotalSpent(): ${getTotalSpent()}');
+      log('==========================');
+    } finally {
+      _isRefreshingData = false;
+    }
   }
 
   // Method to verify monthly calculation by directly querying Firestore
@@ -113,6 +147,27 @@ class HomeController extends GetxController {
       log('Date range: ${startOfMonth.toString()} to ${endOfMonth.toString()}');
       log('Direct calculation: $directTotal (${currentMonthExpenses} expenses + favorites)');
       log('Method calculation: ${getTotalSpent()}');
+
+      // Check for significant inconsistency (more than 10% difference)
+      double methodTotal = getRawTotalSpent();
+      double difference = (directTotal - methodTotal).abs();
+      double percentageDifference = (difference / directTotal) * 100;
+
+      if (percentageDifference > 10) {
+        log('⚠️ INCONSISTENCY DETECTED: ${percentageDifference.toStringAsFixed(1)}% difference');
+        log('Direct: $directTotal, Method: $methodTotal');
+        log('Triggering automatic refresh...');
+
+        // Trigger a refresh after a short delay to avoid recursion
+        Future.delayed(Duration(milliseconds: 500), () {
+          if (!_isRefreshingData) {
+            forceRefreshData();
+          }
+        });
+      } else {
+        log('✅ Data consistency verified');
+      }
+
       log('========================================');
     } catch (e) {
       log('Error verifying monthly calculation: $e');
@@ -133,6 +188,14 @@ class HomeController extends GetxController {
   }
 
   Future<void> fetchTransactions() async {
+    // Prevent multiple simultaneous calls
+    if (_isFetchingTransactions) {
+      log('fetchTransactions already in progress, skipping...');
+      return;
+    }
+
+    _isFetchingTransactions = true;
+
     try {
       final user = _auth.currentUser;
       if (user != null) {
@@ -141,8 +204,7 @@ class HomeController extends GetxController {
             .collection('expenses')
             .where('userId', isEqualTo: user.uid)
             .orderBy('timestamp', descending: true)
-            .limit(10)
-            .get();
+            .get(); // Remove the limit to get all transactions
 
         DateTime now = DateTime.now();
         DateTime startOfMonth = DateTime(now.year, now.month, 1);
@@ -210,21 +272,29 @@ class HomeController extends GetxController {
             .toList();
 
         transactionsHistory.assignAll(fetchedTransactions);
+
+        // Take only first 3 for display in transactions
+        final displayTransactions = fetchedTransactions.take(3).toList();
+        transactions.assignAll(displayTransactions);
+
         log('Fetched ${fetchedTransactions.length} transactions for current month (based on receipt date)');
+        log('Displaying ${displayTransactions.length} recent transactions');
       }
     } catch (e) {
       log('Error fetching transactions: $e');
+    } finally {
+      _isFetchingTransactions = false;
     }
   }
 
   Future<void> fetchTransactionsHistory() async {
     // Prevent multiple simultaneous calls
-    if (_isFetchingTransactions) {
+    if (_isFetchingTransactionHistory) {
       log('fetchTransactionsHistory already in progress, skipping...');
       return;
     }
 
-    _isFetchingTransactions = true;
+    _isFetchingTransactionHistory = true;
 
     try {
       final user = _auth.currentUser;
@@ -323,7 +393,7 @@ class HomeController extends GetxController {
     } catch (e) {
       log('Error fetching transactions: $e');
     } finally {
-      _isFetchingTransactions = false;
+      _isFetchingTransactionHistory = false;
     }
   }
 
@@ -402,6 +472,12 @@ class HomeController extends GetxController {
     } else {
       return total.toStringAsFixed(2);
     }
+  }
+
+  // Force refresh data when inconsistencies are detected
+  Future<void> forceRefreshData() async {
+    log('Force refreshing data due to inconsistency...');
+    await refreshAllData();
   }
 
   // Get raw total spent value without formatting

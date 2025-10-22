@@ -38,8 +38,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    controller.fetchTransactions();
-    controller.fetchTransactionsHistory();
+    // Only fetch budget data here, home data will be fetched by HomeController
     fetchData();
   }
 
@@ -84,7 +83,6 @@ class _BottomNavBarState extends State<BottomNavBar> {
             });
           },
           backgroundColor: Color.fromARGB(255, 3, 30, 53),
-
           shape: CircleBorder(),
           child: Icon(Icons.add, color: Colors.white),
         ),
@@ -109,26 +107,31 @@ class _BottomNavBarState extends State<BottomNavBar> {
 
   Widget _buildNavItem(int index, IconData icon) {
     return InkWell(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () {
+        setState(() => _currentIndex = index);
+
+        // Force refresh data when navigating to home screen to ensure consistency
+        if (index == 0) {
+          controller.forceRefreshData();
+        }
+      },
       child: Container(
         padding: EdgeInsets.all(10),
-        decoration:
-            _currentIndex == index
-                ? BoxDecoration(
-                  shape: BoxShape.circle,
-                  // ignore: deprecated_member_use
-                  color: Color.fromARGB(255, 3, 30, 53).withOpacity(0.1),
-                )
-                : null,
+        decoration: _currentIndex == index
+            ? BoxDecoration(
+                shape: BoxShape.circle,
+                // ignore: deprecated_member_use
+                color: Color.fromARGB(255, 3, 30, 53).withOpacity(0.1),
+              )
+            : null,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              color:
-                  _currentIndex == index
-                      ? Color.fromARGB(255, 3, 30, 53)
-                      : Colors.grey,
+              color: _currentIndex == index
+                  ? Color.fromARGB(255, 3, 30, 53)
+                  : Colors.grey,
             ),
           ],
         ),
