@@ -199,46 +199,29 @@ class HomeController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        // Fetch all expenses and filter by receipt date for current month
+        // Fetch all expenses and filter by transaction date for today only
         final querySnapshot = await _firestore
             .collection('expenses')
             .where('userId', isEqualTo: user.uid)
             .orderBy('timestamp', descending: true)
-            .get(); // Remove the limit to get all transactions
+            .get();
 
         DateTime now = DateTime.now();
-        DateTime startOfMonth = DateTime(now.year, now.month, 1);
-        DateTime startOfNextMonth = (now.month < 12)
-            ? DateTime(now.year, now.month + 1, 1)
-            : DateTime(now.year + 1, 1, 1);
+        DateTime startOfToday = DateTime(now.year, now.month, now.day);
+        DateTime endOfToday =
+            DateTime(now.year, now.month, now.day, 23, 59, 59);
 
         final fetchedTransactions = querySnapshot.docs
             .map((doc) {
               final data = doc.data();
 
-              // Check if expense is within current month based on receipt date
-              bool isInCurrentMonth = false;
-              if (data['receiptDate'] != null) {
-                try {
-                  DateTime receiptDate = DateTime.parse(data['receiptDate']);
-                  isInCurrentMonth = receiptDate.isAfter(
-                          startOfMonth.subtract(const Duration(days: 1))) &&
-                      receiptDate.isBefore(startOfNextMonth);
-                } catch (e) {
-                  // If receipt date parsing fails, check timestamp as fallback
-                  DateTime timestamp =
-                      (data['timestamp'] as Timestamp).toDate();
-                  isInCurrentMonth = timestamp.isAfter(
-                          startOfMonth.subtract(const Duration(days: 1))) &&
-                      timestamp.isBefore(startOfNextMonth);
-                }
-              } else {
-                // If no receipt date, use timestamp
-                DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
-                isInCurrentMonth = timestamp.isAfter(
-                        startOfMonth.subtract(const Duration(days: 1))) &&
-                    timestamp.isBefore(startOfNextMonth);
-              }
+              // Check if expense is from today based on transaction date (timestamp)
+              bool isToday = false;
+              DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+              isToday = timestamp.isAfter(
+                      startOfToday.subtract(const Duration(seconds: 1))) &&
+                  timestamp
+                      .isBefore(endOfToday.add(const Duration(seconds: 1)));
 
               // Use receipt date for display if available, otherwise use timestamp
               String displayDate;
@@ -260,25 +243,26 @@ class HomeController extends GetxController {
                 "title": data['category'],
                 "date": displayDate,
                 "amount": "-${data['amount'].toStringAsFixed(2)}",
-                "isInCurrentMonth": isInCurrentMonth, // Add flag for filtering
+                "isToday":
+                    isToday, // Add flag for filtering today's transactions
               };
             })
-            .where((transaction) => transaction['isInCurrentMonth'] == true)
+            .where((transaction) => transaction['isToday'] == true)
             .map((transaction) {
               // Remove the flag before adding to final list
-              transaction.remove('isInCurrentMonth');
+              transaction.remove('isToday');
               return transaction;
             })
             .toList();
 
         transactionsHistory.assignAll(fetchedTransactions);
 
-        // Take only first 3 for display in transactions
+        // Take only first 3 for display in transactions (most recent from today)
         final displayTransactions = fetchedTransactions.take(3).toList();
         transactions.assignAll(displayTransactions);
 
-        log('Fetched ${fetchedTransactions.length} transactions for current month (based on receipt date)');
-        log('Displaying ${displayTransactions.length} recent transactions');
+        log('Fetched ${fetchedTransactions.length} transactions for today (based on transaction date/timestamp)');
+        log('Displaying ${displayTransactions.length} recent transactions from today');
       }
     } catch (e) {
       log('Error fetching transactions: $e');
