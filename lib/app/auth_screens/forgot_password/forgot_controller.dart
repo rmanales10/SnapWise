@@ -32,30 +32,49 @@ class ForgotController extends GetxController {
   }
 
   Future<void> sendVerificationEmail(String email) async {
-    final user = await _firestore
-        .collection('users')
-        .where('email', isEqualTo: email)
-        .get();
-    if (user.docs.isEmpty) {
+    // Validate email format
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
       isUserFound.value = false;
-      SnackbarService.showError(title: 'User Error', message: 'User not found');
+      errorMessage.value = 'Please enter a valid email address';
+      SnackbarService.showError(
+          title: 'Invalid Email',
+          message: 'Please enter a valid email address');
       return;
     }
-    isUserFound.value = true;
-    userPassword.value = user.docs.first.data()['password'];
+
     try {
+      // Check if user exists in Firestore
+      final user = await _firestore
+          .collection('users')
+          .where('email', isEqualTo: email.toLowerCase().trim())
+          .get();
+
+      if (user.docs.isEmpty) {
+        isUserFound.value = false;
+        errorMessage.value = 'No account found with this email address';
+        SnackbarService.showError(
+            title: 'User Not Found',
+            message: 'No account found with this email address');
+        return;
+      }
+
+      isUserFound.value = true;
+      userPassword.value = user.docs.first.data()['password'];
+
       // Generate verification code
       verificationCode.value = _generateVerificationCode();
       log.log('Generated verification code: ${verificationCode.value}');
 
       // Create SMTP server configuration
+      // TODO: Move these credentials to environment variables for security
       final smtpServer = SmtpServer(
         'smtp.gmail.com',
         port: 465,
         username: 'officialsnapwise@gmail.com',
-        password: 'unrl zpuk rmov jqlf',
+        password:
+            'unrl zpuk rmov jqlf', // This should be in environment variables
         ssl: true,
-        allowInsecure: true,
+        allowInsecure: false, // Changed to false for better security
       );
 
       // Create email message
@@ -79,62 +98,171 @@ class ForgotController extends GetxController {
       // Send email
       final sendReport = await send(message, smtpServer);
       log.log('Send report: $sendReport');
+
+      // Clear any previous error messages
+      errorMessage.value = '';
+
       SnackbarService.showSuccess(
-          title: 'Success', message: 'Reset email sent successfully');
+          title: 'Email Sent', message: 'Verification code sent to your email');
     } catch (e) {
       log.log('Error sending reset email: $e');
-      errorMessage.value = 'Failed to send reset email: ${e.toString()}';
-      SnackbarService.showError(
-          title: 'Email Error', message: errorMessage.value);
+      errorMessage.value =
+          'Failed to send verification email. Please try again.';
+
+      // Provide more specific error messages
+      String errorMsg = 'Failed to send verification email. Please try again.';
+      if (e.toString().contains('authentication')) {
+        errorMsg = 'Email authentication failed. Please contact support.';
+      } else if (e.toString().contains('network')) {
+        errorMsg = 'Network error. Please check your internet connection.';
+      } else if (e.toString().contains('timeout')) {
+        errorMsg = 'Request timed out. Please try again.';
+      }
+
+      SnackbarService.showError(title: 'Email Error', message: errorMsg);
     }
   }
 
   Future<void> verifyCode(String code, String email) async {
     try {
+      // Validate code format
+      if (code.length != 6 || !RegExp(r'^\d{6}$').hasMatch(code)) {
+        isVerified.value = false;
+        SnackbarService.showError(
+            title: 'Invalid Code',
+            message: 'Please enter a valid 6-digit code');
+        return;
+      }
+
       if (code == verificationCode.value) {
         isVerified.value = true;
+        errorMessage.value = '';
         SnackbarService.showSuccess(
             title: 'Success', message: 'Code verified successfully');
       } else {
         isVerified.value = false;
         SnackbarService.showError(
-            title: 'Verification Error', message: 'Invalid code');
+            title: 'Invalid Code',
+            message: 'The verification code is incorrect. Please try again.');
       }
     } catch (e) {
       isVerified.value = false;
-      log.log('Decryption error: $e');
+      log.log('Verification error: $e');
+      SnackbarService.showError(
+          title: 'Verification Error',
+          message: 'An error occurred during verification. Please try again.');
     }
   }
 
   Future<void> resetPassword(String newPassword, String email) async {
     try {
+      // Validate new password
+      if (newPassword.length < 6) {
+        isReset.value = false;
+        SnackbarService.showError(
+            title: 'Invalid Password',
+            message: 'Password must be at least 6 characters long');
+        return;
+      }
+
+      // Check if user is verified
+      if (!isVerified.value) {
+        isReset.value = false;
+        SnackbarService.showError(
+            title: 'Verification Required',
+            message: 'Please verify your code first');
+        return;
+      }
+
       final decryptedPassword = decryptText(userPassword.value);
       await _auth.signInWithEmailAndPassword(
-        email: email,
+        email: email.toLowerCase().trim(),
         password: decryptedPassword,
       );
       await updatePassword(newPassword);
-      log.log(_auth.currentUser?.uid ?? 'No user found');
+      log.log(
+          'Password reset successful for user: ${_auth.currentUser?.uid ?? 'No user found'}');
     } on FirebaseAuthException catch (e) {
+      log.log('Firebase Auth Error during password reset: $e');
+      isReset.value = false;
+
+      String errorMsg = 'Failed to reset password. Please try again.';
+      switch (e.code) {
+        case 'user-not-found':
+          errorMsg = 'User account not found.';
+          break;
+        case 'wrong-password':
+          errorMsg = 'Invalid credentials. Please contact support.';
+          break;
+        case 'too-many-requests':
+          errorMsg = 'Too many attempts. Please try again later.';
+          break;
+        case 'network-request-failed':
+          errorMsg = 'Network error. Please check your internet connection.';
+          break;
+      }
+
+      SnackbarService.showError(title: 'Reset Error', message: errorMsg);
+    } catch (e) {
       log.log('Error resetting password: $e');
+      isReset.value = false;
+      SnackbarService.showError(
+          title: 'Reset Error',
+          message: 'An unexpected error occurred. Please try again.');
     }
   }
 
   Future<void> updatePassword(String newPassword) async {
     try {
+      if (_auth.currentUser == null) {
+        isReset.value = false;
+        SnackbarService.showError(
+            title: 'Authentication Error',
+            message: 'User session expired. Please try again.');
+        return;
+      }
+
+      // Update password in Firebase Auth
       await _auth.currentUser!.updatePassword(newPassword);
+
+      // Update password in Firestore
       await _firestore
           .collection('users')
           .doc(_auth.currentUser?.uid)
           .update({'password': encryptText(newPassword)});
+
+      // Sign out user after successful password update
       await _auth.signOut();
+
       isReset.value = true;
       SnackbarService.showSuccess(
-          title: 'Success', message: 'Password reset successfully');
+          title: 'Success',
+          message:
+              'Password reset successfully. Please login with your new password.');
+    } on FirebaseAuthException catch (e) {
+      log.log('Firebase Auth Error during password update: $e');
+      isReset.value = false;
+
+      String errorMsg = 'Failed to update password. Please try again.';
+      switch (e.code) {
+        case 'weak-password':
+          errorMsg = 'Password is too weak. Please choose a stronger password.';
+          break;
+        case 'requires-recent-login':
+          errorMsg = 'Please verify your identity again.';
+          break;
+        case 'network-request-failed':
+          errorMsg = 'Network error. Please check your internet connection.';
+          break;
+      }
+
+      SnackbarService.showError(title: 'Update Error', message: errorMsg);
     } catch (e) {
+      log.log('Error updating password: $e');
       isReset.value = false;
       SnackbarService.showError(
-          title: 'Reset Error', message: 'Failed to reset password');
+          title: 'Update Error',
+          message: 'An unexpected error occurred. Please try again.');
     }
   }
 }

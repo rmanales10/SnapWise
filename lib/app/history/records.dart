@@ -42,6 +42,9 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     // Cache favorites data first, then load all records
     _cacheFavorites();
 
+    // Ensure home controller data is loaded for today's transactions
+    controller.refreshAllData();
+
     // Listen to favorites changes to update cache
     ever(favoriteController.favorites, (List<Map<String, dynamic>> favorites) {
       _cachedFavorites = List.from(favorites);
@@ -204,26 +207,66 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
             if (showAllRecords)
               Obx(() => _buildAllRecords())
             else
-              Column(
-                children: [
-                  _buildTodayPayments(),
-                  Obx(() => controller.transactionsHistory.isEmpty
-                      ? Center(
-                          child: Text(
-                            "",
-                            style: TextStyle(fontSize: isTablet ? 20 : 16),
-                          ),
-                        )
-                      : Column(
+              FutureBuilder<Widget>(
+                future: _buildTodayRecords(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(isTablet ? 32 : 24),
+                        child: Column(
                           children: [
-                            SizedBox(height: 10),
-                            SizedBox(
-                              height: 500, // adjust as needed
-                              child: _buildTransactionsList(),
+                            CircularProgressIndicator(
+                              color: Colors.blue,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Loading today\'s transactions...',
+                              style: TextStyle(
+                                fontSize: isTablet ? 16 : 14,
+                                color: Colors.grey[600],
+                              ),
                             ),
                           ],
-                        )),
-                ],
+                        ),
+                      ),
+                    );
+                  } else if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(isTablet ? 32 : 24),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 64,
+                              color: Colors.red[400],
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Error loading transactions',
+                              style: TextStyle(
+                                fontSize: isTablet ? 16 : 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.red[600],
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Please try again',
+                              style: TextStyle(
+                                fontSize: isTablet ? 14 : 12,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  } else {
+                    return snapshot.data ?? Container();
+                  }
+                },
               ),
           ],
         ),
@@ -361,9 +404,109 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     );
   }
 
-  Widget _buildTodayPayments() {
-    final todayPayments = <Map<String, dynamic>>[];
+  // Fetch today's expenses directly from Firestore
+  Future<void> _fetchTodayExpenses(List<Map<String, dynamic>> todayRecords,
+      DateTime startOfToday, DateTime endOfToday) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
+      // Fetch all expenses from Firestore
+      final QuerySnapshot expensesSnapshot = await FirebaseFirestore.instance
+          .collection('expenses')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      print('Fetched ${expensesSnapshot.docs.length} expenses from Firestore');
+
+      for (var doc in expensesSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        // Check if expense is from today based on receipt date (preferred) or timestamp
+        bool isToday = false;
+        DateTime? expenseDate;
+
+        // First try receipt date
+        if (data['receiptDate'] != null &&
+            data['receiptDate'].toString().isNotEmpty) {
+          try {
+            if (data['receiptDate'] is Timestamp) {
+              expenseDate = (data['receiptDate'] as Timestamp).toDate();
+            } else if (data['receiptDate'] is String) {
+              expenseDate = DateTime.parse(data['receiptDate']);
+            }
+
+            if (expenseDate != null) {
+              isToday = expenseDate
+                      .isAfter(startOfToday.subtract(Duration(seconds: 1))) &&
+                  expenseDate.isBefore(endOfToday.add(Duration(seconds: 1)));
+              print('Checking receipt date: $expenseDate - isToday: $isToday');
+            }
+          } catch (e) {
+            print('Error parsing receipt date: $e');
+          }
+        }
+
+        // If receipt date is not available or not today, check timestamp
+        if (!isToday) {
+          try {
+            DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+            isToday = timestamp
+                    .isAfter(startOfToday.subtract(Duration(seconds: 1))) &&
+                timestamp.isBefore(endOfToday.add(Duration(seconds: 1)));
+            expenseDate = timestamp;
+            print('Checking timestamp: $timestamp - isToday: $isToday');
+          } catch (e) {
+            print('Error parsing timestamp: $e');
+          }
+        }
+
+        if (isToday && expenseDate != null) {
+          // Get category icon
+          IconData categoryIcon = _getCategoryIcon(data['category'] ?? '');
+
+          todayRecords.add({
+            'id': doc.id,
+            'type': 'expense',
+            'title': data['category'] ?? 'Unknown',
+            'amount': '-${data['amount'].toStringAsFixed(2)}',
+            'date': expenseDate,
+            'icon': categoryIcon,
+            'isClickable': true,
+          });
+
+          print(
+              'Added expense: ${data['category']} - ${data['amount']} - $expenseDate');
+        }
+      }
+    } catch (e) {
+      print('Error fetching today expenses: $e');
+    }
+  }
+
+  // REMOVED: Duplicate _getCategoryIcon method
+
+  // Build today's records (both expenses and favorite payments)
+  Future<Widget> _buildTodayRecords() async {
+    final todayRecords = <Map<String, dynamic>>[];
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+    // Debug logging
+    print('=== BUILDING TODAY RECORDS ===');
+    print('Current time: $now');
+    print('Start of today: $startOfToday');
+    print('End of today: $endOfToday');
+    print(
+        'Transactions from home controller: ${controller.transactionsHistory.length}');
+
+    // Fetch today's expenses directly from Firestore
+    // This ensures we get expenses based on their receipt date, not creation date
+    await _fetchTodayExpenses(todayRecords, startOfToday, endOfToday);
+
+    // Add today's favorite payments
     for (var fav in favoriteController.favorites) {
       final title = fav['title'] ?? '';
       final history = fav['paymentHistory'] as List? ?? [];
@@ -372,25 +515,65 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
         final paymentDate = paymentDateRaw is Timestamp
             ? paymentDateRaw.toDate()
             : paymentDateRaw as DateTime;
-        final now = DateTime.now();
-        if (paymentDate.year == now.year &&
-            paymentDate.month == now.month &&
-            paymentDate.day == now.day) {
-          todayPayments.add({
+
+        if (paymentDate.isAfter(startOfToday.subtract(Duration(seconds: 1))) &&
+            paymentDate.isBefore(endOfToday.add(Duration(seconds: 1)))) {
+          todayRecords.add({
+            'id': 'favorite_${fav['id']}_${payment['timestamp']}',
+            'type': 'favorite',
             'title': title,
             'amount': payment['amount'],
             'date': paymentDate,
+            'icon': Icons.favorite,
+            'isClickable': true,
           });
         }
       }
     }
 
-    if (todayPayments.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Text(
-          'No payments made today.',
-          style: TextStyle(color: Colors.grey),
+    // Sort by date (newest first)
+    todayRecords.sort(
+        (a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
+
+    // Debug logging
+    print('Final today records count: ${todayRecords.length}');
+    for (var record in todayRecords) {
+      print(
+          'Record: ${record['type']} - ${record['title']} - ${record['date']}');
+    }
+    print('===============================');
+
+    if (todayRecords.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(isTablet ? 32 : 24),
+          child: Column(
+            children: [
+              Icon(
+                Icons.today,
+                size: 64,
+                color: Colors.grey[400],
+              ),
+              SizedBox(height: 16),
+              Text(
+                'No transactions today',
+                style: TextStyle(
+                  fontSize: isTablet ? 20 : 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[600],
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Your transactions for today will appear here',
+                style: TextStyle(
+                  fontSize: isTablet ? 16 : 14,
+                  color: Colors.grey[500],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -398,11 +581,26 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     return ListView.builder(
       shrinkWrap: true,
       physics: NeverScrollableScrollPhysics(),
-      itemCount: todayPayments.length,
+      itemCount: todayRecords.length,
       itemBuilder: (context, index) {
-        final payment = todayPayments[index];
+        final record = todayRecords[index];
         return GestureDetector(
-          onTap: () => _showFavoritePaymentDetails(payment),
+          onTap: () {
+            if (record['isClickable'] == true) {
+              if (record['type'] == 'expense') {
+                // Navigate to expense details
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ViewExpense(expenseId: record['id']),
+                  ),
+                );
+              } else if (record['type'] == 'favorite') {
+                // Show favorite payment details
+                _showFavoritePaymentDetails(record);
+              }
+            }
+          },
           child: Container(
             margin: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
             decoration: BoxDecoration(
@@ -424,35 +622,84 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.receipt_long, color: Colors.blue, size: 28),
+                      Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: record['type'] == 'favorite'
+                              ? Colors.pink.shade50
+                              : Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          record['icon'],
+                          color: record['type'] == 'favorite'
+                              ? Colors.pink
+                              : Colors.blue,
+                          size: 20,
+                        ),
+                      ),
                       SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            payment['title'],
+                            record['title'],
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.black,
+                              fontWeight: FontWeight.w600,
+                              fontSize: isTablet ? 16 : 14,
+                              color: Colors.grey[800],
                             ),
                           ),
+                          SizedBox(height: 2),
                           Text(
-                            DateFormat('MMM d, yyyy').format(payment['date']),
-                            style:
-                                TextStyle(color: Colors.black45, fontSize: 13),
+                            DateFormat('MMM d, yyyy • h:mm a')
+                                .format(record['date']),
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: isTablet ? 14 : 12,
+                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                  Text(
-                    '-${formatter.format(payment['amount']).replaceAll('PHP ', '')}',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        record['type'] == 'favorite'
+                            ? '₱${record['amount'].toStringAsFixed(2)}'
+                            : record['amount'],
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: isTablet ? 16 : 14,
+                          color: record['type'] == 'favorite'
+                              ? Colors.pink
+                              : Colors.red,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: record['type'] == 'favorite'
+                              ? Colors.pink.shade50
+                              : Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          record['type'] == 'favorite' ? 'Favorite' : 'Expense',
+                          style: TextStyle(
+                            color: record['type'] == 'favorite'
+                                ? Colors.pink
+                                : Colors.blue,
+                            fontSize: isTablet ? 12 : 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -626,190 +873,243 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     );
   }
 
-  Widget _buildTransactionsList() {
-    return ListView.builder(
-      padding: EdgeInsets.symmetric(
-        horizontal: isTablet ? 30 : 20,
-        vertical: isTablet ? 15 : 10,
-      ),
-      itemCount: controller.transactionsHistory.length,
-      itemBuilder: (context, index) {
-        var tx = controller.transactionsHistory[index];
-        return Padding(
-          padding: EdgeInsets.only(bottom: isTablet ? 15 : 10),
-          child: Stack(
-            children: [
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ViewExpense(expenseId: tx['id']),
-                  ),
+  // REMOVED: _buildTransactionsList method - replaced with _buildTodayRecords
+
+  // Show favorite payment details with modern UI
+  void _showFavoritePaymentDetails(Map<String, dynamic> payment) {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: isTablet ? MediaQuery.of(context).size.width * 0.6 : null,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(isTablet ? 28 : 24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  spreadRadius: 0,
+                  offset: Offset(0, 10),
                 ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(isTablet ? 15 : 10),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      vertical: isTablet ? 15 : 10,
-                      horizontal: isTablet ? 20 : 15,
+              ],
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Beautiful Header Section
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(isTablet ? 24 : 20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFE91E63), Color(0xFF9C27B0)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(isTablet ? 28 : 24),
+                        topRight: Radius.circular(isTablet ? 28 : 24),
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
                       children: [
+                        // Header Row
                         Row(
                           children: [
-                            Icon(
-                              tx["icon"],
-                              color: Colors.orange,
-                              size: isTablet ? 36 : 30,
+                            Container(
+                              padding: EdgeInsets.all(isTablet ? 12 : 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius:
+                                    BorderRadius.circular(isTablet ? 16 : 12),
+                              ),
+                              child: Icon(
+                                Icons.favorite,
+                                color: Colors.white,
+                                size: isTablet ? 28 : 24,
+                              ),
                             ),
-                            SizedBox(width: isTablet ? 15 : 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  tx["title"],
-                                  style: TextStyle(
-                                    fontSize: isTablet ? 20 : 16,
-                                    fontWeight: FontWeight.bold,
+                            SizedBox(width: isTablet ? 16 : 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Favorite Payment Details',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: isTablet ? 24 : 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  tx["date"],
-                                  style: TextStyle(
-                                    color: Colors.black45,
-                                    fontSize: isTablet ? 16 : 14,
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Payment Information',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: isTablet ? 16 : 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
+                                ],
+                              ),
+                            ),
+                            // Custom Close Button
+                            GestureDetector(
+                              onTap: () => Navigator.of(context).pop(),
+                              child: Container(
+                                padding: EdgeInsets.all(isTablet ? 8 : 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius:
+                                      BorderRadius.circular(isTablet ? 12 : 8),
                                 ),
-                              ],
+                                child: Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: isTablet ? 20 : 18,
+                                ),
+                              ),
                             ),
                           ],
                         ),
+                      ],
+                    ),
+                  ),
+
+                  // Content Section
+                  Padding(
+                    padding: EdgeInsets.all(isTablet ? 24 : 20),
+                    child: Column(
+                      children: [
+                        // Amount Spent Card
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(isTablet ? 24 : 20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Color(0xFFE91E63).withOpacity(0.1),
+                                Color(0xFF9C27B0).withOpacity(0.1)
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius:
+                                BorderRadius.circular(isTablet ? 20 : 16),
+                            border: Border.all(
+                              color: Color(0xFFE91E63).withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Amount Paid',
+                                style: TextStyle(
+                                  color: Color(0xFFE91E63),
+                                  fontSize: isTablet ? 16 : 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: isTablet ? 8 : 6),
+                              Text(
+                                '₱${payment['amount'].toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: Color(0xFF2c3e50),
+                                  fontSize: isTablet ? 32 : 28,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        SizedBox(height: isTablet ? 24 : 20),
+
+                        // Payment Details Section
                         Text(
-                          (() {
-                            final amount =
-                                double.tryParse(tx["amount"].toString()) ?? 0.0;
-                            return '${amount < 0 ? "" : "-"}${formatter.format(amount.abs()).replaceAll('PHP ', "")}';
-                          })(),
+                          'Payment Details',
                           style: TextStyle(
-                            color: Colors.red,
+                            fontSize: isTablet ? 20 : 18,
                             fontWeight: FontWeight.bold,
-                            fontSize: isTablet ? 18 : 16,
+                            color: Color(0xFF2c3e50),
+                          ),
+                        ),
+                        SizedBox(height: isTablet ? 16 : 12),
+
+                        // Modern Detail Rows
+                        _buildModernDetailRow(
+                          Icons.title,
+                          'Payment Title',
+                          payment['title'] ?? 'N/A',
+                          Color(0xFFE91E63),
+                        ),
+                        _buildModernDetailRow(
+                          Icons.calendar_today,
+                          'Payment Date',
+                          DateFormat('MMM d, yyyy • h:mm a')
+                              .format(payment['date']),
+                          Color(0xFF9C27B0),
+                        ),
+                        if (payment['transactionDate'] != null)
+                          _buildModernDetailRow(
+                            Icons.schedule,
+                            'Transaction Date',
+                            DateFormat('MMM d, yyyy • h:mm a')
+                                .format(payment['transactionDate']),
+                            Color(0xFF673AB7),
+                          ),
+                        _buildModernDetailRow(
+                          Icons.favorite,
+                          'Payment Type',
+                          'Favorite Payment',
+                          Color(0xFFE91E63),
+                        ),
+
+                        SizedBox(height: isTablet ? 24 : 20),
+
+                        // Close Button
+                        Container(
+                          width: double.infinity,
+                          height: isTablet ? 56 : 48,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFFE91E63),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(isTablet ? 16 : 12),
+                              ),
+                            ),
+                            child: Text(
+                              'Close',
+                              style: TextStyle(
+                                fontSize: isTablet ? 18 : 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ),
-              if (isSelecting)
-                Positioned(
-                  right: isTablet ? 10 : 5,
-                  top: 0,
-                  bottom: 0,
-                  child: Checkbox(
-                    activeColor: Colors.red,
-                    value: selectedIndices.contains(index),
-                    onChanged: (value) {
-                      setState(() {
-                        if (value == true) {
-                          selectedIndices.add(index);
-                        } else {
-                          selectedIndices.remove(index);
-                        }
-                      });
-                    },
-                    materialTapTargetSize: isTablet
-                        ? MaterialTapTargetSize.padded
-                        : MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Show favorite payment details
-  void _showFavoritePaymentDetails(Map<String, dynamic> payment) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          backgroundColor: Colors.white,
-          title: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.pink.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.favorite,
-                  color: Colors.pink,
-                  size: 24,
-                ),
-              ),
-              SizedBox(width: 12),
-              Text(
-                'Favorite Payment Details',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailRow('Title', payment['title']),
-              _buildDetailRow(
-                  'Amount', '₱${payment['amount'].toStringAsFixed(2)}'),
-              _buildDetailRow('Payment Date',
-                  DateFormat('MMM d, yyyy • h:mm a').format(payment['date'])),
-              if (payment['transactionDate'] != null)
-                _buildDetailRow(
-                    'Transaction Date',
-                    DateFormat('MMM d, yyyy • h:mm a')
-                        .format(payment['transactionDate'])),
-              _buildDetailRow('Type', 'Favorite Payment'),
-            ],
-          ),
-          actions: [
-            Container(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pink,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'Close',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
+                ],
               ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -1325,37 +1625,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     );
   }
 
-  // Helper method to build detail rows
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-                fontSize: 14,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: Colors.grey[800],
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // REMOVED: Old _buildDetailRow method - replaced with modern _buildModernDetailRow
 
   // Modern detail row with icons and better styling
   Widget _buildModernDetailRow(

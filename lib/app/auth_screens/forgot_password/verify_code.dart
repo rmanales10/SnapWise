@@ -181,19 +181,47 @@ class VerifyCodeState extends State<VerifyCode> {
   }
 
   Future<void> _handleVerifyCode() async {
-    await controller.verifyCode(_pinController.text, widget.email);
-    setState(() {
-      _isSubmitting = false;
-    });
-    if (controller.isVerified.value) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ForgotPasswordScreen(email: widget.email),
+    // Validate code length
+    if (_pinController.text.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter the complete 6-digit code'),
+          backgroundColor: Colors.red,
         ),
       );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
+
+    try {
+      await controller.verifyCode(_pinController.text, widget.email);
+
+      if (controller.isVerified.value) {
+        // Navigate to password reset screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ForgotPasswordScreen(email: widget.email),
+          ),
+        );
+      } else {
+        // Clear the PIN field on failed verification
+        _pinController.clear();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Verification failed. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      _pinController.clear();
+    } finally {
+      setState(() {
+        _isSubmitting = false;
+      });
     }
   }
-
-
 }

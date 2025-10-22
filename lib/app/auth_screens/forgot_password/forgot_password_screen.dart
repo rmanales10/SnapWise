@@ -384,38 +384,60 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _handleResetPassword() async {
+    // Validate password length
+    if (_newPasswordController.text.length < 6) {
+      SnackbarService.showError(
+          title: 'Invalid Password',
+          message: 'Password must be at least 6 characters long');
+      return;
+    }
+
+    // Validate password match
     if (_newPasswordController.text != _confirmPasswordController.text) {
-      SnackbarService.showError(title: 'Error', message: 'Passwords do not match');
+      SnackbarService.showError(
+          title: 'Password Mismatch', message: 'Passwords do not match');
       return;
     }
 
+    // Validate terms acceptance
     if (!_acceptTerms) {
-      SnackbarService.showError(title: 'Error', message: 'You must accept the terms and privacy policy');
+      SnackbarService.showError(
+          title: 'Terms Required',
+          message: 'You must accept the terms and privacy policy');
       return;
     }
 
-    await _forgotController.resetPassword(
-        _newPasswordController.text, widget.email);
     setState(() {
-      _isSubmitting = false;
+      _isSubmitting = true;
     });
-    if (_forgotController.isReset.value) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => LoginPage(),
-        ),
-      );
+
+    try {
+      await _forgotController.resetPassword(
+          _newPasswordController.text, widget.email);
+
+      if (_forgotController.isReset.value) {
+        // Clear form data
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
+        _acceptTerms = false;
+
+        // Navigate to login screen
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LoginPage(),
+          ),
+          (route) => false, // Remove all previous routes
+        );
+      }
+    } catch (e) {
+      SnackbarService.showError(
+          title: 'Reset Failed',
+          message: 'Failed to reset password. Please try again.');
+    } finally {
+      setState(() {
+        _isSubmitting = false;
+      });
     }
-    // _newPasswordController.clear();
-    // _confirmPasswordController.clear();
-    // _acceptTerms = false;
-    // _forgotController.isReset.value = false;
-    // _forgotController.emailController.clear();
-    // _forgotController.userPassword.value = '';
-    // _forgotController.verificationCode.value = '';
-    // _forgotController.isVerified.value = false;
-    // _forgotController.isUserFound.value = false;
-    // _forgotController.errorMessage.value = '';
   }
 }
