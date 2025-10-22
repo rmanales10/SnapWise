@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:snapwise/app/auth_screens/main_screen/main_screen.dart';
 import 'package:snapwise/web/landing_page.dart';
 import 'package:snapwise/app/budget/budget.dart';
 import 'package:snapwise/app/budget/edit_budget.dart';
@@ -88,6 +89,7 @@ class UserScreen extends StatelessWidget {
         );
       },
       routes: {
+        '/main': (context) => MainScreen(),
         '/login': (context) => LoginPage(),
         '/register': (context) => RegisterPage(),
         '/success': (context) => RegistrationSuccessPage(),
@@ -170,13 +172,13 @@ class _SplashScreenState extends State<SplashScreen> {
         );
       } else {
         if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed('/login');
+        Navigator.of(context).pushReplacementNamed('/main');
       }
     } catch (e) {
       // Handle any errors during authentication check
       log('Error during authentication check: $e');
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/login');
+      Navigator.of(context).pushReplacementNamed('/main');
     }
   }
 
