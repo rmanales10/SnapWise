@@ -56,6 +56,7 @@ class _ViewExpenseState extends State<ViewExpense> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
+      resizeToAvoidBottomInset: true,
       body: SizedBox(
         width: double.infinity,
         height: double.infinity,
@@ -82,9 +83,10 @@ class _ViewExpenseState extends State<ViewExpense> {
                         alignment: Alignment.centerLeft,
                         child: GestureDetector(
                           onTap: () => Navigator.pop(context),
-                          child: const Icon(
+                          child: Icon(
                             Icons.arrow_back,
                             color: Colors.white,
+                            size: isTablet ? 28 : 24,
                           ),
                         ),
                       ),
@@ -95,7 +97,7 @@ class _ViewExpenseState extends State<ViewExpense> {
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                            fontSize: isTablet ? 22 : 18,
                           ),
                         ),
                       ),
@@ -110,166 +112,188 @@ class _ViewExpenseState extends State<ViewExpense> {
               top: isTablet ? 280 : 210,
               left: 20,
               right: 20,
+              bottom: 0, // Extend to bottom for scrolling
               child: Container(
-                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(width: 1, color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(30),
                 ),
-                child: Column(
-                  children: [
-                    _buildCategorySelectorWithLabel(),
-                    const SizedBox(height: 20),
-                    _buildAmountInputWithLabel(),
-                    const SizedBox(height: 20),
-                    _buildDateInputWithLabel(),
-                    const SizedBox(height: 20),
-                    _buildReceiptDateInputWithLabel(),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: Colors.grey.shade600,
-                            thickness: 1,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.all(isTablet ? 30 : 20),
+                  child: Column(
+                    children: [
+                      _buildCategorySelectorWithLabel(),
+                      SizedBox(height: isTablet ? 25 : 20),
+                      _buildAmountInputWithLabel(),
+                      SizedBox(height: isTablet ? 25 : 20),
+                      _buildDateInputWithLabel(),
+                      SizedBox(height: isTablet ? 25 : 20),
+                      _buildReceiptDateInputWithLabel(),
+                      SizedBox(height: isTablet ? 25 : 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              color: Colors.grey.shade600,
+                              thickness: 1,
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            "or",
-                            style: TextStyle(color: Colors.grey.shade700),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: Colors.grey.shade600,
-                            thickness: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    GestureDetector(
-                      onTap: () {
-                        if (base64Image != null &&
-                            base64Image != 'No Image' &&
-                            base64Image!.isNotEmpty) {
-                          _showImagePreview(context);
-                        } else {
-                          _showImageSourceBottomSheet(context);
-                        }
-                      },
-                      child: Container(
-                        height: 50,
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            width: 1,
-                            color: Colors.grey.shade300,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (base64Image == null ||
-                                base64Image == 'No Image' ||
-                                base64Image!.isEmpty) ...[
-                              Icon(
-                                Icons.attachment_rounded,
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: isTablet ? 20 : 16),
+                            child: Text(
+                              "or",
+                              style: TextStyle(
                                 color: Colors.grey.shade700,
+                                fontSize: isTablet ? 18 : 16,
                               ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'Add attachment',
-                                style: TextStyle(
-                                  fontSize: 17,
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              color: Colors.grey.shade600,
+                              thickness: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: isTablet ? 25 : 20),
+                      GestureDetector(
+                        onTap: () {
+                          if (base64Image != null &&
+                              base64Image != 'No Image' &&
+                              base64Image!.isNotEmpty) {
+                            _showImagePreview(context);
+                          } else {
+                            _showImageSourceBottomSheet(context);
+                          }
+                        },
+                        child: Container(
+                          height: isTablet ? 60 : 50,
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              width: 1,
+                              color: Colors.grey.shade300,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (base64Image == null ||
+                                  base64Image == 'No Image' ||
+                                  base64Image!.isEmpty) ...[
+                                Icon(
+                                  Icons.attachment_rounded,
                                   color: Colors.grey.shade700,
+                                  size: isTablet ? 24 : 20,
                                 ),
-                              ),
-                            ] else ...[
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Builder(
-                                  builder: (BuildContext context) {
-                                    try {
-                                      return Image.memory(
-                                        base64Decode(base64Image!),
-                                        width: 40,
-                                        height: 40,
-                                        fit: BoxFit.cover,
-                                      );
-                                    } catch (e) {
-                                      // Handle the error (e.g., show a placeholder or error icon)
-                                      return Container(
-                                        width: 40,
-                                        height: 40,
-                                        color: Colors.grey.shade300,
-                                        child: Icon(
-                                          Icons.broken_image,
-                                          color: Colors.grey.shade600,
-                                          size: 20,
-                                        ),
-                                      );
-                                    }
-                                  },
+                                SizedBox(width: isTablet ? 15 : 10),
+                                Text(
+                                  'Add attachment',
+                                  style: TextStyle(
+                                    fontSize: isTablet ? 20 : 17,
+                                    color: Colors.grey.shade700,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'View Image',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  color: Colors.grey.shade700,
+                              ] else ...[
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Builder(
+                                    builder: (BuildContext context) {
+                                      try {
+                                        return Image.memory(
+                                          base64Decode(base64Image!),
+                                          width: isTablet ? 50 : 40,
+                                          height: isTablet ? 50 : 40,
+                                          fit: BoxFit.cover,
+                                        );
+                                      } catch (e) {
+                                        // Handle the error (e.g., show a placeholder or error icon)
+                                        return Container(
+                                          width: isTablet ? 50 : 40,
+                                          height: isTablet ? 50 : 40,
+                                          color: Colors.grey.shade300,
+                                          child: Icon(
+                                            Icons.broken_image,
+                                            color: Colors.grey.shade600,
+                                            size: isTablet ? 24 : 20,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  ),
                                 ),
-                              ),
+                                SizedBox(width: isTablet ? 15 : 10),
+                                Text(
+                                  'View Image',
+                                  style: TextStyle(
+                                    fontSize: isTablet ? 20 : 17,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _showConfirmation(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: Text(
-                          "Save",
-                          style: TextStyle(fontSize: 16, color: Colors.white),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _showConfirmationDelete(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade400,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
+                      SizedBox(height: isTablet ? 30 : 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _showConfirmation(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                const Color.fromARGB(255, 3, 30, 53),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              vertical: isTablet ? 18 : 14,
+                            ),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: Text(
-                          "Delete",
-                          style: TextStyle(fontSize: 16, color: Colors.white),
+                          child: Text(
+                            "Save",
+                            style: TextStyle(
+                              fontSize: isTablet ? 20 : 16,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      SizedBox(height: isTablet ? 20 : 15),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _showConfirmationDelete(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade400,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              vertical: isTablet ? 18 : 14,
+                            ),
+                          ),
+                          child: Text(
+                            "Delete",
+                            style: TextStyle(
+                              fontSize: isTablet ? 20 : 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Add extra padding at bottom for better scrolling experience
+                      SizedBox(height: isTablet ? 40 : 30),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -683,26 +707,31 @@ class _ViewExpenseState extends State<ViewExpense> {
     'Entertainment',
   ];
   Widget _buildCategorySelectorWithLabel() {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Category',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: isTablet ? 20 : 16,
             fontWeight: FontWeight.w600,
             color: Colors.grey[700],
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: isTablet ? 12 : 8),
         _buildCategorySelector(),
       ],
     );
   }
 
   Widget _buildCategorySelector() {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: isTablet ? 16 : 12,
+        vertical: isTablet ? 8 : 4,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(12),
@@ -731,7 +760,10 @@ class _ViewExpenseState extends State<ViewExpense> {
             dropdownColor: Colors.white,
             borderRadius: BorderRadius.circular(20),
             value: selectedValue,
-            icon: const Icon(Icons.keyboard_arrow_down),
+            icon: Icon(
+              Icons.keyboard_arrow_down,
+              size: isTablet ? 28 : 24,
+            ),
             decoration: const InputDecoration(border: InputBorder.none),
             items: [
               ...controller.categories.map(
@@ -742,13 +774,17 @@ class _ViewExpenseState extends State<ViewExpense> {
                     style: TextStyle(
                       fontWeight: FontWeight.normal,
                       color: Colors.grey.shade700,
+                      fontSize: isTablet ? 18 : 16,
                     ),
                   ),
                 ),
               ),
-              const DropdownMenuItem(
+              DropdownMenuItem(
                 value: '__add_new__',
-                child: Text("Add New"),
+                child: Text(
+                  "Add New",
+                  style: TextStyle(fontSize: isTablet ? 18 : 16),
+                ),
               ),
             ],
             onChanged: (value) async {
@@ -1151,24 +1187,26 @@ class _ViewExpenseState extends State<ViewExpense> {
   }
 
   Widget _buildAmountInputWithLabel() {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Amount',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: isTablet ? 20 : 16,
             fontWeight: FontWeight.w600,
             color: Colors.grey[700],
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: isTablet ? 12 : 8),
         _buildAmountInput(),
       ],
     );
   }
 
   Widget _buildAmountInput() {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
     return TextField(
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
       controller: amountController,
@@ -1176,11 +1214,13 @@ class _ViewExpenseState extends State<ViewExpense> {
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
       ],
+      style: TextStyle(fontSize: isTablet ? 18 : 16),
       decoration: InputDecoration(
         hintText: "Amount",
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+        hintStyle: TextStyle(fontSize: isTablet ? 18 : 16),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 20 : 16,
+          vertical: isTablet ? 18 : 14,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -1199,28 +1239,31 @@ class _ViewExpenseState extends State<ViewExpense> {
   }
 
   Widget _buildDateInputWithLabel() {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Transaction Date (When Entered)',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: isTablet ? 20 : 16,
             fontWeight: FontWeight.w600,
             color: Colors.grey[700],
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: isTablet ? 12 : 8),
         _buildDateInput(),
       ],
     );
   }
 
   Widget _buildDateInput() {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
     return TextField(
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
       controller: dateController,
       readOnly: true,
+      style: TextStyle(fontSize: isTablet ? 18 : 16),
       onTap: () async {
         final DateTime? picked = await showDatePicker(
           context: context,
@@ -1236,10 +1279,15 @@ class _ViewExpenseState extends State<ViewExpense> {
       },
       decoration: InputDecoration(
         hintText: "Select transaction date",
-        suffixIcon: Icon(Icons.calendar_today, color: Colors.grey.shade600),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+        hintStyle: TextStyle(fontSize: isTablet ? 18 : 16),
+        suffixIcon: Icon(
+          Icons.calendar_today,
+          color: Colors.grey.shade600,
+          size: isTablet ? 24 : 20,
+        ),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 20 : 16,
+          vertical: isTablet ? 18 : 14,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -1258,28 +1306,31 @@ class _ViewExpenseState extends State<ViewExpense> {
   }
 
   Widget _buildReceiptDateInputWithLabel() {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Receipt Date (Purchase Date)',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: isTablet ? 20 : 16,
             fontWeight: FontWeight.w600,
             color: Colors.grey[700],
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: isTablet ? 12 : 8),
         _buildReceiptDateInput(),
       ],
     );
   }
 
   Widget _buildReceiptDateInput() {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
     return TextField(
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
       controller: receiptDateController,
       readOnly: true,
+      style: TextStyle(fontSize: isTablet ? 18 : 16),
       onTap: () async {
         final DateTime? picked = await showDatePicker(
           context: context,
@@ -1296,10 +1347,15 @@ class _ViewExpenseState extends State<ViewExpense> {
       },
       decoration: InputDecoration(
         hintText: "Select receipt date",
-        suffixIcon: Icon(Icons.receipt_long, color: Colors.grey.shade600),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+        hintStyle: TextStyle(fontSize: isTablet ? 18 : 16),
+        suffixIcon: Icon(
+          Icons.receipt_long,
+          color: Colors.grey.shade600,
+          size: isTablet ? 24 : 20,
+        ),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 20 : 16,
+          vertical: isTablet ? 18 : 14,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
