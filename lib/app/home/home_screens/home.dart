@@ -38,10 +38,11 @@ class _HomePageState extends State<HomePage> {
   Future<void> _fetchPhotoUrl() async {
     photoUrl.value = _storage.read('photoUrl') ?? '';
 
-    // Call these methods asynchronously to avoid build conflicts
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await controller.refreshAllData();
-    });
+    // Removed automatic data refresh to prevent infinite fetching
+    // Data will be loaded by HomeController.onInit() instead
+    // WidgetsBinding.instance.addPostFrameCallback((_) async {
+    //   await controller.refreshAllData();
+    // });
   }
 
   Future<void> sendBudgetExceededNotification({
@@ -75,7 +76,7 @@ class _HomePageState extends State<HomePage> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-            await controller.refreshAllData();
+            await controller.manualRefresh();
           },
           child: SingleChildScrollView(
             child: Column(

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/expense/view_expense.dart';
@@ -32,10 +33,27 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
   final RxBool isLoadingAllRecords = false.obs;
   bool showAllRecords = false;
 
+  // Cache for favorites to avoid reactive dependency
+  List<Map<String, dynamic>> _cachedFavorites = [];
+
   @override
   void initState() {
     super.initState();
-    // Load all records when the page initializes
+    // Cache favorites data first, then load all records
+    _cacheFavorites();
+
+    // Listen to favorites changes to update cache
+    ever(favoriteController.favorites, (List<Map<String, dynamic>> favorites) {
+      _cachedFavorites = List.from(favorites);
+      if (showAllRecords) {
+        fetchAllRecords();
+      }
+    });
+  }
+
+  // Cache favorites data to avoid reactive dependency
+  void _cacheFavorites() {
+    _cachedFavorites = List.from(favoriteController.favorites);
     fetchAllRecords();
   }
 
@@ -96,11 +114,12 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
           'receiptDate': receiptDate,
           'transactionDate': transactionDate ??
               date, // Use transaction date if available, otherwise timestamp
+          'base64Image': data['base64Image'], // Add base64Image field
         });
       }
 
-      // Fetch all favorites payments
-      for (var favorite in favoriteController.favorites) {
+      // Fetch all favorites payments from cached data
+      for (var favorite in _cachedFavorites) {
         final title = favorite['title'] ?? '';
         final history = favorite['paymentHistory'] as List? ?? [];
 
@@ -270,7 +289,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
               if (showAllRecords)
                 IconButton(
                   onPressed: () {
-                    fetchAllRecords();
+                    _cacheFavorites(); // Refresh favorites cache and fetch records
                   },
                   icon: Icon(
                     Icons.refresh_rounded,
@@ -315,6 +334,10 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                     setState(() {
                       showAllRecords = value;
                     });
+                    // Refresh cache when switching to All Records
+                    if (value) {
+                      _cacheFavorites();
+                    }
                   },
                   activeColor: Colors.blue,
                   activeTrackColor: Colors.blue.shade200,
@@ -794,80 +817,509 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
 
   // Show expense details
   void _showExpenseDetails(Map<String, dynamic> expense) {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          backgroundColor: Colors.white,
-          title: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  expense['icon'],
-                  color: Colors.blue,
-                  size: 24,
-                ),
-              ),
-              SizedBox(width: 12),
-              Text(
-                'Expense Details',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailRow('Category', expense['title']),
-              _buildDetailRow(
-                  'Amount', '₱${expense['amount'].toStringAsFixed(2)}'),
-              _buildDetailRow('Receipt Date',
-                  DateFormat('MMM d, yyyy • h:mm a').format(expense['date'])),
-              if (expense['transactionDate'] != null)
-                _buildDetailRow(
-                    'Transaction Date',
-                    DateFormat('MMM d, yyyy • h:mm a')
-                        .format(expense['transactionDate'])),
-              _buildDetailRow('Type', 'Expense'),
-            ],
-          ),
-          actions: [
-            Container(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'Close',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: screenHeight * 0.85,
+              maxWidth: isTablet ? screenWidth * 0.6 : screenWidth * 0.9,
             ),
-          ],
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  spreadRadius: 0,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with gradient background
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF667eea),
+                        Color(0xFF764ba2),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(isTablet ? 24 : 20),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(isTablet ? 12 : 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            expense['icon'],
+                            color: Colors.white,
+                            size: isTablet ? 32 : 28,
+                          ),
+                        ),
+                        SizedBox(width: isTablet ? 16 : 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Expense Details',
+                                style: TextStyle(
+                                  fontSize: isTablet ? 26 : 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Transaction Information',
+                                style: TextStyle(
+                                  fontSize: isTablet ? 16 : 14,
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: isTablet ? 24 : 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Content area
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(isTablet ? 24 : 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Amount card
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(isTablet ? 20 : 16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFFff6b6b),
+                                Color(0xFFee5a24),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0xFFff6b6b).withOpacity(0.3),
+                                blurRadius: 8,
+                                spreadRadius: 0,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Amount Spent',
+                                style: TextStyle(
+                                  fontSize: isTablet ? 18 : 16,
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                '₱${expense['amount'].toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontSize: isTablet ? 32 : 28,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        SizedBox(height: isTablet ? 24 : 20),
+
+                        // Details section
+                        Text(
+                          'Transaction Details',
+                          style: TextStyle(
+                            fontSize: isTablet ? 20 : 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2c3e50),
+                          ),
+                        ),
+                        SizedBox(height: isTablet ? 16 : 12),
+
+                        _buildModernDetailRow(
+                          Icons.category,
+                          'Category',
+                          expense['title'],
+                          Color(0xFF3498db),
+                        ),
+                        _buildModernDetailRow(
+                          Icons.calendar_today,
+                          'Receipt Date',
+                          DateFormat('MMM d, yyyy • h:mm a')
+                              .format(expense['date']),
+                          Color(0xFF9b59b6),
+                        ),
+                        if (expense['transactionDate'] != null)
+                          _buildModernDetailRow(
+                            Icons.access_time,
+                            'Transaction Date',
+                            DateFormat('MMM d, yyyy • h:mm a')
+                                .format(expense['transactionDate']),
+                            Color(0xFFe67e22),
+                          ),
+                        _buildModernDetailRow(
+                          Icons.receipt,
+                          'Type',
+                          'Expense',
+                          Color(0xFF27ae60),
+                        ),
+
+                        // Add image section if image is available
+                        if (expense['base64Image'] != null &&
+                            expense['base64Image'].toString().isNotEmpty &&
+                            expense['base64Image'] != 'No Image')
+                          Column(
+                            children: [
+                              SizedBox(height: isTablet ? 24 : 20),
+                              Text(
+                                'Receipt Image',
+                                style: TextStyle(
+                                  fontSize: isTablet ? 20 : 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2c3e50),
+                                ),
+                              ),
+                              SizedBox(height: isTablet ? 16 : 12),
+                              GestureDetector(
+                                onTap: () =>
+                                    _showImagePopup(expense['base64Image']),
+                                child: Container(
+                                  constraints: BoxConstraints(
+                                    maxHeight: screenHeight * 0.25,
+                                    maxWidth: double.infinity,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 8,
+                                        spreadRadius: 0,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Stack(
+                                      children: [
+                                        Builder(
+                                          builder: (context) {
+                                            try {
+                                              return Image.memory(
+                                                base64Decode(
+                                                    expense['base64Image']),
+                                                fit: BoxFit.cover,
+                                                width: double.infinity,
+                                              );
+                                            } catch (e) {
+                                              return Container(
+                                                height: 120,
+                                                color: Colors.grey.shade100,
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.broken_image,
+                                                      color:
+                                                          Colors.grey.shade400,
+                                                      size: isTablet ? 40 : 30,
+                                                    ),
+                                                    SizedBox(height: 8),
+                                                    Text(
+                                                      'Unable to display image',
+                                                      style: TextStyle(
+                                                        color: Colors
+                                                            .grey.shade500,
+                                                        fontSize:
+                                                            isTablet ? 16 : 14,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                        // Add overlay to indicate image is clickable
+                                        Positioned.fill(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  Colors.transparent,
+                                                  Colors.black.withOpacity(0.3),
+                                                ],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            child: Center(
+                                              child: Container(
+                                                padding: EdgeInsets.all(
+                                                    isTablet ? 12 : 8),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white
+                                                      .withOpacity(0.9),
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.zoom_in,
+                                                      color: Color(0xFF667eea),
+                                                      size: isTablet ? 20 : 16,
+                                                    ),
+                                                    SizedBox(width: 6),
+                                                    Text(
+                                                      'Tap to view',
+                                                      style: TextStyle(
+                                                        color:
+                                                            Color(0xFF667eea),
+                                                        fontSize:
+                                                            isTablet ? 14 : 12,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Footer with close button
+                Container(
+                  padding: EdgeInsets.fromLTRB(
+                    isTablet ? 24 : 20,
+                    isTablet ? 16 : 12,
+                    isTablet ? 24 : 20,
+                    isTablet ? 24 : 20,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF667eea),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          vertical: isTablet ? 18 : 16,
+                        ),
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                      ),
+                      child: Text(
+                        'Close',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: isTablet ? 18 : 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Show image popup dialog
+  void _showImagePopup(String base64Image) {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: screenHeight * 0.9,
+              maxWidth: isTablet ? screenWidth * 0.8 : screenWidth * 0.95,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with close button
+                Container(
+                  padding: EdgeInsets.all(isTablet ? 20 : 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Receipt Image',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isTablet ? 22 : 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: isTablet ? 24 : 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Image content
+                Expanded(
+                  child: Container(
+                    margin: EdgeInsets.symmetric(
+                      horizontal: isTablet ? 20 : 16,
+                      vertical: isTablet ? 10 : 8,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Builder(
+                        builder: (context) {
+                          try {
+                            return InteractiveViewer(
+                              panEnabled: true,
+                              boundaryMargin: EdgeInsets.all(20),
+                              minScale: 0.5,
+                              maxScale: 4.0,
+                              child: Image.memory(
+                                base64Decode(base64Image),
+                                fit: BoxFit.contain,
+                              ),
+                            );
+                          } catch (e) {
+                            return Container(
+                              height: 200,
+                              color: Colors.grey.shade300,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.broken_image,
+                                    color: Colors.grey.shade600,
+                                    size: isTablet ? 60 : 40,
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Unable to display image',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: isTablet ? 18 : 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Bottom padding
+                SizedBox(height: isTablet ? 20 : 16),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -898,6 +1350,66 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                 color: Colors.grey[800],
                 fontSize: 14,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Modern detail row with icons and better styling
+  Widget _buildModernDetailRow(
+      IconData icon, String label, String value, Color iconColor) {
+    final isTablet = MediaQuery.of(context).size.width >= 600;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: isTablet ? 16 : 12),
+      padding: EdgeInsets.all(isTablet ? 16 : 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(isTablet ? 10 : 8),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: isTablet ? 20 : 18,
+            ),
+          ),
+          SizedBox(width: isTablet ? 16 : 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: isTablet ? 14 : 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: isTablet ? 16 : 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2c3e50),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

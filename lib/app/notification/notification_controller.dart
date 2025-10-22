@@ -58,6 +58,12 @@ class NotificationController extends GetxController {
           'isRead': data['isRead'] ?? false,
         };
       }).toList();
+
+      // Remove duplicate notifications after fetching
+      removeDuplicateNotifications();
+
+      // Clear old notifications (runs in background)
+      clearOldNotifications();
     } catch (e) {
       SnackbarService.showError(
           title: 'Notification Error',
@@ -80,6 +86,84 @@ class NotificationController extends GetxController {
       _firestore.collection('notifications').doc(notification['id']).delete();
     }
     notifications.clear();
+  }
+
+  // Clear old notifications (older than 30 days)
+  Future<void> clearOldNotifications() async {
+    try {
+      final thirtyDaysAgo = DateTime.now().subtract(Duration(days: 30));
+      final oldTimestamp = Timestamp.fromDate(thirtyDaysAgo);
+
+      final QuerySnapshot oldNotifications = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: _auth.currentUser?.uid)
+          .where('timestamp', isLessThan: oldTimestamp)
+          .get();
+
+      // Delete old notifications
+      for (var doc in oldNotifications.docs) {
+        await _firestore.collection('notifications').doc(doc.id).delete();
+      }
+
+      print('Cleared ${oldNotifications.docs.length} old notifications');
+    } catch (e) {
+      print('Error clearing old notifications: $e');
+    }
+  }
+
+  // Remove duplicate notifications (keep only the most recent of each type)
+  void removeDuplicateNotifications() {
+    try {
+      // Group notifications by type and title
+      Map<String, List<Map<String, dynamic>>> groupedNotifications = {};
+
+      for (var notification in notifications) {
+        String key = '${notification['type']}_${notification['title']}';
+        if (!groupedNotifications.containsKey(key)) {
+          groupedNotifications[key] = [];
+        }
+        groupedNotifications[key]!.add(notification);
+      }
+
+      // Keep only the most recent notification of each type
+      List<Map<String, dynamic>> notificationsToKeep = [];
+      List<String> notificationsToDelete = [];
+
+      for (var group in groupedNotifications.values) {
+        if (group.length > 1) {
+          // Sort by timestamp (most recent first)
+          group.sort((a, b) {
+            Timestamp timestampA = a['timestamp'] as Timestamp;
+            Timestamp timestampB = b['timestamp'] as Timestamp;
+            return timestampB.compareTo(timestampA);
+          });
+
+          // Keep the most recent one
+          notificationsToKeep.add(group.first);
+
+          // Mark others for deletion
+          for (int i = 1; i < group.length; i++) {
+            notificationsToDelete.add(group[i]['id']);
+          }
+        } else {
+          // Only one notification of this type, keep it
+          notificationsToKeep.add(group.first);
+        }
+      }
+
+      // Delete duplicate notifications from Firestore
+      for (String notificationId in notificationsToDelete) {
+        _firestore.collection('notifications').doc(notificationId).delete();
+      }
+
+      // Update the local list
+      notifications.value = notificationsToKeep;
+      notifications.refresh();
+
+      print('Removed ${notificationsToDelete.length} duplicate notifications');
+    } catch (e) {
+      print('Error removing duplicate notifications: $e');
+    }
   }
 
   IconData _getNotificationIcon(String type) {

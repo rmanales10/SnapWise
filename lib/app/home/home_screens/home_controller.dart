@@ -31,7 +31,8 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
     refreshAllData();
-    _startPeriodicRefresh();
+    // Removed periodic refresh to prevent infinite fetching
+    // _startPeriodicRefresh();
   }
 
   @override
@@ -40,15 +41,24 @@ class HomeController extends GetxController {
     super.onClose();
   }
 
-  // Start periodic refresh every 30 seconds to ensure data consistency
-  void _startPeriodicRefresh() {
-    _refreshTimer = Timer.periodic(Duration(seconds: 30), (timer) {
-      if (!_isRefreshingData) {
-        log('Periodic refresh triggered');
-        refreshAllData();
-      }
-    });
+  // Manual refresh method for when user explicitly wants to refresh data
+  Future<void> manualRefresh() async {
+    if (!_isRefreshingData) {
+      log('Manual refresh triggered');
+      await refreshAllData();
+    }
   }
+
+  // Start periodic refresh every 30 seconds to ensure data consistency
+  // DISABLED to prevent infinite fetching - use manualRefresh() instead
+  // void _startPeriodicRefresh() {
+  //   _refreshTimer = Timer.periodic(Duration(seconds: 30), (timer) {
+  //     if (!_isRefreshingData) {
+  //       log('Periodic refresh triggered');
+  //       refreshAllData();
+  //     }
+  //   });
+  // }
 
   Future<void> refreshAllData() async {
     // Prevent multiple simultaneous refreshes
@@ -67,8 +77,8 @@ class HomeController extends GetxController {
         getTotalBudget(),
       ]);
 
-      // Verify the calculation with direct Firestore query
-      await _verifyMonthlyCalculation();
+      // REMOVED: Monthly calculation verification to prevent infinite loops
+      // await _verifyMonthlyCalculation();
 
       // Log the final cached values to ensure consistency
       log('=== FINAL CACHED VALUES ===');
@@ -81,98 +91,8 @@ class HomeController extends GetxController {
     }
   }
 
-  // Method to verify monthly calculation by directly querying Firestore
-  Future<void> _verifyMonthlyCalculation() async {
-    try {
-      final user = _auth.currentUser;
-      if (user == null) return;
-
-      DateTime now = DateTime.now();
-      DateTime startOfMonth = DateTime(now.year, now.month, 1);
-      DateTime endOfMonth = DateTime(now.year, now.month + 1, 1);
-
-      // Get all expenses for the user
-      final querySnapshot = await _firestore
-          .collection('expenses')
-          .where('userId', isEqualTo: user.uid)
-          .get();
-
-      double directTotal = 0.0;
-      int currentMonthExpenses = 0;
-
-      // Filter by receipt date for current month
-      for (var doc in querySnapshot.docs) {
-        final data = doc.data();
-        final receiptDateStr = data['receiptDate'] as String?;
-
-        if (receiptDateStr != null && receiptDateStr.isNotEmpty) {
-          try {
-            final receiptDate = DateTime.parse(receiptDateStr);
-            if (receiptDate
-                    .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
-                receiptDate.isBefore(endOfMonth)) {
-              final amount = (data['amount'] as num).toDouble();
-              directTotal += amount;
-              currentMonthExpenses++;
-            }
-          } catch (e) {
-            // If receipt date parsing fails, check timestamp as fallback
-            final timestamp = (data['timestamp'] as Timestamp).toDate();
-            if (timestamp
-                    .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
-                timestamp.isBefore(endOfMonth)) {
-              final amount = (data['amount'] as num).toDouble();
-              directTotal += amount;
-              currentMonthExpenses++;
-            }
-          }
-        } else {
-          // If no receipt date, use timestamp
-          final timestamp = (data['timestamp'] as Timestamp).toDate();
-          if (timestamp
-                  .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
-              timestamp.isBefore(endOfMonth)) {
-            final amount = (data['amount'] as num).toDouble();
-            directTotal += amount;
-            currentMonthExpenses++;
-          }
-        }
-      }
-
-      // Add favorites payments
-      directTotal += totalPaymentHistory.value;
-
-      log('=== MONTHLY CALCULATION VERIFICATION ===');
-      log('Current month: ${now.year}-${now.month.toString().padLeft(2, '0')}');
-      log('Date range: ${startOfMonth.toString()} to ${endOfMonth.toString()}');
-      log('Direct calculation: $directTotal (${currentMonthExpenses} expenses + favorites)');
-      log('Method calculation: ${getTotalSpent()}');
-
-      // Check for significant inconsistency (more than 10% difference)
-      double methodTotal = getRawTotalSpent();
-      double difference = (directTotal - methodTotal).abs();
-      double percentageDifference = (difference / directTotal) * 100;
-
-      if (percentageDifference > 10) {
-        log('⚠️ INCONSISTENCY DETECTED: ${percentageDifference.toStringAsFixed(1)}% difference');
-        log('Direct: $directTotal, Method: $methodTotal');
-        log('Triggering automatic refresh...');
-
-        // Trigger a refresh after a short delay to avoid recursion
-        Future.delayed(Duration(milliseconds: 500), () {
-          if (!_isRefreshingData) {
-            forceRefreshData();
-          }
-        });
-      } else {
-        log('✅ Data consistency verified');
-      }
-
-      log('========================================');
-    } catch (e) {
-      log('Error verifying monthly calculation: $e');
-    }
-  }
+  // REMOVED: _verifyMonthlyCalculation method to prevent infinite refresh loops
+  // The method was causing infinite loops due to data inconsistency detection
 
   // Helper function to get start and end of current month
   Map<String, Timestamp> _getCurrentMonthRange() {
@@ -461,7 +381,7 @@ class HomeController extends GetxController {
   // Force refresh data when inconsistencies are detected
   Future<void> forceRefreshData() async {
     log('Force refreshing data due to inconsistency...');
-    await refreshAllData();
+    await manualRefresh();
   }
 
   // Get raw total spent value without formatting

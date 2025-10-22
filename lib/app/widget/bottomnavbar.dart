@@ -110,10 +110,11 @@ class _BottomNavBarState extends State<BottomNavBar> {
       onTap: () {
         setState(() => _currentIndex = index);
 
-        // Force refresh data when navigating to home screen to ensure consistency
-        if (index == 0) {
-          controller.forceRefreshData();
-        }
+        // Only refresh data if it's been a while since last refresh
+        // Removed automatic refresh to prevent infinite fetching
+        // if (index == 0) {
+        //   controller.forceRefreshData();
+        // }
       },
       child: Container(
         padding: EdgeInsets.all(10),

@@ -11,6 +11,11 @@ class NotificationService extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // Cooldown mechanism to prevent duplicate notifications
+  final Map<String, DateTime> _lastNotificationTimes = {};
+  static const Duration _cooldownPeriod =
+      Duration(minutes: 5); // 5-minute cooldown
+
   // Notification IDs for different types
   static const int OVERALL_BUDGET_ID = 1;
   static const int CATEGORY_BUDGET_ID = 2;
@@ -35,6 +40,24 @@ class NotificationService extends GetxController {
   void onInit() {
     super.onInit();
     _initializeNotifications();
+  }
+
+  // Check if notification should be sent (cooldown mechanism)
+  bool _shouldSendNotification(String notificationKey) {
+    final now = DateTime.now();
+    final lastSent = _lastNotificationTimes[notificationKey];
+
+    if (lastSent == null) {
+      return true; // First time sending this notification
+    }
+
+    final timeSinceLastSent = now.difference(lastSent);
+    return timeSinceLastSent >= _cooldownPeriod;
+  }
+
+  // Update last notification time
+  void _updateLastNotificationTime(String notificationKey) {
+    _lastNotificationTimes[notificationKey] = DateTime.now();
   }
 
   // Save notification to Firestore for history
@@ -297,6 +320,17 @@ class NotificationService extends GetxController {
     required double exceededAmount,
   }) async {
     try {
+      // Create unique notification key for overall budget
+      final notificationKey =
+          'overall_budget_${budgetLimit.toStringAsFixed(0)}';
+
+      // Check cooldown to prevent duplicate notifications
+      if (!_shouldSendNotification(notificationKey)) {
+        if (kDebugMode) {
+          print('Skipping overall budget notification - cooldown active');
+        }
+        return;
+      }
       AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         OVERALL_BUDGET_CHANNEL,
         'Overall Budget Alerts',
@@ -341,6 +375,9 @@ class NotificationService extends GetxController {
           'budgetLimit': budgetLimit,
         },
       );
+
+      // Update cooldown timestamp
+      _updateLastNotificationTime(notificationKey);
     } catch (e) {
       if (kDebugMode) {
         print('Error showing overall budget notification: $e');
@@ -356,6 +393,19 @@ class NotificationService extends GetxController {
     required double exceededAmount,
   }) async {
     try {
+      // Create unique notification key for category budget
+      final notificationKey =
+          'category_budget_${category}_${categoryLimit.toStringAsFixed(0)}';
+
+      // Check cooldown to prevent duplicate notifications
+      if (!_shouldSendNotification(notificationKey)) {
+        if (kDebugMode) {
+          print(
+              'Skipping category budget notification for $category - cooldown active');
+        }
+        return;
+      }
+
       // Debug logging
       if (kDebugMode) {
         print('=== NOTIFICATION SERVICE DEBUG ===');
@@ -412,6 +462,9 @@ class NotificationService extends GetxController {
           'categoryLimit': categoryLimit,
         },
       );
+
+      // Update cooldown timestamp
+      _updateLastNotificationTime(notificationKey);
     } catch (e) {
       if (kDebugMode) {
         print('Error showing category budget notification: $e');
