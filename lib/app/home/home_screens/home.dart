@@ -235,13 +235,11 @@ class _HomePageState extends State<HomePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      Obx(
-                        () => _buildBalanceCard(
-                          'assets/sales 1.png',
-                          'Total Spent',
-                          'PHP ${controller.getTotalSpent()}',
-                        ),
-                      ),
+                      Obx(() => _buildBalanceCard(
+                            'assets/sales 1.png',
+                            'Total Spent',
+                            'PHP ${controller.getTotalSpent()}',
+                          )),
                       SizedBox(width: isTablet ? 30 : 10),
                       GestureDetector(
                         onTap: () {

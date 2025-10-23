@@ -192,7 +192,7 @@ class GraphController extends GetxController {
     return currentMonthTotal.value;
   }
 
-  // Get current month total using the same method as home controller
+  // Get current month total using the same method as home controller (based on receiptDate)
   Future<double> _getCurrentMonthTotalFromFirestore() async {
     try {
       final User? user = _auth.currentUser;
@@ -200,36 +200,68 @@ class GraphController extends GetxController {
         return 0.0;
       }
 
-      // Get regular expenses for current month (same as home controller)
-      final monthRange = _getCurrentMonthRange();
+      DateTime now = DateTime.now();
+      DateTime startOfMonth = DateTime(now.year, now.month, 1);
+      DateTime startOfNextMonth = (now.month < 12)
+          ? DateTime(now.year, now.month + 1, 1)
+          : DateTime(now.year + 1, 1, 1);
+
+      // Get ALL expenses for the user (we'll filter by receiptDate in code)
       final querySnapshot = await _firestore
           .collection('expenses')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
+          .orderBy('timestamp', descending: true)
           .get();
 
       double regularExpensesTotal = 0.0;
       for (var doc in querySnapshot.docs) {
         final data = doc.data();
-        double amountValue;
-        if (data['amount'] is num) {
-          amountValue = data['amount'].toDouble();
-        } else if (data['amount'] is String) {
-          // Remove any minus sign and parse as double
-          String cleanAmount = data['amount'].replaceAll('-', '');
-          amountValue = double.tryParse(cleanAmount) ?? 0.0;
+
+        // Check if this expense is from current month based on receiptDate
+        DateTime expenseDate;
+        bool isCurrentMonth = false;
+
+        if (data['receiptDate'] != null &&
+            data['receiptDate'].toString().isNotEmpty) {
+          try {
+            // Parse receipt date (format: YYYY-MM-DD)
+            expenseDate = DateTime.parse(data['receiptDate']);
+            isCurrentMonth = expenseDate
+                    .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                expenseDate.isBefore(startOfNextMonth);
+            log('Graph Controller - Expense ${data['category']} - ReceiptDate: ${data['receiptDate']} - Parsed: $expenseDate - IsCurrentMonth: $isCurrentMonth');
+          } catch (e) {
+            // If receipt date parsing fails, skip this expense
+            log('Graph Controller - Error parsing receipt date for expense ${data['category']}: $e');
+            continue;
+          }
         } else {
-          amountValue = 0.0;
+          // If no receipt date, skip this expense
+          log('Graph Controller - No receipt date for expense ${data['category']}, skipping');
+          continue;
         }
-        regularExpensesTotal += amountValue;
+
+        if (isCurrentMonth) {
+          double amountValue;
+          if (data['amount'] is num) {
+            amountValue = data['amount'].toDouble();
+          } else if (data['amount'] is String) {
+            // Remove any minus sign and parse as double
+            String cleanAmount = data['amount'].replaceAll('-', '');
+            amountValue = double.tryParse(cleanAmount) ?? 0.0;
+          } else {
+            amountValue = 0.0;
+          }
+          regularExpensesTotal += amountValue;
+          log('Graph Controller - Added expense ${data['category']} - Amount: $amountValue - ReceiptDate: ${data['receiptDate']}');
+        }
       }
 
       // Get favorites payments for current month (same as home controller)
       double favoritesTotal =
           await _getFavoritesPaymentsForCurrentMonthFromFirestore();
 
-      log('Graph Controller - Regular expenses: $regularExpensesTotal, Favorites: $favoritesTotal, Total: ${regularExpensesTotal + favoritesTotal}');
+      log('Graph Controller - Regular expenses (receiptDate): $regularExpensesTotal, Favorites: $favoritesTotal, Total: ${regularExpensesTotal + favoritesTotal}');
 
       return regularExpensesTotal + favoritesTotal;
     } catch (e) {

@@ -43,7 +43,7 @@ class HomeController extends GetxController {
 
   // Manual refresh method for when user explicitly wants to refresh data
   Future<void> manualRefresh() async {
-    if (!_isRefreshingData) {
+      if (!_isRefreshingData) {
       log('Manual refresh triggered');
       await refreshAllData();
     }
@@ -75,6 +75,7 @@ class HomeController extends GetxController {
         getTotalPaymentHistory(),
         getTotalIncome(),
         getTotalBudget(),
+        _fetchCurrentMonthTotalForDisplay(),
       ]);
 
       // REMOVED: Monthly calculation verification to prevent infinite loops
@@ -84,10 +85,23 @@ class HomeController extends GetxController {
       log('=== FINAL CACHED VALUES ===');
       log('transactionsHistory.length: ${transactionsHistory.length}');
       log('totalPaymentHistory.value: ${totalPaymentHistory.value}');
+      log('Current month total: ${_currentMonthTotal.value}');
       log('Current getTotalSpent(): ${getTotalSpent()}');
       log('==========================');
     } finally {
       _isRefreshingData = false;
+    }
+  }
+
+  // Fetch current month total for display
+  Future<void> _fetchCurrentMonthTotalForDisplay() async {
+    try {
+      double total = await _fetchCurrentMonthTotal();
+      _currentMonthTotal.value = total;
+      log('Updated current month total for display: $total');
+    } catch (e) {
+      log('Error fetching current month total for display: $e');
+      _currentMonthTotal.value = 0.0;
     }
   }
 
@@ -137,7 +151,7 @@ class HomeController extends GetxController {
 
               // Check if expense is from today based on transaction date (timestamp)
               bool isToday = false;
-              DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+                DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
               isToday = timestamp.isAfter(
                       startOfToday.subtract(const Duration(seconds: 1))) &&
                   timestamp
@@ -348,33 +362,166 @@ class HomeController extends GetxController {
   }
 
   String getTotalSpent() {
-    // Use cached values for immediate display, but log the calculation
-    double regularExpenses =
-        transactionsHistory.fold(0.0, (double sum, transaction) {
-      String amountStr = transaction['amount'].replaceAll('-', '');
-      double amount = double.parse(amountStr);
-      return sum + amount;
-    });
-
-    double favoritesPayments = totalPaymentHistory.value;
-    double total = regularExpenses + favoritesPayments;
+    // Use the same monthly calculation as GraphController for consistency
+    double currentMonthTotal = _getCurrentMonthTotalFromCache();
 
     // Debug logging
-    log('=== HOME SCREEN TOTAL SPENT (CACHED VALUES) ===');
-    log('Regular expenses (${transactionsHistory.length} transactions): $regularExpenses');
-    log('Favorites payments: $favoritesPayments');
-    log('Total: $total');
-    log('Note: Using cached values - may not match BudgetController exactly');
+    log('=== HOME SCREEN TOTAL SPENT (MONTHLY CALCULATION) ===');
+    log('Current month total: $currentMonthTotal');
     log('==============================================');
 
-    if (total >= 1000000) {
-      double inMillions = total / 1000000;
+    if (currentMonthTotal >= 1000000) {
+      double inMillions = currentMonthTotal / 1000000;
       return '${inMillions.toStringAsFixed(1)}M';
-    } else if (total >= 1000) {
-      double inThousands = total / 1000;
+    } else if (currentMonthTotal >= 1000) {
+      double inThousands = currentMonthTotal / 1000;
       return '${inThousands.toStringAsFixed(1)}k';
     } else {
-      return total.toStringAsFixed(2);
+      return currentMonthTotal.toStringAsFixed(2);
+    }
+  }
+
+  // Get current month total from cache (same calculation as GraphController)
+  double _getCurrentMonthTotalFromCache() {
+    // Use the reactive current month total
+    return _currentMonthTotal.value;
+  }
+
+  // Add a reactive variable to store current month total
+  final RxDouble _currentMonthTotal = 0.0.obs;
+
+  // Get current month total (reactive)
+  double get currentMonthTotal => _currentMonthTotal.value;
+
+  // Fetch and calculate current month total from Firestore based on receiptDate
+  Future<double> _fetchCurrentMonthTotal() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 0.0;
+
+      DateTime now = DateTime.now();
+      DateTime startOfMonth = DateTime(now.year, now.month, 1);
+      DateTime startOfNextMonth = (now.month < 12)
+          ? DateTime(now.year, now.month + 1, 1)
+          : DateTime(now.year + 1, 1, 1);
+
+      // Get ALL expenses for the user (we'll filter by receiptDate in code)
+      final querySnapshot = await _firestore
+          .collection('expenses')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      double regularExpenses = 0.0;
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+
+        // Check if this expense is from current month based on receiptDate
+        DateTime expenseDate;
+        bool isCurrentMonth = false;
+
+        if (data['receiptDate'] != null &&
+            data['receiptDate'].toString().isNotEmpty) {
+          try {
+            // Parse receipt date (format: YYYY-MM-DD)
+            expenseDate = DateTime.parse(data['receiptDate']);
+            isCurrentMonth = expenseDate
+                    .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                expenseDate.isBefore(startOfNextMonth);
+            log('Expense ${data['category']} - ReceiptDate: ${data['receiptDate']} - Parsed: $expenseDate - IsCurrentMonth: $isCurrentMonth');
+          } catch (e) {
+            // If receipt date parsing fails, skip this expense
+            log('Error parsing receipt date for expense ${data['category']}: $e');
+            continue;
+          }
+        } else {
+          // If no receipt date, skip this expense
+          log('No receipt date for expense ${data['category']}, skipping');
+          continue;
+        }
+
+        if (isCurrentMonth) {
+          double amountValue;
+          if (data['amount'] is num) {
+            amountValue = data['amount'].toDouble();
+          } else if (data['amount'] is String) {
+            // Remove any minus sign and parse as double
+            String cleanAmount = data['amount'].replaceAll('-', '');
+            amountValue = double.tryParse(cleanAmount) ?? 0.0;
+          } else {
+            amountValue = 0.0;
+          }
+          regularExpenses += amountValue;
+          log('Added expense ${data['category']} - Amount: $amountValue - ReceiptDate: ${data['receiptDate']}');
+        }
+      }
+
+      // Get favorites payments for current month (also based on receipt date)
+      double favoritesPayments = await _getFavoritesPaymentsForCurrentMonth();
+
+      log('Current month total (based on receiptDate) - Regular: $regularExpenses, Favorites: $favoritesPayments, Total: ${regularExpenses + favoritesPayments}');
+
+      return regularExpenses + favoritesPayments;
+    } catch (e) {
+      log('Error fetching current month total: $e');
+      return 0.0;
+    }
+  }
+
+  // Get favorites payments for current month
+  Future<double> _getFavoritesPaymentsForCurrentMonth() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 0.0;
+
+      DateTime now = DateTime.now();
+      DateTime startOfMonth = DateTime(now.year, now.month, 1);
+      DateTime startOfNextMonth = (now.month < 12)
+          ? DateTime(now.year, now.month + 1, 1)
+          : DateTime(now.year + 1, 1, 1);
+
+      // Get all favorites for the user
+      final querySnapshot = await _firestore
+          .collection('favorites')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      double totalAmount = 0.0;
+
+      // Process each favorite's payment history
+      for (var doc in querySnapshot.docs) {
+        final favoriteData = doc.data();
+        List<Map<String, dynamic>> paymentHistory =
+            List<Map<String, dynamic>>.from(
+                favoriteData['paymentHistory'] ?? []);
+
+        // Calculate payments made in current month
+        for (var payment in paymentHistory) {
+          final paymentDateRaw = payment['timestamp'];
+          DateTime paymentDate;
+
+          if (paymentDateRaw is Timestamp) {
+            paymentDate = paymentDateRaw.toDate();
+          } else if (paymentDateRaw is DateTime) {
+            paymentDate = paymentDateRaw;
+          } else {
+            continue; // Skip invalid dates
+          }
+
+          // Check if payment is within current month
+          if (paymentDate
+                  .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+              paymentDate.isBefore(startOfNextMonth)) {
+            double amount = (payment['amount'] ?? 0.0).toDouble();
+            totalAmount += amount;
+          }
+        }
+      }
+
+      return totalAmount;
+    } catch (e) {
+      log('Error getting favorites payments for current month: $e');
+      return 0.0;
     }
   }
 

@@ -354,19 +354,27 @@ class NotificationService extends GetxController {
         iOS: iOSDetails,
       );
 
+      // Create clearer message based on whether budget is exceeded or threshold reached
+      String title = exceededAmount > 0
+          ? '🚨 Overall Budget Exceeded!'
+          : '⚠️ Overall Budget Alert!';
+
+      String message = exceededAmount > 0
+          ? 'You\'ve exceeded your overall budget (₱${budgetLimit.toStringAsFixed(2)}) by ₱${exceededAmount.toStringAsFixed(2)}. Total spent: ₱${totalExpenses.toStringAsFixed(2)}'
+          : 'You\'ve reached ${((totalExpenses / budgetLimit) * 100).toStringAsFixed(0)}% of your overall budget (₱${budgetLimit.toStringAsFixed(2)}). Total spent: ₱${totalExpenses.toStringAsFixed(2)}';
+
       await _flutterLocalNotificationsPlugin.show(
         OVERALL_BUDGET_ID,
-        '🚨 Budget Limit Exceeded!',
-        'You\'ve exceeded your overall budget by ₱${exceededAmount.toStringAsFixed(2)}. Total spent: ₱${totalExpenses.toStringAsFixed(2)}',
+        title,
+        message,
         notificationDetails,
         payload: 'budget',
       );
 
       // Save to Firestore for notification history
       await _saveNotificationToFirestore(
-        title: '🚨 Budget Limit Exceeded!',
-        body:
-            'You\'ve exceeded your overall budget by ₱${exceededAmount.toStringAsFixed(2)}. Total spent: ₱${totalExpenses.toStringAsFixed(2)}',
+        title: title,
+        body: message,
         type: 'budget_exceeded',
         data: {
           'budgetType': 'overall',
@@ -439,20 +447,27 @@ class NotificationService extends GetxController {
         iOS: iOSDetails,
       );
 
+      // Create clearer message based on whether budget is exceeded or threshold reached
+      String title = exceededAmount > 0
+          ? '🚨 ${category == 'Budget' ? 'Overall' : category} Budget Exceeded!'
+          : '⚠️ ${category == 'Budget' ? 'Overall' : category} Budget Alert!';
+
+      String message = exceededAmount > 0
+          ? 'You\'ve exceeded your $category budget (₱${categoryLimit.toStringAsFixed(2)}) by ₱${exceededAmount.toStringAsFixed(2)}. Spent: ₱${categoryExpenses.toStringAsFixed(2)}'
+          : 'You\'ve reached ${((categoryExpenses / categoryLimit) * 100).toStringAsFixed(0)}% of your $category budget (₱${categoryLimit.toStringAsFixed(2)}). Spent: ₱${categoryExpenses.toStringAsFixed(2)}';
+
       await _flutterLocalNotificationsPlugin.show(
         CATEGORY_BUDGET_ID,
-        '⚠️ ${category == 'Budget' ? 'Overall' : category} Budget Exceeded!',
-        'You\'ve exceeded your $category budget by ₱${exceededAmount.toStringAsFixed(2)}. Spent: ₱${categoryExpenses.toStringAsFixed(2)}',
+        title,
+        message,
         notificationDetails,
         payload: 'budget',
       );
 
       // Save to Firestore for notification history
       await _saveNotificationToFirestore(
-        title:
-            '⚠️ ${category == 'Budget' ? 'Overall' : category} Budget Exceeded!',
-        body:
-            'You\'ve exceeded your $category budget by ₱${exceededAmount.toStringAsFixed(2)}. Spent: ₱${categoryExpenses.toStringAsFixed(2)}',
+        title: title,
+        body: message,
         type: 'budget_exceeded',
         data: {
           'budgetType': 'category',

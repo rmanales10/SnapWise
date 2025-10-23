@@ -243,8 +243,8 @@ class _BudgetPageState extends State<BudgetPage> {
       // Calculate the percentage spent
       double percentageSpent = (amountSpent / categoryLimit) * 100;
 
-      // Send notification if the alert percentage threshold is reached
-      if (percentageSpent >= alertPercentage) {
+      // Send notification if the alert percentage threshold is reached OR budget is exceeded
+      if (percentageSpent >= alertPercentage || amountSpent > categoryLimit) {
         double exceededAmount = amountSpent - categoryLimit;
 
         // Debug logging
@@ -627,7 +627,7 @@ class _BudgetPageState extends State<BudgetPage> {
                                           _checkCategoryBudgetNotification(
                                             category['title'],
                                             amountSpent,
-                                            category['budget'] ?? 0.0,
+                                            totalBudget, // Use totalBudget instead of category['budget']
                                             alertPercentage,
                                           );
                                         }
@@ -799,6 +799,9 @@ class _BudgetPageState extends State<BudgetPage> {
       _budgetNotification.sendBudgetExceededNotification(
         spentPercentage: percent,
         remainingBudget: remaining,
+        category: category, // Pass the actual category name
+        categoryExpenses: amountSpent, // Pass the actual amount spent
+        categoryLimit: totalBudget, // Pass the actual budget limit
       );
       _budgetController.addNotification(category);
     }

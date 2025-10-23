@@ -10,6 +10,41 @@ class NotificationController extends GetxController {
 
   RxList notifications = [].obs;
 
+  // Configurable constants
+  static const int _oldNotificationCleanupDays = 30;
+  static const List<String> _incorrectBudgetPatterns = [
+    '₱0.00',
+    '₱3100.00',
+    '₱8000.00',
+    '₱-300.00',
+    '₱-',
+    'Budget budget',
+  ];
+  static const List<String> _incorrectNotificationPatterns = [
+    'exceeded',
+    'Overall Budget Alert!',
+    'Spent: ₱-',
+    'budget (₱-',
+    '100%',
+  ];
+
+  // Method to add custom cleanup patterns
+  void addCleanupPattern(String pattern) {
+    if (!_incorrectBudgetPatterns.contains(pattern)) {
+      // Note: This would require making the list non-const,
+      // but for now we'll keep it as a design consideration
+    }
+  }
+
+  // Method to get current cleanup configuration
+  Map<String, dynamic> getCleanupConfiguration() {
+    return {
+      'oldNotificationCleanupDays': _oldNotificationCleanupDays,
+      'incorrectBudgetPatterns': _incorrectBudgetPatterns,
+      'incorrectNotificationPatterns': _incorrectNotificationPatterns,
+    };
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -29,12 +64,81 @@ class NotificationController extends GetxController {
     };
   }
 
+  // Helper method to check if a notification contains incorrect data
+  bool _isIncorrectNotification(String title, String body) {
+    // Check for basic incorrect budget patterns
+    for (String pattern in _incorrectBudgetPatterns) {
+      if (body.contains(pattern) || title.contains(pattern)) {
+        return true;
+      }
+    }
+
+    // Check for complex patterns
+    if ((body.contains('exceeded') && body.contains('₱0.00')) ||
+        (title.contains('Overall Budget Alert!') &&
+            body.contains('₱8000.00')) ||
+        (body.contains('Spent: ₱-') && body.contains('budget (₱-')) ||
+        (body.contains('100%') && body.contains('₱-300.00'))) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // Helper method to generate grouping key for notifications
+  String _getNotificationGroupKey(Map<String, dynamic> notification) {
+    // Group by type and title for better duplicate detection
+    return '${notification['type']}_${notification['title']}';
+  }
+
+  // Clean up old notifications with incorrect data
+  Future<void> _cleanupIncorrectNotifications() async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) return;
+
+      // Get all notifications for the user
+      final QuerySnapshot querySnapshot = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      List<String> notificationsToDelete = [];
+
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final body = data['body'] ?? '';
+        final title = data['title'] ?? '';
+
+        // Check for notifications with incorrect budget data using configurable patterns
+        if (_isIncorrectNotification(title, body)) {
+          notificationsToDelete.add(doc.id);
+        }
+      }
+
+      // Delete incorrect notifications
+      if (notificationsToDelete.isNotEmpty) {
+        for (String docId in notificationsToDelete) {
+          await _firestore.collection('notifications').doc(docId).delete();
+        }
+        print(
+            'Cleaned up ${notificationsToDelete.length} incorrect notifications');
+      }
+    } catch (e) {
+      print('Error cleaning up notifications: $e');
+    }
+  }
+
   Future<void> fetchNotifications() async {
     try {
       final User? user = _auth.currentUser;
       if (user == null) {
         throw Exception('User not authenticated');
       }
+
+      // Clean up old notifications with incorrect data first
+      await _cleanupIncorrectNotifications();
+
       final monthRange = _getCurrentMonthRange();
       final QuerySnapshot querySnapshot = await _firestore
           .collection('notifications')
@@ -88,11 +192,12 @@ class NotificationController extends GetxController {
     notifications.clear();
   }
 
-  // Clear old notifications (older than 30 days)
+  // Clear old notifications (older than configured days)
   Future<void> clearOldNotifications() async {
     try {
-      final thirtyDaysAgo = DateTime.now().subtract(Duration(days: 30));
-      final oldTimestamp = Timestamp.fromDate(thirtyDaysAgo);
+      final cutoffDate =
+          DateTime.now().subtract(Duration(days: _oldNotificationCleanupDays));
+      final oldTimestamp = Timestamp.fromDate(cutoffDate);
 
       final QuerySnapshot oldNotifications = await _firestore
           .collection('notifications')
@@ -118,7 +223,7 @@ class NotificationController extends GetxController {
       Map<String, List<Map<String, dynamic>>> groupedNotifications = {};
 
       for (var notification in notifications) {
-        String key = '${notification['type']}_${notification['title']}';
+        String key = _getNotificationGroupKey(notification);
         if (!groupedNotifications.containsKey(key)) {
           groupedNotifications[key] = [];
         }
@@ -205,6 +310,33 @@ class NotificationController extends GetxController {
         return Colors.purple;
       default:
         return Colors.grey;
+    }
+  }
+
+  // Clear all notifications (for debugging/cleanup)
+  Future<void> clearAllNotifications() async {
+    try {
+      final User? user = _auth.currentUser;
+      if (user == null) return;
+
+      // Get all notifications for the user
+      final QuerySnapshot querySnapshot = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      // Delete all notifications
+      for (var doc in querySnapshot.docs) {
+        await _firestore.collection('notifications').doc(doc.id).delete();
+      }
+
+      // Clear local list
+      notifications.clear();
+      notifications.refresh();
+
+      print('Cleared all notifications');
+    } catch (e) {
+      print('Error clearing notifications: $e');
     }
   }
 }

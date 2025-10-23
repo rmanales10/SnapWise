@@ -66,19 +66,25 @@ class BudgetNotification extends GetxController {
   Future<void> sendBudgetExceededNotification({
     required double spentPercentage,
     required double remainingBudget,
+    String category = 'Budget', // Add category parameter with default
+    required double categoryExpenses, // Add actual expenses parameter
+    required double categoryLimit, // Add actual limit parameter
   }) async {
     // Check if budget notifications are enabled
     if (_settingsService != null && !_settingsService!.isBudgetAlertsEnabled) {
       return;
     }
 
+    // Calculate exceeded amount
+    double exceededAmount = categoryExpenses - categoryLimit;
+
     // This method is deprecated, use the new methods instead
     if (_notificationService != null) {
       await _notificationService!.showCategoryBudgetExceeded(
-        category: 'Budget',
-        categoryExpenses: remainingBudget,
-        categoryLimit: remainingBudget,
-        exceededAmount: 0.0,
+        category: category,
+        categoryExpenses: categoryExpenses,
+        categoryLimit: categoryLimit,
+        exceededAmount: exceededAmount,
       );
     }
   }

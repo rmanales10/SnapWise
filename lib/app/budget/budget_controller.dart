@@ -200,10 +200,21 @@ class BudgetController extends GetxController {
 
       if (budgetDoc.exists) {
         budgetData.value = budgetDoc.data() as Map<String, dynamic>;
+
+        // Debug logging
+        dev.log('=== OVERALL BUDGET FETCH DEBUG ===');
+        dev.log('Document exists: ${budgetDoc.exists}');
+        dev.log('Document data: ${budgetDoc.data()}');
+        dev.log('Budget amount: ${budgetData.value['amount']}');
+        dev.log('Alert percentage: ${budgetData.value['alertPercentage']}');
+        dev.log('Receive alert: ${budgetData.value['receiveAlert']}');
+        dev.log('==================================');
       } else {
         budgetData.value = {};
+        dev.log('Overall budget document does not exist');
       }
     } catch (e) {
+      dev.log('Error fetching overall budget: $e');
       SnackbarService.showBudgetError(
           'Failed to fetch budget: ${e.toString()}');
     }
@@ -525,7 +536,7 @@ class BudgetController extends GetxController {
         100,
       );
 
-      // Check for overall budget exceeded notification
+      // Check for overall budget exceeded notification using overall budget
       await _checkOverallBudgetNotification(overallBudget);
 
       // Check for income notification
@@ -551,9 +562,23 @@ class BudgetController extends GetxController {
       double alertPercentage = budgetData.value['alertPercentage'] ?? 80.0;
       bool receiveAlert = budgetData.value['receiveAlert'] ?? false;
 
-      // Send notification if alert percentage threshold is reached
-      if (receiveAlert && percentageSpent >= alertPercentage) {
+      // Debug logging
+      dev.log('=== OVERALL BUDGET NOTIFICATION DEBUG ===');
+      dev.log('Total Expenses: $totalExpenses');
+      dev.log('Overall Budget: $overallBudget');
+      dev.log('Alert Percentage: $alertPercentage%');
+      dev.log('Receive Alert: $receiveAlert');
+      dev.log('Percentage Spent: $percentageSpent%');
+      dev.log('=========================================');
+
+      // Send notification if alert percentage threshold is reached OR budget is exceeded
+      if (receiveAlert &&
+          (percentageSpent >= alertPercentage ||
+              totalExpenses > overallBudget)) {
         double exceededAmount = totalExpenses - overallBudget;
+
+        dev.log('Sending notification - Exceeded Amount: $exceededAmount');
+
         if (Get.isRegistered<BudgetNotification>()) {
           final budgetNotification = Get.find<BudgetNotification>();
           await budgetNotification.sendOverallBudgetExceededNotification(
@@ -562,6 +587,8 @@ class BudgetController extends GetxController {
             exceededAmount: exceededAmount,
           );
         }
+      } else {
+        dev.log('Notification not sent - conditions not met');
       }
     } catch (e) {
       dev.log('Error checking overall budget notification: $e');
