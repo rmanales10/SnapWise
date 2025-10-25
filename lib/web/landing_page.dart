@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'chatbot.dart';
 import 'feedback_controller.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:html' as html show AnchorElement;
 
 class LandingPage extends StatefulWidget {
   const LandingPage({Key? key}) : super(key: key);
@@ -65,6 +66,14 @@ class _LandingPageState extends State<LandingPage>
         curve: Curves.easeInOut,
       );
     }
+  }
+
+  void _downloadAPK() {
+    // For web, trigger direct download
+    html.AnchorElement anchorElement =
+        html.AnchorElement(href: '/assets/snapwise.apk');
+    anchorElement.download = 'SnapWise.apk';
+    anchorElement.click();
   }
 
   @override
@@ -874,10 +883,7 @@ class _LandingPageState extends State<LandingPage>
                             ),
                             const SizedBox(height: 40),
                             AnimatedButton(
-                              onPressed: () => launchUrl(
-                                  Uri.parse(
-                                      'https://www.dropbox.com/scl/fi/19axu4vqvu5fccu2a7zxl/app-release.apk?rlkey=m7x0bv4wdfv1oedr9t37efdpw&e=2&st=v42je5jb&dl=1'),
-                                  mode: LaunchMode.externalApplication),
+                              onPressed: _downloadAPK,
                               backgroundColor: const Color(0xFF2E2E4F),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 60,
@@ -1003,10 +1009,7 @@ class _LandingPageState extends State<LandingPage>
                             ),
                             const SizedBox(height: 40),
                             AnimatedButton(
-                              onPressed: () => launchUrl(
-                                  Uri.parse(
-                                      'https://www.dropbox.com/scl/fi/19axu4vqvu5fccu2a7zxl/app-release.apk?rlkey=m7x0bv4wdfv1oedr9t37efdpw&e=2&st=v42je5jb&dl=1'),
-                                  mode: LaunchMode.externalApplication),
+                              onPressed: _downloadAPK,
                               backgroundColor: const Color(0xFF2E2E4F),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 60,

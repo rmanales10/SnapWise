@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>SnapWise Feedback</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            color: #2E2E4F;
+            border-bottom: 2px solid #2E2E4F;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .comment-section {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .footer {
+            color: #666;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+
+        .rating {
+            color: #ffa500;
+            font-weight: bold;
+        }
+
+        .field {
+            margin: 8px 0;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #2E2E4F;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2 class="header">📧 New Feedback from SnapWise App</h2>
+
+        <div class="section">
+            <h3 style="color: #2E2E4F; margin-top: 0;">📋 Feedback Details</h3>
+            <div class="field"><span class="label">👤 Name:</span> {{from_name}}</div>
+            <div class="field"><span class="label">📧 Email:</span> {{from_email}}</div>
+            <div class="field"><span class="label">🎯 Purpose:</span> {{purpose}}</div>
+            <div class="field"><span class="label">⭐ Rating:</span> <span class="rating">{{rating}}/5</span></div>
+        </div>
+
+        <div class="comment-section">
+            <h3 style="color: #2E2E4F; margin-top: 0;">💬 Comment</h3>
+            <div style="white-space: pre-wrap;">{{comment}}</div>
+        </div>
+
+        <div class="footer">
+            This email was sent from the SnapWise feedback form.<br>
+            Reply directly to this email to respond to the user.
+        </div>
+    </div>
+</body>
+
+</html>

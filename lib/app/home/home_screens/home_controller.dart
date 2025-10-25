@@ -43,7 +43,7 @@ class HomeController extends GetxController {
 
   // Manual refresh method for when user explicitly wants to refresh data
   Future<void> manualRefresh() async {
-      if (!_isRefreshingData) {
+    if (!_isRefreshingData) {
       log('Manual refresh triggered');
       await refreshAllData();
     }
@@ -151,7 +151,7 @@ class HomeController extends GetxController {
 
               // Check if expense is from today based on transaction date (timestamp)
               bool isToday = false;
-                DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+              DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
               isToday = timestamp.isAfter(
                       startOfToday.subtract(const Duration(seconds: 1))) &&
                   timestamp
@@ -363,7 +363,7 @@ class HomeController extends GetxController {
 
   String getTotalSpent() {
     // Use the same monthly calculation as GraphController for consistency
-    double currentMonthTotal = _getCurrentMonthTotalFromCache();
+    double currentMonthTotal = getCurrentMonthTotalFromCache();
 
     // Debug logging
     log('=== HOME SCREEN TOTAL SPENT (MONTHLY CALCULATION) ===');
@@ -382,7 +382,7 @@ class HomeController extends GetxController {
   }
 
   // Get current month total from cache (same calculation as GraphController)
-  double _getCurrentMonthTotalFromCache() {
+  double getCurrentMonthTotalFromCache() {
     // Use the reactive current month total
     return _currentMonthTotal.value;
   }

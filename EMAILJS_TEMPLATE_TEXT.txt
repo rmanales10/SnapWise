@@ -1,0 +1,17 @@
+📧 NEW FEEDBACK FROM SNAPWISE APP
+=====================================
+
+📋 FEEDBACK DETAILS
+-------------------
+👤 Name: {{from_name}}
+📧 Email: {{from_email}}
+🎯 Purpose: {{purpose}}
+⭐ Rating: {{rating}}/5
+
+💬 COMMENT
+----------
+{{comment}}
+
+=====================================
+This email was sent from the SnapWise feedback form.
+Reply directly to this email to respond to the user.
