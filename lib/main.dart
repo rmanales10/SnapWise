@@ -4,7 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/auth_screens/main_screen/main_screen.dart';
-import 'package:snapwise/web/landing_page.dart';
+// Conditional import for web platform
+import 'package:snapwise/web/landing_page.dart'
+    if (dart.library.io) 'package:snapwise/web/landing_page_stub.dart';
 import 'package:snapwise/app/budget/budget.dart';
 import 'package:snapwise/app/budget/edit_budget.dart';
 import 'package:snapwise/app/budget/income/edit_income.dart';

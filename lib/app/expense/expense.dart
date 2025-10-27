@@ -407,6 +407,28 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     );
   }
 
+  /// Helper function to clean amount string by removing currency symbols and extra spaces
+  String _cleanAmountString(String amountText) {
+    // Remove common currency symbols and extra spaces
+    String cleaned = amountText
+        .replaceAll(RegExp(r'[₱P$€£¥₹]'), '') // Remove currency symbols
+        .replaceAll(',', '') // Remove commas
+        .replaceAll(' ', '') // Remove spaces
+        .trim();
+
+    // Validate that the cleaned string is a valid number
+    if (cleaned.isEmpty) {
+      throw FormatException('Amount cannot be empty');
+    }
+
+    // Check if it's a valid number format
+    if (!RegExp(r'^\d+(\.\d+)?$').hasMatch(cleaned)) {
+      throw FormatException('Invalid amount format: $amountText');
+    }
+
+    return cleaned;
+  }
+
   Future<void> _processAndDisplayImage(XFile image) async {
     try {
       // Set loading state
@@ -434,7 +456,33 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
 
       setState(() {
         categoryController.text = expenseDetails['category'] ?? '';
-        amountController.text = expenseDetails['amount'] ?? '';
+
+        // Clean the amount from AI to remove any currency symbols
+        String rawAmount = expenseDetails['amount'] ?? '';
+
+        // Debug logging for AI extraction
+        print('=== AI EXTRACTION DEBUG ===');
+        print('Raw amount from AI: "$rawAmount"');
+
+        if (rawAmount.isNotEmpty) {
+          try {
+            // Clean currency symbols before setting to controller
+            String cleanedAmount = _cleanAmountString(rawAmount);
+            amountController.text = cleanedAmount;
+            print('Cleaned amount: "$cleanedAmount"');
+            print('Set to amountController.text: "${amountController.text}"');
+          } catch (e) {
+            // If cleaning fails, set as-is and let user manually fix
+            amountController.text = rawAmount;
+            print('Cleaning failed, using raw: "$rawAmount"');
+            print('Error: $e');
+          }
+        } else {
+          amountController.text = '';
+          print('Amount is empty');
+        }
+        print('=========================');
+
         receiptDateController.text =
             expenseDetails['date'] ?? DateTime.now().toString().split(' ')[0];
         dateController.text = DateTime.now()
@@ -1278,26 +1326,75 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     }
 
     try {
+      // Clean amount string by removing currency symbols and extra spaces
+      String cleanAmount = _cleanAmountString(amountController.text);
+      double amount = double.parse(cleanAmount);
+
+      // Debug logging
+      print('=== EXPENSE SAVE DEBUG ===');
+      print('Original amountController.text: ${amountController.text}');
+      print('Cleaned amount string: $cleanAmount');
+      print('Parsed double amount: $amount');
+      print('Category: ${categoryController.text}');
+      print('Receipt Date: ${receiptDateController.text}');
+      print('Transaction Date: ${dateController.text}');
+      print('Has image: ${base64Image != null}');
+      print('========================');
+
       await controller.addExpense(
         categoryController.text,
-        double.parse(amountController.text),
+        amount,
         base64Image ?? 'No Image',
         receiptDateController.text, // Receipt date (for graph)
         dateController.text, // Transaction date (when input)
       );
+
       if (controller.isSuccess.value == true) {
-        homeController.fetchTransactions();
-        homeController.fetchTransactionsHistory();
-        Navigator.pushReplacement(
-          // ignore: use_build_context_synchronously
-          context,
-          MaterialPageRoute(builder: (context) => BottomNavBar()),
-        );
-        categoryController.clear();
-        amountController.clear();
+        print('Expense saved successfully, starting post-save operations...');
+
+        try {
+          // Close the confirmation dialog first
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+
+          // Refresh all home data including balance, income, budget, and transactions
+          print('Refreshing home data...');
+          await homeController.refreshAllData();
+          print('Home data refreshed successfully');
+
+          // Navigate back to home screen
+          print('Navigating to home screen...');
+          Navigator.pushReplacement(
+            // ignore: use_build_context_synchronously
+            context,
+            MaterialPageRoute(builder: (context) => BottomNavBar()),
+          );
+          print('Navigation complete');
+
+          categoryController.clear();
+          amountController.clear();
+        } catch (e) {
+          print('Error during post-save operations: $e');
+          // Even if refresh/navigation fails, the expense was saved successfully
+          // Just navigate to home without refresh
+          Navigator.pushReplacement(
+            // ignore: use_build_context_synchronously
+            context,
+            MaterialPageRoute(builder: (context) => BottomNavBar()),
+          );
+        }
+      } else {
+        print('Expense save failed, isSuccess = ${controller.isSuccess.value}');
       }
     } catch (e) {
-      _showErrorSnackbar('Error saving expense: ${e.toString()}');
+      String errorMessage = 'Error saving expense';
+      if (e is FormatException) {
+        errorMessage = e.message;
+      } else {
+        errorMessage = 'Error saving expense: ${e.toString()}';
+      }
+      _showErrorSnackbar(errorMessage);
     }
   }
 }

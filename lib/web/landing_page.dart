@@ -3,7 +3,9 @@ import 'package:snapwise/services/snackbar_service.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:get/get.dart';
 import 'chatbot.dart';
-import 'feedback_controller.dart';
+// Conditional import for feedback controller
+import 'feedback_controller.dart'
+    if (dart.library.io) 'feedback_controller_stub.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:html' as html show AnchorElement;
 

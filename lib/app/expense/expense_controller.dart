@@ -41,6 +41,28 @@ class ExpenseController extends GetxController {
         throw Exception('User not authenticated');
       }
 
+      // Validate date formats
+      print('=== FIRESTORE SAVE DEBUG ===');
+      print('Category: $category (${category.runtimeType})');
+      print('Amount: $amount (${amount.runtimeType})');
+      print('Base64Image length: ${base64Image.length}');
+      print('ReceiptDate: $receiptDate (${receiptDate.runtimeType})');
+      print(
+          'TransactionDate: $transactionDate (${transactionDate.runtimeType})');
+      print('UserId: ${user.uid}');
+
+      // Validate dates are in correct format
+      try {
+        DateTime.parse(receiptDate);
+        DateTime.parse(transactionDate);
+        print('Date validation: PASSED');
+      } catch (e) {
+        print('Date validation: FAILED - $e');
+        throw Exception('Invalid date format: $e');
+      }
+
+      print('Attempting to save to Firestore...');
+
       await _firestore.collection('expenses').add({
         'userId': user.uid,
         'category': category,
@@ -50,6 +72,9 @@ class ExpenseController extends GetxController {
         'transactionDate': transactionDate, // Date when user input the expense
         'timestamp': FieldValue.serverTimestamp(),
       });
+
+      print('Firestore save: SUCCESS');
+      print('===========================');
 
       // Send expense added notification
       if (Get.isRegistered<BudgetNotification>()) {
@@ -63,9 +88,14 @@ class ExpenseController extends GetxController {
 
       isSuccess.value = true;
       SnackbarService.showExpenseSuccess('Expense added successfully');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('=== FIRESTORE ERROR ===');
+      print('Error: $e');
+      print('Stack trace: $stackTrace');
+      print('======================');
       SnackbarService.showExpenseError(
           'Failed to add expense: ${e.toString()}');
+      isSuccess.value = false;
     }
   }
 

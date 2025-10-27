@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:snapwise/app/expense/expense_controller.dart';
+import 'package:snapwise/app/home/home_screens/home_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
 import '../../services/snackbar_service.dart';
 
@@ -19,6 +20,7 @@ class _ViewExpenseState extends State<ViewExpense> {
   String? base64Image;
   final ImagePicker picker = ImagePicker();
   final controller = Get.put(ExpenseController());
+  final homeController = Get.put(HomeController());
   final TextEditingController amountController = TextEditingController();
   final TextEditingController categoryController = TextEditingController(
     text: "Shopping",
@@ -1373,6 +1375,28 @@ class _ViewExpenseState extends State<ViewExpense> {
     );
   }
 
+  /// Helper function to clean amount string by removing currency symbols and extra spaces
+  String _cleanAmountString(String amountText) {
+    // Remove common currency symbols and extra spaces
+    String cleaned = amountText
+        .replaceAll(RegExp(r'[₱P$€£¥₹]'), '') // Remove currency symbols
+        .replaceAll(',', '') // Remove commas
+        .replaceAll(' ', '') // Remove spaces
+        .trim();
+
+    // Validate that the cleaned string is a valid number
+    if (cleaned.isEmpty) {
+      throw FormatException('Amount cannot be empty');
+    }
+
+    // Check if it's a valid number format
+    if (!RegExp(r'^\d+(\.\d+)?$').hasMatch(cleaned)) {
+      throw FormatException('Invalid amount format: $amountText');
+    }
+
+    return cleaned;
+  }
+
   Future<void> _addExpense() async {
     // Validate inputs before saving
     if (categoryController.text.isEmpty) {
@@ -1396,24 +1420,54 @@ class _ViewExpenseState extends State<ViewExpense> {
     }
 
     try {
+      // Clean amount string by removing currency symbols and extra spaces
+      String cleanAmount = _cleanAmountString(amountController.text);
+      double amount = double.parse(cleanAmount);
+
       await controller.addExpense(
         categoryController.text,
-        double.parse(amountController.text),
+        amount,
         base64Image ?? 'No Image',
         receiptDateController.text, // Receipt date (for graph)
         dateController.text, // Transaction date (when input)
       );
       if (controller.isSuccess.value == true) {
-        Navigator.pushReplacement(
-          // ignore: use_build_context_synchronously
-          context,
-          MaterialPageRoute(builder: (context) => BottomNavBar()),
-        );
-        categoryController.clear();
-        amountController.clear();
+        try {
+          // Close the confirmation dialog first
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+
+          // Refresh all home data including balance, income, budget, and transactions
+          await homeController.refreshAllData();
+
+          // Navigate back to home screen
+          Navigator.pushReplacement(
+            // ignore: use_build_context_synchronously
+            context,
+            MaterialPageRoute(builder: (context) => BottomNavBar()),
+          );
+
+          categoryController.clear();
+          amountController.clear();
+        } catch (e) {
+          print('Error during post-save operations: $e');
+          // Even if refresh/navigation fails, the expense was saved successfully
+          Navigator.pushReplacement(
+            // ignore: use_build_context_synchronously
+            context,
+            MaterialPageRoute(builder: (context) => BottomNavBar()),
+          );
+        }
       }
     } catch (e) {
-      _showErrorSnackbar('Error saving expense: ${e.toString()}');
+      String errorMessage = 'Error saving expense';
+      if (e is FormatException) {
+        errorMessage = e.message;
+      } else {
+        errorMessage = 'Error saving expense: ${e.toString()}';
+      }
+      _showErrorSnackbar(errorMessage);
     }
   }
 }
