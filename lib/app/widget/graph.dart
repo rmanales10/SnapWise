@@ -27,7 +27,6 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
   final HomeController homeController = Get.find<HomeController>();
 
   bool isDaily = true;
-  bool isRefreshing = false;
 
   List<BarChartGroupData> getGraphData() {
     List<double> expenses = isDaily
@@ -172,475 +171,387 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
-    // Force refresh data when view changes
-    final expenses = isDaily
-        ? graphController.getCurrentMonthExpenses()
-        : graphController.getMonthlyExpensesForLastYear();
+    // Calculate safe container height (ensure maxHeight >= minHeight)
+    final double calculatedMaxHeight = screenWidth * 0.5;
+    final double safeMaxHeight =
+        calculatedMaxHeight < 200 ? 200 : calculatedMaxHeight;
 
-    // Handle empty data and calculate max value properly
-    double maxValue;
-    if (expenses.isEmpty || expenses.every((e) => e == 0)) {
-      maxValue = 100.0; // Default max value for empty state
-    } else {
-      // Use the maximum individual expense
-      double maxIndividualExpense = expenses.reduce((a, b) => a > b ? a : b);
+    // Wrap graph data fetching in Obx for real-time updates
+    return Obx(() {
+      // Force refresh data when view changes - now reactive!
+      final expenses = isDaily
+          ? graphController.getCurrentMonthExpenses()
+          : graphController.getMonthlyExpensesForLastYear();
 
-      // For daily view, use a reasonable scale based on individual expenses
-      // For monthly view, use a larger scale
-      if (isDaily) {
-        // For daily view, use max individual expense * 1.5 for better visualization
-        maxValue = maxIndividualExpense * 1.5;
+      // Handle empty data and calculate max value properly
+      double maxValue;
+      if (expenses.isEmpty || expenses.every((e) => e == 0)) {
+        maxValue = 100.0; // Default max value for empty state
       } else {
-        // For monthly view, use max individual expense * 2 for better visualization
-        maxValue = maxIndividualExpense * 2;
+        // Use the maximum individual expense
+        double maxIndividualExpense = expenses.reduce((a, b) => a > b ? a : b);
+
+        // For daily view, use a reasonable scale based on individual expenses
+        // For monthly view, use a larger scale
+        if (isDaily) {
+          // For daily view, use max individual expense * 1.5 for better visualization
+          maxValue = maxIndividualExpense * 1.5;
+        } else {
+          // For monthly view, use max individual expense * 2 for better visualization
+          maxValue = maxIndividualExpense * 2;
+        }
+
+        // Ensure minimum scale for better visualization
+        if (maxValue < 100) maxValue = 100;
+
+        dev.log('Max individual expense: $maxIndividualExpense');
+        dev.log('Calculated maxValue: $maxValue');
       }
 
-      // Ensure minimum scale for better visualization
-      if (maxValue < 100) maxValue = 100;
-
-      dev.log('Max individual expense: $maxIndividualExpense');
+      dev.log('=== BUILD METHOD ===');
+      dev.log('isDaily: $isDaily');
+      dev.log('Expenses data: $expenses');
       dev.log('Calculated maxValue: $maxValue');
-    }
 
-    dev.log('=== BUILD METHOD ===');
-    dev.log('isDaily: $isDaily');
-    dev.log('isRefreshing: $isRefreshing');
-    dev.log('Expenses data: $expenses');
-    dev.log('Calculated maxValue: $maxValue');
+      final yAxisLabels = generateYAxisLabels(maxValue);
 
-    final yAxisLabels = generateYAxisLabels(maxValue);
+      // Removed loading state - data is already available, no need to show loading when switching views
 
-    if (isRefreshing) {
-      return Container(
-        height: 200,
-        child: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              constraints: BoxConstraints(
+                minHeight: 200,
+                maxHeight: safeMaxHeight,
+              ),
+              padding: EdgeInsets.only(top: 15, left: 20, bottom: 15),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    spreadRadius: 0,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Column(
+                    key: ValueKey(
+                        'yaxis_${isDaily ? 'daily' : 'monthly'}_${yAxisLabels.length}'),
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: yAxisLabels.reversed.map((label) {
+                      String labelText;
+                      if (label >= 100000) {
+                        labelText = '${(label / 1000).toStringAsFixed(0)}k';
+                      } else if (label >= 1000) {
+                        labelText = '${(label / 1000).toStringAsFixed(1)}k';
+                      } else {
+                        labelText = label.toStringAsFixed(0);
+                      }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            constraints: BoxConstraints(
-              minHeight: 200,
-              maxHeight: screenWidth * 0.5,
-            ),
-            padding: EdgeInsets.only(top: 15, left: 20, bottom: 15),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 12,
-                  spreadRadius: 0,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Column(
-                  key: ValueKey(
-                      'yaxis_${isDaily ? 'daily' : 'monthly'}_${yAxisLabels.length}'),
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: yAxisLabels.reversed.map((label) {
-                    String labelText;
-                    if (label >= 100000) {
-                      labelText = '${(label / 1000).toStringAsFixed(0)}k';
-                    } else if (label >= 1000) {
-                      labelText = '${(label / 1000).toStringAsFixed(1)}k';
-                    } else {
-                      labelText = label.toStringAsFixed(0);
-                    }
+                      dev.log('Y-axis label: $label -> $labelText');
 
-                    dev.log('Y-axis label: $label -> $labelText');
-
-                    return Container(
-                      height: 20, // Fixed height to prevent overflow
-                      alignment: Alignment.center,
-                      child: Text(
-                        labelText,
-                        style: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
+                      return Container(
+                        height: 20, // Fixed height to prevent overflow
+                        alignment: Alignment.center,
+                        child: Text(
+                          labelText,
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 20),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: SizedBox(
-                        width: isDaily ? 900 : 600,
-                        child: Obx(
-                          () => BarChart(
-                            key: ValueKey(
-                                '${isDaily ? 'daily' : 'monthly'}_${expenses.length}'),
-                            BarChartData(
-                              barGroups: getGraphData(),
-                              borderData: FlBorderData(show: false),
-                              gridData: FlGridData(show: false),
-                              titlesData: FlTitlesData(
-                                leftTitles: AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false),
-                                ),
-                                bottomTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    reservedSize: 30,
-                                    getTitlesWidget: (value, meta) {
-                                      if (isDaily) {
-                                        if ((value.toInt() + 1) % 5 == 0) {
+                      );
+                    }).toList(),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 20),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: isDaily ? 900 : 600,
+                          child: Obx(
+                            () => BarChart(
+                              key: ValueKey(
+                                  '${isDaily ? 'daily' : 'monthly'}_${expenses.length}'),
+                              BarChartData(
+                                barGroups: getGraphData(),
+                                borderData: FlBorderData(show: false),
+                                gridData: FlGridData(show: false),
+                                titlesData: FlTitlesData(
+                                  leftTitles: AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                  bottomTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      reservedSize: 30,
+                                      getTitlesWidget: (value, meta) {
+                                        if (isDaily) {
+                                          if ((value.toInt() + 1) % 5 == 0) {
+                                            return Text(
+                                              "${value.toInt() + 1}",
+                                              style: TextStyle(
+                                                color: Colors.grey.shade600,
+                                                fontSize: 8,
+                                              ),
+                                            );
+                                          }
+                                          return const SizedBox.shrink();
+                                        } else {
+                                          final now = DateTime.now();
+                                          final months = [
+                                            "JAN",
+                                            "FEB",
+                                            "MAR",
+                                            "APR",
+                                            "MAY",
+                                            "JUN",
+                                            "JUL",
+                                            "AUG",
+                                            "SEP",
+                                            "OCT",
+                                            "NOV",
+                                            "DEC",
+                                          ];
+                                          // Calculate the correct month and year based on the bar index
+                                          int monthsBack = 11 - value.toInt();
+                                          int targetMonth =
+                                              now.month - monthsBack;
+
+                                          // Handle negative months (go to previous year)
+                                          while (targetMonth <= 0) {
+                                            targetMonth += 12;
+                                          }
+
+                                          final monthIndex = targetMonth - 1;
                                           return Text(
-                                            "${value.toInt() + 1}",
+                                            months[monthIndex],
                                             style: TextStyle(
                                               color: Colors.grey.shade600,
                                               fontSize: 8,
                                             ),
                                           );
                                         }
-                                        return const SizedBox.shrink();
+                                      },
+                                    ),
+                                  ),
+                                  topTitles: AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                  rightTitles: AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                ),
+                                barTouchData: BarTouchData(
+                                  touchTooltipData: BarTouchTooltipData(
+                                    getTooltipItem: (
+                                      group,
+                                      groupIndex,
+                                      rod,
+                                      rodIndex,
+                                    ) {
+                                      final amount = rod.toY;
+                                      final formattedAmount = amount >= 1000
+                                          ? 'PHP ${(amount / 1000).toStringAsFixed(1)}k'
+                                          : 'PHP ${amount.toStringAsFixed(2)}';
+
+                                      // Get the actual date for better tooltip
+                                      String dateLabel;
+                                      String totalAmount;
+
+                                      if (isDaily) {
+                                        final now = DateTime.now();
+                                        final day = groupIndex + 1;
+                                        final date =
+                                            DateTime(now.year, now.month, day);
+                                        dateLabel =
+                                            '${date.day}/${date.month}/${date.year}';
+
+                                        // Get the actual amount from the graph data for this specific day
+                                        final expenses = graphController
+                                            .getCurrentMonthExpenses();
+                                        final actualAmount =
+                                            groupIndex < expenses.length
+                                                ? expenses[groupIndex]
+                                                : 0.0;
+
+                                        // Format the amount based on actual data
+                                        if (actualAmount > 0) {
+                                          totalAmount = actualAmount >= 1000
+                                              ? 'PHP ${(actualAmount / 1000).toStringAsFixed(1)}k'
+                                              : 'PHP ${actualAmount.toStringAsFixed(2)}';
+                                        } else {
+                                          totalAmount = 'PHP 0.00';
+                                        }
                                       } else {
                                         final now = DateTime.now();
-                                        final months = [
-                                          "JAN",
-                                          "FEB",
-                                          "MAR",
-                                          "APR",
-                                          "MAY",
-                                          "JUN",
-                                          "JUL",
-                                          "AUG",
-                                          "SEP",
-                                          "OCT",
-                                          "NOV",
-                                          "DEC",
-                                        ];
                                         // Calculate the correct month and year based on the bar index
-                                        int monthsBack = 11 - value.toInt();
+                                        int monthsBack = 11 - groupIndex;
                                         int targetMonth =
                                             now.month - monthsBack;
+                                        int targetYear = now.year;
 
                                         // Handle negative months (go to previous year)
                                         while (targetMonth <= 0) {
                                           targetMonth += 12;
+                                          targetYear -= 1;
                                         }
 
-                                        final monthIndex = targetMonth - 1;
-                                        return Text(
-                                          months[monthIndex],
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 8,
-                                          ),
-                                        );
+                                        final monthNames = [
+                                          'JAN',
+                                          'FEB',
+                                          'MAR',
+                                          'APR',
+                                          'MAY',
+                                          'JUN',
+                                          'JUL',
+                                          'AUG',
+                                          'SEP',
+                                          'OCT',
+                                          'NOV',
+                                          'DEC'
+                                        ];
+                                        dateLabel =
+                                            '${monthNames[targetMonth - 1]} $targetYear';
+
+                                        // For current month, use home controller's total
+                                        if (targetMonth == now.month &&
+                                            targetYear == now.year) {
+                                          totalAmount =
+                                              'PHP ${homeController.getTotalSpent()}';
+                                        } else {
+                                          totalAmount = formattedAmount;
+                                        }
                                       }
+
+                                      // Show "No data" if amount is 0
+                                      String displayText = amount == 0
+                                          ? '$dateLabel\nTotal: PHP 0.00\n(No expenses recorded)'
+                                          : '$dateLabel\nTotal: $totalAmount\n(Expenses + Favorites)';
+
+                                      return BarTooltipItem(
+                                        displayText,
+                                        const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      );
                                     },
+                                    tooltipPadding: const EdgeInsets.all(12),
+                                    tooltipMargin: 8,
                                   ),
-                                ),
-                                topTitles: AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false),
-                                ),
-                                rightTitles: AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false),
-                                ),
-                              ),
-                              barTouchData: BarTouchData(
-                                touchTooltipData: BarTouchTooltipData(
-                                  getTooltipItem: (
-                                    group,
-                                    groupIndex,
-                                    rod,
-                                    rodIndex,
+                                  touchCallback: (
+                                    FlTouchEvent event,
+                                    BarTouchResponse? touchResponse,
                                   ) {
-                                    final amount = rod.toY;
-                                    final formattedAmount = amount >= 1000
-                                        ? 'PHP ${(amount / 1000).toStringAsFixed(1)}k'
-                                        : 'PHP ${amount.toStringAsFixed(2)}';
+                                    if (event is FlTapUpEvent &&
+                                        touchResponse != null &&
+                                        touchResponse.spot?.touchedBarGroup !=
+                                            null) {
+                                      final touchedGroup =
+                                          touchResponse.spot!.touchedBarGroup;
+                                      final amount =
+                                          touchedGroup.barRods.first.toY;
+                                      final formattedAmount = amount >= 1000
+                                          ? 'PHP ${(amount / 1000).toStringAsFixed(1)}k'
+                                          : 'PHP ${amount.toStringAsFixed(2)}';
 
-                                    // Get the actual date for better tooltip
-                                    String dateLabel;
-                                    String totalAmount;
+                                      // Get the actual date for better display
+                                      String period;
+                                      String displayAmount;
 
-                                    if (isDaily) {
-                                      final now = DateTime.now();
-                                      final day = groupIndex + 1;
-                                      final date =
-                                          DateTime(now.year, now.month, day);
-                                      dateLabel =
-                                          '${date.day}/${date.month}/${date.year}';
+                                      if (isDaily) {
+                                        final now = DateTime.now();
+                                        final day = touchedGroup.x + 1;
+                                        final date =
+                                            DateTime(now.year, now.month, day);
+                                        period =
+                                            '${date.day}/${date.month}/${date.year}';
 
-                                      // Get the actual amount from the graph data for this specific day
-                                      final expenses = graphController
-                                          .getCurrentMonthExpenses();
-                                      final actualAmount =
-                                          groupIndex < expenses.length
-                                              ? expenses[groupIndex]
-                                              : 0.0;
+                                        // Get the actual amount from the graph data for this specific day
+                                        final expenses = graphController
+                                            .getCurrentMonthExpenses();
+                                        final actualAmount =
+                                            touchedGroup.x < expenses.length
+                                                ? expenses[touchedGroup.x]
+                                                : 0.0;
 
-                                      // Format the amount based on actual data
-                                      if (actualAmount > 0) {
-                                        totalAmount = actualAmount >= 1000
-                                            ? 'PHP ${(actualAmount / 1000).toStringAsFixed(1)}k'
-                                            : 'PHP ${actualAmount.toStringAsFixed(2)}';
+                                        // Format the amount based on actual data
+                                        if (actualAmount > 0) {
+                                          displayAmount = actualAmount >= 1000
+                                              ? 'PHP ${(actualAmount / 1000).toStringAsFixed(1)}k'
+                                              : 'PHP ${actualAmount.toStringAsFixed(2)}';
+                                        } else {
+                                          displayAmount = 'PHP 0.00';
+                                        }
                                       } else {
-                                        totalAmount = 'PHP 0.00';
+                                        final now = DateTime.now();
+                                        // Calculate the correct month and year based on the bar index
+                                        int monthsBack = 11 - touchedGroup.x;
+                                        int targetMonth =
+                                            now.month - monthsBack;
+                                        int targetYear = now.year;
+
+                                        // Handle negative months (go to previous year)
+                                        while (targetMonth <= 0) {
+                                          targetMonth += 12;
+                                          targetYear -= 1;
+                                        }
+
+                                        final monthNames = [
+                                          'JAN',
+                                          'FEB',
+                                          'MAR',
+                                          'APR',
+                                          'MAY',
+                                          'JUN',
+                                          'JUL',
+                                          'AUG',
+                                          'SEP',
+                                          'OCT',
+                                          'NOV',
+                                          'DEC'
+                                        ];
+                                        period =
+                                            '${monthNames[targetMonth - 1]} $targetYear';
+
+                                        // For current month, use home controller's total
+                                        if (targetMonth == now.month &&
+                                            targetYear == now.year) {
+                                          displayAmount =
+                                              'PHP ${homeController.getTotalSpent()}';
+                                        } else {
+                                          displayAmount = formattedAmount;
+                                        }
                                       }
-                                    } else {
-                                      final now = DateTime.now();
-                                      // Calculate the correct month and year based on the bar index
-                                      int monthsBack = 11 - groupIndex;
-                                      int targetMonth = now.month - monthsBack;
-                                      int targetYear = now.year;
 
-                                      // Handle negative months (go to previous year)
-                                      while (targetMonth <= 0) {
-                                        targetMonth += 12;
-                                        targetYear -= 1;
-                                      }
-
-                                      final monthNames = [
-                                        'JAN',
-                                        'FEB',
-                                        'MAR',
-                                        'APR',
-                                        'MAY',
-                                        'JUN',
-                                        'JUL',
-                                        'AUG',
-                                        'SEP',
-                                        'OCT',
-                                        'NOV',
-                                        'DEC'
-                                      ];
-                                      dateLabel =
-                                          '${monthNames[targetMonth - 1]} $targetYear';
-
-                                      // For current month, use home controller's total
-                                      if (targetMonth == now.month &&
-                                          targetYear == now.year) {
-                                        totalAmount =
-                                            'PHP ${homeController.getTotalSpent()}';
-                                      } else {
-                                        totalAmount = formattedAmount;
-                                      }
-                                    }
-
-                                    // Show "No data" if amount is 0
-                                    String displayText = amount == 0
-                                        ? '$dateLabel\nTotal: PHP 0.00\n(No expenses recorded)'
-                                        : '$dateLabel\nTotal: $totalAmount\n(Expenses + Favorites)';
-
-                                    return BarTooltipItem(
-                                      displayText,
-                                      const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    );
-                                  },
-                                  tooltipPadding: const EdgeInsets.all(12),
-                                  tooltipMargin: 8,
-                                ),
-                                touchCallback: (
-                                  FlTouchEvent event,
-                                  BarTouchResponse? touchResponse,
-                                ) {
-                                  if (event is FlTapUpEvent &&
-                                      touchResponse != null &&
-                                      touchResponse.spot?.touchedBarGroup !=
-                                          null) {
-                                    final touchedGroup =
-                                        touchResponse.spot!.touchedBarGroup;
-                                    final amount =
-                                        touchedGroup.barRods.first.toY;
-                                    final formattedAmount = amount >= 1000
-                                        ? 'PHP ${(amount / 1000).toStringAsFixed(1)}k'
-                                        : 'PHP ${amount.toStringAsFixed(2)}';
-
-                                    // Get the actual date for better display
-                                    String period;
-                                    String displayAmount;
-
-                                    if (isDaily) {
-                                      final now = DateTime.now();
-                                      final day = touchedGroup.x + 1;
-                                      final date =
-                                          DateTime(now.year, now.month, day);
-                                      period =
-                                          '${date.day}/${date.month}/${date.year}';
-
-                                      // Get the actual amount from the graph data for this specific day
-                                      final expenses = graphController
-                                          .getCurrentMonthExpenses();
-                                      final actualAmount =
-                                          touchedGroup.x < expenses.length
-                                              ? expenses[touchedGroup.x]
-                                              : 0.0;
-
-                                      // Format the amount based on actual data
-                                      if (actualAmount > 0) {
-                                        displayAmount = actualAmount >= 1000
-                                            ? 'PHP ${(actualAmount / 1000).toStringAsFixed(1)}k'
-                                            : 'PHP ${actualAmount.toStringAsFixed(2)}';
-                                      } else {
+                                      // Show "0" if no data
+                                      if (amount == 0) {
                                         displayAmount = 'PHP 0.00';
                                       }
-                                    } else {
-                                      final now = DateTime.now();
-                                      // Calculate the correct month and year based on the bar index
-                                      int monthsBack = 11 - touchedGroup.x;
-                                      int targetMonth = now.month - monthsBack;
-                                      int targetYear = now.year;
 
-                                      // Handle negative months (go to previous year)
-                                      while (targetMonth <= 0) {
-                                        targetMonth += 12;
-                                        targetYear -= 1;
-                                      }
-
-                                      final monthNames = [
-                                        'JAN',
-                                        'FEB',
-                                        'MAR',
-                                        'APR',
-                                        'MAY',
-                                        'JUN',
-                                        'JUL',
-                                        'AUG',
-                                        'SEP',
-                                        'OCT',
-                                        'NOV',
-                                        'DEC'
-                                      ];
-                                      period =
-                                          '${monthNames[targetMonth - 1]} $targetYear';
-
-                                      // For current month, use home controller's total
-                                      if (targetMonth == now.month &&
-                                          targetYear == now.year) {
-                                        displayAmount =
-                                            'PHP ${homeController.getTotalSpent()}';
-                                      } else {
-                                        displayAmount = formattedAmount;
-                                      }
+                                      _showExpenseDetails(context, period,
+                                          displayAmount, isDaily);
                                     }
-
-                                    // Show "0" if no data
-                                    if (amount == 0) {
-                                      displayAmount = 'PHP 0.00';
-                                    }
-
-                                    _showExpenseDetails(context, period,
-                                        displayAmount, isDaily);
-                                  }
-                                },
-                                handleBuiltInTouches: true,
+                                  },
+                                  handleBuiltInTouches: true,
+                                ),
+                                maxY: yAxisLabels.last,
+                                alignment: BarChartAlignment.spaceAround,
+                                groupsSpace: isDaily ? 12 : 20,
                               ),
-                              maxY: yAxisLabels.last,
-                              alignment: BarChartAlignment.spaceAround,
-                              groupsSpace: isDaily ? 12 : 20,
                             ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SizedBox(height: 16),
-        Container(
-          width: 200,
-          height: 45,
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(color: Colors.grey[200]!),
-          ),
-          child: Stack(
-            children: [
-              AnimatedAlign(
-                duration: Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                alignment:
-                    isDaily ? Alignment.centerLeft : Alignment.centerRight,
-                child: Container(
-                  width: 100,
-                  height: 40,
-                  margin: EdgeInsets.all(2.5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2196F3),
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF2196F3).withOpacity(0.3),
-                        blurRadius: 8,
-                        spreadRadius: 0,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () async {
-                        if (isRefreshing) return;
-                        setState(() => isRefreshing = true);
-                        await graphController.refreshData();
-                        setState(() {
-                          isDaily = true;
-                          isRefreshing = false;
-                        });
-                      },
-                      child: Container(
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Daily',
-                          style: TextStyle(
-                            color: isDaily ? Colors.white : Colors.grey[600],
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () async {
-                        if (isRefreshing) return;
-                        setState(() => isRefreshing = true);
-                        await graphController.refreshData();
-                        setState(() {
-                          isDaily = false;
-                          isRefreshing = false;
-                        });
-                      },
-                      child: Container(
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Monthly',
-                          style: TextStyle(
-                            color: isDaily ? Colors.grey[600] : Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
                           ),
                         ),
                       ),
@@ -648,11 +559,95 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ],
-    );
+          SizedBox(height: 16),
+          Container(
+            width: 200,
+            height: 45,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Stack(
+              children: [
+                AnimatedAlign(
+                  duration: Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  alignment:
+                      isDaily ? Alignment.centerLeft : Alignment.centerRight,
+                  child: Container(
+                    width: 100,
+                    height: 40,
+                    margin: EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2196F3),
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF2196F3).withOpacity(0.3),
+                          blurRadius: 8,
+                          spreadRadius: 0,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          // Instant switch - no loading needed, data is already cached
+                          setState(() {
+                            isDaily = true;
+                          });
+                        },
+                        child: Container(
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Daily',
+                            style: TextStyle(
+                              color: isDaily ? Colors.white : Colors.grey[600],
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          // Instant switch - no loading needed, data is already cached
+                          setState(() {
+                            isDaily = false;
+                          });
+                        },
+                        child: Container(
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Monthly',
+                            style: TextStyle(
+                              color: isDaily ? Colors.grey[600] : Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }); // End of Obx wrapper
   }
 
   void _showExpenseDetails(

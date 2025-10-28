@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,10 +15,62 @@ class GraphController extends GetxController {
   final RxMap<String, double> monthlyExpenses = <String, double>{}.obs;
   final RxDouble currentMonthTotal = 0.0.obs;
 
+  // Real-time stream subscriptions
+  StreamSubscription<QuerySnapshot>? _expensesSubscription;
+  StreamSubscription<QuerySnapshot>? _favoritesSubscription;
+
   @override
   void onInit() {
     super.onInit();
+    // Set up real-time listeners
+    _setupRealtimeListeners();
+    // Initial fetch
     fetchExpenses();
+  }
+
+  @override
+  void onClose() {
+    // Cancel subscriptions
+    _expensesSubscription?.cancel();
+    _favoritesSubscription?.cancel();
+    super.onClose();
+  }
+
+  /// Set up real-time Firestore listeners for automatic graph updates
+  void _setupRealtimeListeners() {
+    final user = _auth.currentUser;
+    if (user == null) {
+      log('GraphController: User not authenticated, cannot set up listeners');
+      return;
+    }
+
+    log('📊 GraphController: Setting up real-time listeners');
+
+    // Listen to expenses changes
+    _expensesSubscription = _firestore
+        .collection('expenses')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      log('📊 GraphController: Expenses changed, refreshing graph data');
+      fetchExpenses();
+    }, onError: (error) {
+      log('GraphController: Error in expenses listener: $error');
+    });
+
+    // Listen to favorites changes
+    _favoritesSubscription = _firestore
+        .collection('favorites')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      log('📊 GraphController: Favorites changed, refreshing graph data');
+      fetchExpenses();
+    }, onError: (error) {
+      log('GraphController: Error in favorites listener: $error');
+    });
+
+    log('✅ GraphController: Real-time listeners active');
   }
 
   // Method to refresh data when needed
@@ -76,24 +129,48 @@ class GraphController extends GetxController {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         double amount = (data['amount'] as num).toDouble();
 
-        // Use receipt date for graphing (when purchase was made)
-        // Fallback to timestamp if receiptDate is not available
-        DateTime date;
-        if (data['receiptDate'] != null) {
-          // Parse receipt date string (format: YYYY-MM-DD)
-          date = DateTime.parse(data['receiptDate']);
+        // Use receiptDate for BOTH daily and monthly views
+        // This shows expenses based on when they actually occurred (according to receipt)
+        // NOT when the user added them to the app
+        DateTime expenseDate;
+
+        // Get receipt date (the actual date of the expense)
+        if (data['receiptDate'] != null &&
+            data['receiptDate'].toString().isNotEmpty) {
+          try {
+            expenseDate = DateTime.parse(data['receiptDate']);
+          } catch (e) {
+            // If receiptDate parsing fails, fall back to transactionDate
+            if (data['transactionDate'] != null) {
+              expenseDate = DateTime.parse(data['transactionDate']);
+            } else if (data['timestamp'] != null) {
+              expenseDate = (data['timestamp'] as Timestamp).toDate();
+            } else {
+              expenseDate = DateTime.now();
+            }
+            log('Error parsing receiptDate for ${data['category']}: $e, using fallback');
+          }
         } else {
-          // Fallback to timestamp for backward compatibility
-          date = (data['timestamp'] as Timestamp).toDate();
+          // If no receiptDate, use transactionDate as fallback
+          if (data['transactionDate'] != null) {
+            expenseDate = DateTime.parse(data['transactionDate']);
+          } else if (data['timestamp'] != null) {
+            expenseDate = (data['timestamp'] as Timestamp).toDate();
+          } else {
+            expenseDate = DateTime.now();
+          }
+          log('No receiptDate for ${data['category']}, using transactionDate');
         }
 
-        // Debug logging to see what dates we're processing
-        log('Processing expense: ${data['category']} - Amount: $amount - Date: ${date.toString()} - ReceiptDate: ${data['receiptDate']} - Timestamp: ${data['timestamp']}');
+        // Debug logging
+        log('Processing expense: ${data['category']} - Amount: $amount');
+        log('  - ReceiptDate: ${data['receiptDate']}');
+        log('  - TransactionDate: ${data['transactionDate']}');
+        log('  - Using for graph: ${expenseDate.toString()}');
 
-        // Include all records based on receipt date for historical graph
-        updateDailyExpenses(date, amount);
-        updateMonthlyExpenses(date, amount);
-        log('Including expense in graph: ${data['category']} - ${date.toString()}');
+        // Update both daily and monthly expenses using receiptDate
+        updateDailyExpenses(expenseDate, amount);
+        updateMonthlyExpenses(expenseDate, amount);
       }
 
       // Fetch and include favorites payments
@@ -143,9 +220,11 @@ class GraphController extends GetxController {
 
           double amount = (payment['amount'] ?? 0.0).toDouble();
 
-          // Add to graph data
+          // Add to both daily and monthly graph data using the payment timestamp
           updateDailyExpenses(paymentDate, amount);
           updateMonthlyExpenses(paymentDate, amount);
+
+          log('Added favorite payment: ${favorite['title']} - Amount: $amount - Date: ${paymentDate.toString()}');
         }
       }
     } catch (e) {

@@ -61,17 +61,23 @@
 ```yaml
 dependencies:
   flutter: sdk: flutter
-  firebase_core: ^3.13.0
-  cloud_firestore: ^5.6.6
-  firebase_auth: ^5.5.2
+  firebase_core: ^3.15.1
+  cloud_firestore: ^5.6.11
+  firebase_auth: ^5.6.2
   google_generative_ai: ^0.4.6
   image_picker: ^1.1.2
-  flutter_local_notifications: ^19.2.1
+  flutter_image_compress: ^2.3.0  # Image compression for Firestore
+  path_provider: ^2.1.1
+  flutter_local_notifications: ^19.3.0
   get: ^4.7.2
+  get_storage: ^2.1.1  # Local caching
   fl_chart: ^1.0.0
   percent_indicator: ^4.2.2
   google_fonts: ^6.2.1
   lucide_icons: ^0.257.0
+  intl: ^0.19.0  # Date formatting
+  emailjs: ^4.0.0  # Web feedback system
+  url_launcher: ^6.3.1  # External links
 ```
 
 ## 📱 Platform Support
@@ -242,24 +248,131 @@ The app includes comprehensive notification support for:
 
 ### 1. Smart Receipt Processing System
 - **Camera Integration**: Direct camera access for receipt capture with image quality optimization
-- **Gallery Selection**: Choose existing images from device gallery with compression
+- **Gallery Selection**: Choose existing images from device gallery with automatic compression (< 600KB)
 - **OCR Processing**: Automatic text extraction from receipt images using Google's Gemini AI
 - **AI Categorization**: Smart expense categorization with 6 main categories (Food, Transport, Shopping, Entertainment, Utilities, Other)
 - **Manual Override**: Full control to modify AI-suggested categories and amounts
-- **Base64 Storage**: Secure storage of receipt images in Firebase Firestore
-- **Date Recognition**: Automatic detection of purchase dates from receipts with fallback to current date
-- **Error Handling**: Graceful fallback when AI extraction fails
+- **Dual Date Tracking**: 
+  - **Receipt Date**: The actual date on the physical receipt (used for budget calculations and graphs)
+  - **Transaction Date**: The date when the expense was added to the app (used for "Recent Transactions")
+- **Image Compression**: Automatic image compression using `flutter_image_compress` to ensure Firestore compatibility
+- **Base64 Storage**: Secure storage of receipt images in Firebase Firestore (< 1MB limit)
+- **Error Handling**: Graceful fallback when AI extraction fails with user-friendly error messages
 
 **Technical Implementation:**
 ```dart
-// AI-powered expense extraction
+// AI-powered expense extraction with dual date tracking
 Future<Map<String, String>> extractExpenseDetails(String imageBase64) async {
   final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
   final content = [Content.multi([TextPart(prompt), DataPart('image/jpeg', bytes)])];
   final response = await model.generateContent(content);
-  // Parse response for category, amount, and date
+  
+  return {
+    'category': extractedCategory,
+    'amount': cleanedAmount,
+    'receiptDate': extractedDate,  // Date from physical receipt
+    'transactionDate': DateTime.now().toString().split(' ')[0]  // Today's date
+  };
+}
+
+// Image compression before storage
+Future<Uint8List?> _compressImage(Uint8List imageBytes) async {
+  return await FlutterImageCompress.compressWithList(
+    imageBytes,
+    minWidth: 1920,
+    minHeight: 1080,
+    quality: 85,
+    format: CompressFormat.jpeg,
+  );
 }
 ```
+
+### 1.1. Calculation Logic & Data Flow
+
+SnapWise implements a sophisticated calculation system with clear separation of concerns:
+
+#### **Account Balance Calculation**
+```
+Account Balance = Income - Total Spent
+```
+- **Income**: User's monthly income set in the app
+- **Total Spent**: Sum of all expenses in current month (based on receipt date)
+- **Updates**: Real-time updates when expenses are added or income is modified
+
+#### **Total Spent Calculation**
+```
+Total Spent = Regular Expenses + Favorite (Priority) Expenses
+```
+- **Regular Expenses**: Filtered by `receiptDate` within current month
+- **Favorite Expenses**: Priority payments made in current month
+- **Date Logic**: Uses `receiptDate` to determine which month an expense belongs to
+- **Real-time Sync**: Automatic recalculation with Firestore stream listeners
+
+#### **Graph Data**
+- **Daily Graph**: Shows expenses per day based on `receiptDate`
+- **Monthly Graph**: Shows expenses per month based on `receiptDate` for last 12 months
+- **Purpose**: Historical spending patterns based on when expenses actually occurred
+- **Data Source**: All expenses filtered and grouped by `receiptDate`
+
+#### **Recent Transactions**
+- **Filter**: Shows expenses added TODAY (based on `transactionDate`)
+- **Display**: Shows the `receiptDate` (actual expense date) for each item
+- **Purpose**: Quick view of what was just added to the app, regardless of receipt date
+- **Example**: If you scan an old receipt from 2014 today, it appears in Recent Transactions
+
+#### **Data Flow Architecture**
+```
+┌──────────────────────────────────────────────────────────────┐
+│              USER ADDS EXPENSE (Camera/Gallery)              │
+└────────────────────────┬─────────────────────────────────────┘
+                         │
+              ┌──────────▼──────────┐
+              │  AI Extraction      │
+              │  (Gemini AI)        │
+              │  - Category         │
+              │  - Amount           │
+              │  - Receipt Date     │
+              └──────────┬──────────┘
+                         │
+              ┌──────────▼──────────┐
+              │  Data Processing    │
+              │  - Clean amount     │
+              │  - Compress image   │
+              │  - Set dates        │
+              │    • receiptDate    │
+              │    • transactionDate│
+              └──────────┬──────────┘
+                         │
+              ┌──────────▼──────────┐
+              │  Save to Firestore  │
+              │  expenses collection│
+              └──────────┬──────────┘
+                         │
+         ┌───────────────┼───────────────┐
+         │               │               │
+         ▼               ▼               ▼
+┌────────────┐  ┌────────────┐  ┌────────────┐
+│Recent Trans│  │Total Spent │  │  Graph     │
+│(txnDate)   │  │(rcptDate)  │  │(rcptDate)  │
+│Shows today │  │Current     │  │Historical  │
+│additions   │  │month total │  │patterns    │
+└────────────┘  └────────────┘  └────────────┘
+```
+
+#### **Why This Design?**
+
+✅ **No Redundancy**: Each component serves a unique purpose
+- Recent Transactions: What was just added
+- Total Spent: Current month's actual spending
+- Graph: Historical spending patterns
+
+✅ **Accurate Reporting**: Expenses counted once, displayed appropriately
+- Budget calculations based on when expenses occurred (receiptDate)
+- User can see what they just added (transactionDate)
+
+✅ **Flexible Data Entry**: Scan old receipts without affecting current month
+- Old receipts appear in correct historical period
+- Still visible in Recent Transactions for confirmation
 
 ### 2. Advanced Budget Management System
 - **Category-based Budgets**: Set individual budgets for different expense categories with custom alert percentages
@@ -399,11 +512,56 @@ Future<void> _processUserMessage(String message) async {
 }
 ```
 
-### 7. Advanced Analytics & Reporting
+### 7. Real-time Data Synchronization
+- **Firestore Stream Listeners**: Automatic real-time updates from Firebase
+- **GetX Reactive Programming**: Instant UI updates with `Obx` widgets
+- **No Manual Refresh**: All data updates automatically when changes occur
+- **Multi-component Sync**: Home screen, graphs, and transactions update simultaneously
+- **Memory Efficient**: Proper disposal of stream subscriptions to prevent memory leaks
+- **Optimized Performance**: Debounced updates to prevent excessive refreshes
+
+**Technical Implementation:**
+```dart
+// Real-time listeners in HomeController
+void _setupRealtimeListeners() {
+  // Listen to expenses changes
+  _expensesSubscription = _firestore
+      .collection('expenses')
+      .where('userId', isEqualTo: user.uid)
+      .snapshots()
+      .listen((snapshot) {
+    log('Expenses changed, refreshing data');
+    refreshAllData();
+  });
+
+  // Listen to budget changes
+  _budgetSubscription = _firestore
+      .collection('overallBudget')
+      .doc(user.uid)
+      .snapshots()
+      .listen((snapshot) {
+    totalBudget.value = snapshot.data()?['totalBudget']?.toString() ?? '0.0';
+  });
+
+  // Auto-dispose on controller close
+  @override
+  void onClose() {
+    _expensesSubscription?.cancel();
+    _budgetSubscription?.cancel();
+    super.onClose();
+  }
+}
+
+// Reactive UI with Obx
+Obx(() => Text('PHP ${controller.totalSpent}'))  // Auto-updates
+```
+
+### 8. Advanced Analytics & Reporting
 - **Transaction History**: Complete record of all expenses with filtering and search capabilities
 - **Spending Patterns**: Visual analysis of expense trends by category and time period
 - **Monthly Summaries**: Comprehensive financial summaries with income vs expense analysis
 - **Interactive Charts**: Beautiful charts and graphs using FL Chart library
+- **Dual-axis Graphs**: Daily and monthly views with smooth transitions
 - **Export Capabilities**: Data export functionality for external analysis
 - **Real-time Updates**: Live data updates using GetX reactive programming
 - **Responsive Design**: Optimized for mobile, tablet, and desktop viewing
@@ -450,113 +608,307 @@ flutter test
 
 ## 📊 Database Schema
 
-### **Firebase Firestore Collections**
+### **Firebase Firestore Data Model / Schema Diagram**
 
-#### **1. Users Collection**
-```json
-{
-  "users": {
-    "userId": {
-      "email": "user@example.com",
-      "displayName": "User Name",
-      "photoUrl": "https://...",
-      "createdAt": "timestamp",
-      "lastLogin": "timestamp"
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        FIREBASE FIRESTORE DATABASE                          │
+│                          (NoSQL Document Database)                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  COLLECTION: users                                                          │
+│  Document ID: {userId} (Firebase Auth UID)                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  {                                                                          │
+│    email: string               // "user@example.com"                       │
+│    displayName: string         // "John Doe"                               │
+│    photoUrl: string            // "https://..."                            │
+│    createdAt: timestamp        // Account creation date                    │
+│    lastLogin: timestamp        // Last login date                          │
+│  }                                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ userId (1:N)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  COLLECTION: expenses                                                       │
+│  Document ID: {expenseId} (Auto-generated)                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  {                                                                          │
+│    userId: string              // Reference to users collection            │
+│    category: string            // "Food", "Transport", "Shopping", etc.    │
+│    amount: number              // 25.50 (double)                           │
+│    base64Image: string         // Base64 encoded receipt image             │
+│    receiptDate: string         // "2025-01-15" (date from receipt)         │
+│    transactionDate: string     // "2025-10-28" (date added to app)         │
+│    timestamp: timestamp        // Server timestamp (Firestore)             │
+│  }                                                                          │
+│                                                                             │
+│  Indexes:                                                                   │
+│    - userId, timestamp (desc)  // For fetching user's recent expenses      │
+│    - userId, receiptDate       // For monthly totals and graphs            │
+│    - userId, transactionDate   // For "Recent Transactions" feature        │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ userId (1:N)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  COLLECTION: budget                                                         │
+│  Document ID: {budgetId} (Auto-generated)                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  {                                                                          │
+│    userId: string              // Reference to users collection            │
+│    category: string            // "Food", "Transport", "Shopping", etc.    │
+│    amount: number              // 5000.00 (budget limit for category)      │
+│    alertPercentage: number     // 80.0 (trigger alert at 80%)              │
+│    receiveAlert: boolean       // true/false (enable/disable alerts)       │
+│    timestamp: timestamp        // Server timestamp                         │
+│  }                                                                          │
+│                                                                             │
+│  Indexes:                                                                   │
+│    - userId, category          // For category-specific budget queries     │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ userId (1:1)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  COLLECTION: overallBudget                                                  │
+│  Document ID: {userId} (Firebase Auth UID - One per user)                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  {                                                                          │
+│    userId: string              // Reference to users collection            │
+│    amount: number              // 50000.00 (total monthly budget)          │
+│    totalBudget: number         // 50000.00 (for display)                   │
+│    alertPercentage: number     // 80.0 (trigger alert at 80%)              │
+│    receiveAlert: boolean       // true/false                               │
+│    timestamp: timestamp        // Server timestamp                         │
+│  }                                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ userId (1:1)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  COLLECTION: income                                                         │
+│  Document ID: {userId} (Firebase Auth UID - One per user)                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  {                                                                          │
+│    userId: string              // Reference to users collection            │
+│    amount: number              // 90000.00 (monthly income)                │
+│    income: number              // 90000.00 (for display)                   │
+│    alertPercentage: number     // 80.0 (income utilization alert)          │
+│    receiveAlert: boolean       // true/false                               │
+│    timestamp: timestamp        // Server timestamp                         │
+│  }                                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ userId (1:N)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  COLLECTION: favorites (Priority Payments)                                  │
+│  Document ID: {favoriteId} (Auto-generated)                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  {                                                                          │
+│    userId: string              // Reference to users collection            │
+│    title: string               // "Electric Bill", "Water Bill", etc.      │
+│    totalAmount: number         // 2500.00 (total bill amount)              │
+│    amountToPay: number         // 2500.00 (amount due)                     │
+│    paidAmount: number          // 0.00 (amount paid so far)                │
+│    frequency: string           // "Monthly", "Weekly", "One-time"          │
+│    startDate: string           // "2025-01-01"                             │
+│    endDate: string             // "2025-12-31"                             │
+│    status: string              // "Pending", "Paid", "Missed"              │
+│    paymentHistory: [           // Array of payment records                 │
+│      {                                                                      │
+│        amount: number          // 2500.00                                  │
+│        timestamp: timestamp    // Payment date                             │
+│      }                                                                      │
+│    ],                                                                       │
+│    timestamp: timestamp        // Server timestamp (creation)              │
+│  }                                                                          │
+│                                                                             │
+│  Indexes:                                                                   │
+│    - userId, status            // For filtering by payment status          │
+│    - userId, timestamp         // For recent payments                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ userId (1:N)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  COLLECTION: predictions                                                    │
+│  Document ID: {predictionId} (Auto-generated)                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  {                                                                          │
+│    userId: string              // Reference to users collection            │
+│    totalBudget: number         // 30000.00 (predicted budget)              │
+│    categories: [               // Array of category predictions            │
+│      {                                                                      │
+│        name: string            // "Food"                                   │
+│        amount: number          // 8000.00                                  │
+│        percentage: number      // 26.7                                     │
+│      },                                                                     │
+│      {                                                                      │
+│        name: string            // "Transport"                              │
+│        amount: number          // 5000.00                                  │
+│        percentage: number      // 16.7                                     │
+│      }                                                                      │
+│    ],                                                                       │
+│    dailyPredictions: [         // Array of daily predictions               │
+│      {                                                                      │
+│        day: number             // 1-31                                     │
+│        amount: number          // 1000.00                                  │
+│      }                                                                      │
+│    ],                                                                       │
+│    insights: string            // "AI-generated financial insights..."     │
+│    timestamp: timestamp        // Prediction creation date                 │
+│  }                                                                          │
+│                                                                             │
+│  Indexes:                                                                   │
+│    - userId, timestamp (desc)  // For fetching latest predictions          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### **Relationship Diagram**
+
+```
+┌──────────┐
+│  users   │
+│ (1 user) │
+└────┬─────┘
+     │
+     ├─────────────────┐
+     │                 │
+     ▼ (1:N)           ▼ (1:N)
+┌──────────┐      ┌──────────┐
+│ expenses │      │  budget  │
+│(multiple)│      │(multiple)│
+└──────────┘      └──────────┘
+     │
+     │
+     ├─────────────────┐
+     │                 │
+     ▼ (1:1)           ▼ (1:1)
+┌────────────┐    ┌──────────┐
+│overallBudget│   │  income  │
+│  (single)   │   │ (single) │
+└────────────┘    └──────────┘
+     │
+     │
+     ├─────────────────┐
+     │                 │
+     ▼ (1:N)           ▼ (1:N)
+┌──────────┐      ┌──────────────┐
+│favorites │      │ predictions  │
+│(multiple)│      │  (multiple)  │
+└──────────┘      └──────────────┘
+```
+
+### **Key Design Decisions**
+
+#### **1. Document Structure**
+- **Denormalized Design**: Data is intentionally duplicated (e.g., userId in each collection) for faster queries
+- **No Foreign Keys**: NoSQL doesn't enforce referential integrity; handled in application logic
+- **Subcollections**: Not used; flat structure for simpler queries
+
+#### **2. Data Types**
+- **Timestamps**: Server timestamps for consistency across devices
+- **Numbers**: JavaScript numbers (doubles) for all numeric values
+- **Strings**: For dates (YYYY-MM-DD format) to enable easy parsing and filtering
+- **Arrays**: For payment history and category predictions
+
+#### **3. Indexing Strategy**
+- **Composite Indexes**: userId + timestamp for efficient user-specific queries
+- **Single Field Indexes**: Automatic indexing on frequently queried fields
+- **Query Optimization**: Indexes designed for common query patterns
+
+#### **4. Security Rules**
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only access their own data
+    match /expenses/{expenseId} {
+      allow read, write: if request.auth != null && 
+                           request.auth.uid == resource.data.userId;
+    }
+    
+    match /budget/{budgetId} {
+      allow read, write: if request.auth != null && 
+                           request.auth.uid == resource.data.userId;
+    }
+    
+    match /overallBudget/{userId} {
+      allow read, write: if request.auth != null && 
+                           request.auth.uid == userId;
+    }
+    
+    match /income/{userId} {
+      allow read, write: if request.auth != null && 
+                           request.auth.uid == userId;
+    }
+    
+    match /favorites/{favoriteId} {
+      allow read, write: if request.auth != null && 
+                           request.auth.uid == resource.data.userId;
+    }
+    
+    match /predictions/{predictionId} {
+      allow read, write: if request.auth != null && 
+                           request.auth.uid == resource.data.userId;
     }
   }
 }
 ```
 
-#### **2. Expenses Collection**
-```json
-{
-  "expenses": {
-    "expenseId": {
-      "userId": "user_id",
-      "category": "Food",
-      "amount": 25.50,
-      "description": "Lunch at restaurant",
-      "receiptImage": "base64_encoded_image",
-      "receiptDate": "2024-01-15",
-      "transactionDate": "2024-01-15",
-      "timestamp": "server_timestamp"
-    }
-  }
-}
+### **Data Flow & Calculations**
+
+#### **Account Balance Calculation**
+```
+Query: income/{userId}
+Query: expenses (where userId == currentUser && receiptDate in currentMonth)
+Query: favorites (where userId == currentUser && paymentHistory in currentMonth)
+
+Calculation:
+  income.amount - (sum(expenses.amount) + sum(favorites.paymentHistory.amount))
 ```
 
-#### **3. Budget Collection**
-```json
-{
-  "budget": {
-    "budgetId": {
-      "userId": "user_id",
-      "category": "Food",
-      "amount": 500.00,
-      "alertPercentage": 80.0,
-      "receiveAlert": true,
-      "timestamp": "server_timestamp"
-    }
-  }
-}
+#### **Total Spent Calculation**
+```
+Query: expenses (where userId == currentUser && receiptDate in currentMonth)
+Query: favorites (where userId == currentUser && paymentHistory in currentMonth)
+
+Calculation:
+  sum(expenses.amount) + sum(favorites.paymentHistory.amount)
 ```
 
-#### **4. Favorites Collection (Priority Payments)**
-```json
-{
-  "favorites": {
-    "favoriteId": {
-      "userId": "user_id",
-      "title": "Electric Bill",
-      "totalAmount": 2500.00,
-      "amountToPay": 2500.00,
-      "paidAmount": 0.00,
-      "frequency": "Monthly",
-      "startDate": "2024-01-01",
-      "endDate": "2024-12-31",
-      "status": "Pending",
-      "paymentHistory": [],
-      "timestamp": "server_timestamp"
-    }
-  }
-}
+#### **Graph Data (Daily View)**
+```
+Query: expenses (where userId == currentUser)
+Filter: receiptDate in currentMonth
+Group By: Day of receiptDate
+Calculation: sum(expenses.amount) per day
 ```
 
-#### **5. Income Collection**
-```json
-{
-  "income": {
-    "incomeId": {
-      "userId": "user_id",
-      "amount": 50000.00,
-      "alertPercentage": 80.0,
-      "receiveAlert": true,
-      "timestamp": "server_timestamp"
-    }
-  }
-}
+#### **Recent Transactions**
+```
+Query: expenses (where userId == currentUser)
+Filter: transactionDate == today
+Order By: timestamp desc
+Limit: 3
+Display: receiptDate for each expense
 ```
 
-#### **6. Predictions Collection**
-```json
-{
-  "predictions": {
-    "predictionId": {
-      "userId": "user_id",
-      "totalBudget": 30000.00,
-      "categories": [
-        {
-          "name": "Food",
-          "amount": 8000.00,
-          "percentage": 26.7
-        }
-      ],
-      "insights": "AI-generated insights...",
-      "timestamp": "server_timestamp"
-    }
-  }
-}
-```
+### **Firebase Firestore Collections Summary**
+
+| Collection | Purpose | Document ID | Relationship |
+|------------|---------|-------------|--------------|
+| `users` | User authentication data | Firebase Auth UID | Parent (1:N) |
+| `expenses` | Expense records | Auto-generated | Child of users |
+| `budget` | Category budgets | Auto-generated | Child of users |
+| `overallBudget` | Total monthly budget | User ID | Child of users (1:1) |
+| `income` | Monthly income | User ID | Child of users (1:1) |
+| `favorites` | Priority payments | Auto-generated | Child of users |
+| `predictions` | Budget predictions | Auto-generated | Child of users |
 
 ## 🔌 API Documentation
 

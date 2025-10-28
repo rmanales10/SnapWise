@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:snapwise/app/expense/expense_controller.dart';
 import 'package:snapwise/app/expense/gemini_ai.dart';
 import 'package:snapwise/app/home/home_screens/home_controller.dart';
@@ -429,6 +432,79 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     return cleaned;
   }
 
+  /// Compress image to ensure it's under Firestore's 1MB limit
+  Future<Uint8List> _compressImage(XFile imageFile) async {
+    try {
+      // Read original file
+      final imageBytes = await imageFile.readAsBytes();
+      final originalSize = imageBytes.length;
+
+      print('=== IMAGE COMPRESSION ===');
+      print('Original size: ${(originalSize / 1024).toStringAsFixed(2)} KB');
+
+      // If already under 800KB (leaving margin for base64 encoding), return as is
+      if (originalSize < 800 * 1024) {
+        print('Image is already small enough, no compression needed');
+        print('========================');
+        return imageBytes;
+      }
+
+      // Get temporary directory
+      final tempDir = await getTemporaryDirectory();
+      final targetPath =
+          '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      // Start with quality 85 and reduce if needed
+      int quality = 85;
+      Uint8List? compressedBytes;
+
+      while (quality > 20) {
+        compressedBytes = await FlutterImageCompress.compressWithFile(
+          imageFile.path,
+          quality: quality,
+          minWidth: 1024, // Max width 1024px
+          minHeight: 1024, // Max height 1024px
+          format: CompressFormat.jpeg,
+        );
+
+        if (compressedBytes != null) {
+          final compressedSize = compressedBytes.length;
+          print(
+              'Compressed with quality $quality: ${(compressedSize / 1024).toStringAsFixed(2)} KB');
+
+          // Base64 encoding increases size by ~33%, so target 600KB to be safe
+          if (compressedSize < 600 * 1024) {
+            print('Compression successful!');
+            print(
+                'Final size: ${(compressedSize / 1024).toStringAsFixed(2)} KB');
+            print('========================');
+
+            // Clean up temp file if created
+            final tempFile = File(targetPath);
+            if (await tempFile.exists()) {
+              await tempFile.delete();
+            }
+
+            return compressedBytes;
+          }
+        }
+
+        // Reduce quality for next iteration
+        quality -= 15;
+      }
+
+      // If still too large, return the best we got
+      print('Warning: Image still large after max compression');
+      print('========================');
+      return compressedBytes ?? imageBytes;
+    } catch (e) {
+      print('Compression error: $e');
+      print('========================');
+      // Return original if compression fails
+      return await imageFile.readAsBytes();
+    }
+  }
+
   Future<void> _processAndDisplayImage(XFile image) async {
     try {
       // Set loading state
@@ -436,8 +512,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
         isProcessingImage = true;
       });
 
-      // Read the file as bytes
-      Uint8List imageBytes = await image.readAsBytes();
+      // Compress the image first to ensure it's under Firestore's 1MB limit
+      Uint8List imageBytes = await _compressImage(image);
 
       // Convert to base64
       String base64String = base64Encode(imageBytes);
@@ -1329,17 +1405,6 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       // Clean amount string by removing currency symbols and extra spaces
       String cleanAmount = _cleanAmountString(amountController.text);
       double amount = double.parse(cleanAmount);
-
-      // Debug logging
-      print('=== EXPENSE SAVE DEBUG ===');
-      print('Original amountController.text: ${amountController.text}');
-      print('Cleaned amount string: $cleanAmount');
-      print('Parsed double amount: $amount');
-      print('Category: ${categoryController.text}');
-      print('Receipt Date: ${receiptDateController.text}');
-      print('Transaction Date: ${dateController.text}');
-      print('Has image: ${base64Image != null}');
-      print('========================');
 
       await controller.addExpense(
         categoryController.text,

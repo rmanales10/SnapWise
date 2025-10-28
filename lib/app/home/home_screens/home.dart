@@ -354,7 +354,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Top Transactions',
+                'Recent Transactions',
                 style: TextStyle(
                   fontSize: isTablet ? 22 : 18,
                   fontWeight: FontWeight.bold,

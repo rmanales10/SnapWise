@@ -27,18 +27,136 @@ class HomeController extends GetxController {
   bool _isRefreshingData = false;
   Timer? _refreshTimer;
 
+  // Real-time stream subscriptions
+  StreamSubscription<QuerySnapshot>? _expensesSubscription;
+  StreamSubscription<QuerySnapshot>? _favoritesSubscription;
+  StreamSubscription<DocumentSnapshot>? _budgetSubscription;
+  StreamSubscription<DocumentSnapshot>? _incomeSubscription;
+
   @override
   void onInit() {
     super.onInit();
+    // Set up real-time listeners
+    _setupRealtimeListeners();
+    // Initial data fetch
     refreshAllData();
-    // Removed periodic refresh to prevent infinite fetching
-    // _startPeriodicRefresh();
   }
 
   @override
   void onClose() {
     _refreshTimer?.cancel();
+    // Cancel all real-time subscriptions
+    _expensesSubscription?.cancel();
+    _favoritesSubscription?.cancel();
+    _budgetSubscription?.cancel();
+    _incomeSubscription?.cancel();
     super.onClose();
+  }
+
+  /// Set up real-time Firestore listeners for automatic updates
+  void _setupRealtimeListeners() {
+    final user = _auth.currentUser;
+    if (user == null) {
+      log('User not authenticated, cannot set up real-time listeners');
+      return;
+    }
+
+    log('=== SETTING UP REAL-TIME LISTENERS ===');
+
+    // Listen to expenses changes
+    _expensesSubscription = _firestore
+        .collection('expenses')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      log('📊 Real-time update: Expenses changed (${snapshot.docs.length} documents)');
+      _handleExpensesUpdate();
+    }, onError: (error) {
+      log('Error in expenses listener: $error');
+    });
+
+    // Listen to favorites/priority payments changes
+    _favoritesSubscription = _firestore
+        .collection('favorites')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      log('⭐ Real-time update: Favorites changed (${snapshot.docs.length} documents)');
+      _handleFavoritesUpdate();
+    }, onError: (error) {
+      log('Error in favorites listener: $error');
+    });
+
+    // Listen to budget changes
+    _budgetSubscription = _firestore
+        .collection('overallBudget')
+        .doc(user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists) {
+        final data = snapshot.data();
+        final budget = data?['totalBudget']?.toString() ?? '0.0';
+        log('💰 Real-time update: Budget changed to $budget');
+        totalBudget.value = budget;
+      }
+    }, onError: (error) {
+      log('Error in budget listener: $error');
+    });
+
+    // Listen to income changes
+    _incomeSubscription = _firestore
+        .collection('income')
+        .doc(user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists) {
+        final data = snapshot.data();
+        final income = data?['income']?.toString() ?? '0.0';
+        log('💵 Real-time update: Income changed to $income');
+        totalIncome.value = income;
+      }
+    }, onError: (error) {
+      log('Error in income listener: $error');
+    });
+
+    log('✅ Real-time listeners set up successfully');
+  }
+
+  /// Handle real-time expenses updates
+  void _handleExpensesUpdate() async {
+    if (_isRefreshingData) {
+      log('Already refreshing, skipping expenses update');
+      return;
+    }
+
+    _isRefreshingData = true;
+    try {
+      await Future.wait([
+        fetchTransactions(),
+        fetchTransactionsHistory(),
+        _fetchCurrentMonthTotalForDisplay(),
+      ]);
+      log('✅ Expenses data refreshed');
+    } finally {
+      _isRefreshingData = false;
+    }
+  }
+
+  /// Handle real-time favorites updates
+  void _handleFavoritesUpdate() async {
+    if (_isRefreshingData) {
+      log('Already refreshing, skipping favorites update');
+      return;
+    }
+
+    _isRefreshingData = true;
+    try {
+      await getTotalPaymentHistory();
+      await _fetchCurrentMonthTotalForDisplay();
+      log('✅ Favorites data refreshed');
+    } finally {
+      _isRefreshingData = false;
+    }
   }
 
   // Manual refresh method for when user explicitly wants to refresh data
@@ -133,7 +251,7 @@ class HomeController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        // Fetch all expenses and filter by transaction date for today only
+        // Fetch all expenses and filter by TRANSACTION DATE (when user added) for today only
         final querySnapshot = await _firestore
             .collection('expenses')
             .where('userId', isEqualTo: user.uid)
@@ -145,19 +263,54 @@ class HomeController extends GetxController {
         DateTime endOfToday =
             DateTime(now.year, now.month, now.day, 23, 59, 59);
 
+        log('=== FETCHING RECENT TRANSACTIONS (Transaction Date) ===');
+        log('Current DateTime.now(): $now');
+        log('Start of today: $startOfToday');
+        log('End of today: $endOfToday');
+        log('========================================================');
+
         final fetchedTransactions = querySnapshot.docs
             .map((doc) {
               final data = doc.data();
 
-              // Check if expense is from today based on transaction date (timestamp)
-              bool isToday = false;
-              DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
-              isToday = timestamp.isAfter(
-                      startOfToday.subtract(const Duration(seconds: 1))) &&
-                  timestamp
-                      .isBefore(endOfToday.add(const Duration(seconds: 1)));
+              // Check if expense was ADDED today based on TRANSACTION DATE
+              bool isAddedToday = false;
 
-              // Use receipt date for display if available, otherwise use timestamp
+              // Use transactionDate to check if expense was added today
+              if (data['transactionDate'] != null &&
+                  data['transactionDate'].toString().isNotEmpty) {
+                try {
+                  DateTime transactionDate =
+                      DateTime.parse(data['transactionDate']);
+                  isAddedToday = transactionDate.isAfter(
+                          startOfToday.subtract(const Duration(seconds: 1))) &&
+                      transactionDate
+                          .isBefore(endOfToday.add(const Duration(seconds: 1)));
+
+                  log('Transaction date: $transactionDate - isAddedToday: $isAddedToday');
+                } catch (e) {
+                  // If transaction date parsing fails, fall back to timestamp
+                  DateTime timestamp =
+                      (data['timestamp'] as Timestamp).toDate();
+                  isAddedToday = timestamp.isAfter(
+                          startOfToday.subtract(const Duration(seconds: 1))) &&
+                      timestamp
+                          .isBefore(endOfToday.add(const Duration(seconds: 1)));
+
+                  log('Transaction date parsing failed, using timestamp: $timestamp - isAddedToday: $isAddedToday');
+                }
+              } else {
+                // If no transaction date, fall back to timestamp
+                DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+                isAddedToday = timestamp.isAfter(
+                        startOfToday.subtract(const Duration(seconds: 1))) &&
+                    timestamp
+                        .isBefore(endOfToday.add(const Duration(seconds: 1)));
+
+                log('No transaction date, using timestamp: $timestamp - isAddedToday: $isAddedToday');
+              }
+
+              // Display receipt date (the actual date of the expense)
               String displayDate;
               if (data['receiptDate'] != null &&
                   data['receiptDate'].toString().isNotEmpty) {
@@ -175,10 +328,9 @@ class HomeController extends GetxController {
                 'id': doc.id,
                 "icon": _getCategoryIcon(data['category']),
                 "title": data['category'],
-                "date": displayDate,
+                "date": displayDate, // Show receipt date
                 "amount": "-${data['amount'].toStringAsFixed(2)}",
-                "isToday":
-                    isToday, // Add flag for filtering today's transactions
+                "isToday": isAddedToday, // Filter by transaction date
               };
             })
             .where((transaction) => transaction['isToday'] == true)
@@ -191,12 +343,22 @@ class HomeController extends GetxController {
 
         transactionsHistory.assignAll(fetchedTransactions);
 
-        // Take only first 3 for display in transactions (most recent from today)
+        // Take only first 3 for display in transactions (most recent added today)
         final displayTransactions = fetchedTransactions.take(3).toList();
         transactions.assignAll(displayTransactions);
 
-        log('Fetched ${fetchedTransactions.length} transactions for today (based on transaction date/timestamp)');
-        log('Displaying ${displayTransactions.length} recent transactions from today');
+        log('=== RECENT TRANSACTIONS SUMMARY ===');
+        log('Fetched ${fetchedTransactions.length} transactions ADDED today (filtered by transactionDate)');
+        log('Displaying ${displayTransactions.length} recent transactions');
+        if (fetchedTransactions.isNotEmpty) {
+          log('Recent transactions added today:');
+          for (var tx in fetchedTransactions) {
+            log('  - ${tx['title']}: ${tx['amount']} (Receipt date: ${tx['date']})');
+          }
+        } else {
+          log('No transactions added today!');
+        }
+        log('====================================');
       }
     } catch (e) {
       log('Error fetching transactions: $e');
