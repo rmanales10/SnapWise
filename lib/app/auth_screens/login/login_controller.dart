@@ -28,6 +28,25 @@ class LoginController extends GetxController {
   RxBool isSuccess = false.obs;
   String errorMessage = '';
 
+  @override
+  void onInit() {
+    super.onInit();
+    _initializeGoogleSignIn();
+  }
+
+  Future<void> _initializeGoogleSignIn() async {
+    try {
+      await _googleSignIn.initialize(
+        // Android client ID from google-services.json
+        serverClientId:
+            '722916662508-usuk99tjnpe38rgq7dlph34oh0t5069k.apps.googleusercontent.com',
+      );
+      developer.log('GoogleSignIn initialized successfully');
+    } catch (e) {
+      developer.log('Error initializing GoogleSignIn: $e');
+    }
+  }
+
   // RxMap to store user information
   final Rx<Map<String, String?>> userData = Rx<Map<String, String?>>({});
 
@@ -181,54 +200,137 @@ class LoginController extends GetxController {
     _isLoading.value = true;
 
     try {
-      // Optional cleanup
-      await _googleSignIn.disconnect();
+      developer.log('=== GOOGLE SIGN-IN START ===');
 
-      await _googleSignIn.initialize(
-        serverClientId:
-            '722916662508-v4u8l28sub5i4sabqtn51n9tcchhk1o8.apps.googleusercontent.com',
-      );
-
-      final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
-
-      if (googleUser.displayName == null) {
-        SnackbarService.showInfo(
-            title: 'Cancelled', message: 'Google Sign-In was cancelled');
+      // Check if authenticate is supported on this platform
+      if (!_googleSignIn.supportsAuthenticate()) {
+        developer.log('ERROR: authenticate() not supported on this platform');
+        SnackbarService.showError(
+            title: 'Google Sign-In Error',
+            message: 'Google Sign-In is not supported on this platform');
         return false;
       }
 
-      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+      // Trigger the interactive Google Sign-In flow using the new API
+      final GoogleSignInAccount googleUser = await _googleSignIn.authenticate();
+      developer.log('Google sign-in dialog completed');
 
-      final OAuthCredential credential = GoogleAuthProvider.credential(
-        idToken: googleAuth.idToken,
-        // ⚠️ accessToken no longer used or required
-      );
+      developer.log('User signed in: ${googleUser.email}');
 
-      final UserCredential userCredential =
-          await _auth.signInWithCredential(credential);
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      developer.log('Got authentication tokens');
 
-      if (userCredential.user != null) {
-        updateUserData(userCredential.user);
-        return true;
-      } else {
+      // Validate that we have the required tokens
+      if (googleAuth.idToken == null) {
+        developer.log('ERROR: No ID token received');
         SnackbarService.showError(
             title: 'Google Sign-In Error',
-            message: 'Failed to sign in with Google');
+            message: 'Failed to get authentication token');
+        return false;
+      }
+
+      // Create a new credential (only idToken is required, accessToken is optional)
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+      );
+      developer.log('Created Firebase credential');
+
+      // Sign in to Firebase with the Google credential
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
+      developer.log('Signed in to Firebase');
+
+      if (userCredential.user != null) {
+        developer.log('Firebase user created: ${userCredential.user!.uid}');
+
+        // Create or update user in Firestore
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'email': userCredential.user!.email,
+          'displayName': userCredential.user!.displayName,
+          'photoUrl': userCredential.user!.photoURL,
+          'isVerified': true, // Google users are pre-verified
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastLogin': FieldValue.serverTimestamp(),
+          'authProvider': 'google',
+        }, SetOptions(merge: true));
+        developer.log('User data stored in Firestore');
+
+        // Update local user data (no await - it's void)
+        updateUserData(userCredential.user);
+        developer.log('Local user data updated');
+
+        developer.log('=== GOOGLE SIGN-IN SUCCESS ===');
+        return true;
+      } else {
+        developer.log('ERROR: userCredential.user is null');
+        SnackbarService.showError(
+            title: 'Google Sign-In Error',
+            message: 'Failed to create user account');
         return false;
       }
     } on FirebaseAuthException catch (e) {
-      SnackbarService.showError(
-          title: 'Auth Error', message: e.message ?? 'Unknown Firebase error');
       developer.log('FirebaseAuthException: ${e.code} - ${e.message}');
-      return false;
-    } catch (e) {
+      String errorMessage = 'Authentication failed';
+
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          errorMessage =
+              'An account already exists with the same email but different sign-in credentials.';
+          break;
+        case 'invalid-credential':
+          errorMessage = 'The credential is malformed or has expired.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage = 'Google sign-in is not enabled for this app.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'This user account has been disabled.';
+          break;
+        case 'user-not-found':
+          errorMessage = 'No user found with this credential.';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Invalid password.';
+          break;
+        default:
+          errorMessage = e.message ?? 'An authentication error occurred';
+      }
+
       SnackbarService.showError(
-          title: 'Google Sign-In Error',
-          message: 'An unexpected error occurred');
+          title: 'Authentication Error', message: errorMessage);
+      return false;
+    } catch (e, stackTrace) {
       developer.log('Google Sign-In Error: $e');
+      developer.log('Stack trace: $stackTrace');
+
+      // Check if user cancelled the sign-in
+      if (e.toString().contains('sign_in_canceled') ||
+          e.toString().contains('ERROR_USER_CANCELED') ||
+          e.toString().contains('User canceled')) {
+        developer.log('User cancelled sign-in');
+        // Don't show error snackbar for cancellation
+        return false;
+      }
+
+      // Provide more specific error messages
+      String errorMessage = 'An unexpected error occurred';
+      if (e.toString().contains('network')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (e.toString().contains('PlatformException')) {
+        errorMessage = 'Google Sign-In is not properly configured.';
+      } else if (e.toString().contains('DEVELOPER_ERROR')) {
+        errorMessage =
+            'Google Sign-In configuration error. Please check SHA-1 fingerprint.';
+      }
+
+      SnackbarService.showError(
+          title: 'Google Sign-In Error', message: errorMessage);
       return false;
     } finally {
       _isLoading.value = false;
+      developer.log('Google sign-in process completed');
     }
   }
 
@@ -285,24 +387,36 @@ class LoginController extends GetxController {
       final ipData = response.body;
       final country = ipData['country_name'] ?? 'Philippines';
 
-      // Prepare user data
-      final userData = {
+      final now = DateTime.now();
+
+      // Prepare user data for Firestore (can use DateTime)
+      final userDataFirestore = {
         'displayName': user.displayName ?? '',
         'phoneNumber': user.phoneNumber ?? '',
         'email': user.email ?? '',
         'country': country,
         'status': 'active', // Default status
-        'lastLogin': DateTime.now(),
+        'lastLogin': now,
+      };
+
+      // Prepare user data for local storage (convert DateTime to String)
+      final userDataLocal = {
+        'displayName': user.displayName ?? '',
+        'phoneNumber': user.phoneNumber ?? '',
+        'email': user.email ?? '',
+        'country': country,
+        'status': 'active',
+        'lastLogin': now.toIso8601String(), // Convert DateTime to String
       };
 
       // Store in Firestore
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
-          .set(userData, SetOptions(merge: true));
+          .set(userDataFirestore, SetOptions(merge: true));
 
-      // Store locally
-      await _storage.write('extendedUserInfo', userData);
+      // Store locally with serializable data
+      await _storage.write('extendedUserInfo', userDataLocal);
 
       developer.log('Extended user info stored successfully');
     } catch (e) {

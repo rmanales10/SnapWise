@@ -715,65 +715,67 @@ class _BudgetPageState extends State<BudgetPage> {
   }
 
   Widget _buildCircularIndicator(bool isTablet, bool isBudget) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        CircularPercentIndicator(
-          radius: isTablet ? 100.0 : 80.0,
-          lineWidth: 20.0,
-          percent: isBudget
-              ? _budgetController.remainingBudgetPercentage.value
-              : _budgetController.remainingIncomePercentage.value,
-          center: Obx(() {
-            String amount = isBudget
-                ? formatLargeNumber(_budgetController.remainingBudget.value)
-                : formatLargeNumber(
-                    _budgetController.remainingIncome.value,
-                  );
-            return Text(
-              amount == 'null' ? '0' : amount,
+    return Obx(() {
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularPercentIndicator(
+            radius: isTablet ? 100.0 : 80.0,
+            lineWidth: 20.0,
+            percent: isBudget
+                ? _budgetController.remainingBudgetPercentage.value
+                : _budgetController.remainingIncomePercentage.value,
+            center: Text(
+              () {
+                String amount = isBudget
+                    ? formatLargeNumber(_budgetController.remainingBudget.value)
+                    : formatLargeNumber(
+                        _budgetController.remainingIncome.value,
+                      );
+                return amount == 'null' ? '0' : amount;
+              }(),
               style: TextStyle(
                 fontSize: isTablet ? 32 : 24,
                 fontWeight: FontWeight.bold,
               ),
-            );
-          }),
-          progressColor: Colors.orange,
-          backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-          circularStrokeCap: CircularStrokeCap.round,
-        ),
-        Obx(() {
-          double alertPercentage = isBudget
-              ? _budgetController.budgetData.value['alertPercentage'] ?? 0
-              : _budgetController.incomeData.value['alertPercentage'] ?? 0;
-          double percentage = isBudget
-              ? _budgetController.remainingBudgetPercentage.value
-              : _budgetController.remainingIncomePercentage.value;
-          double remainingPercentage = (1 - percentage) * 100;
-          if (remainingPercentage >= alertPercentage) {
-            return Positioned(
-              top: 0,
-              right: 0,
-              child: Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  // ignore: deprecated_member_use
-                  color: Colors.red.withOpacity(0.8),
-                  shape: BoxShape.circle,
+            ),
+            progressColor: Colors.orange,
+            backgroundColor: const Color.fromARGB(255, 3, 30, 53),
+            circularStrokeCap: CircularStrokeCap.round,
+          ),
+          () {
+            double alertPercentage = isBudget
+                ? _budgetController.budgetData.value['alertPercentage'] ?? 0
+                : _budgetController.incomeData.value['alertPercentage'] ?? 0;
+            double percentage = isBudget
+                ? _budgetController.remainingBudgetPercentage.value
+                : _budgetController.remainingIncomePercentage.value;
+            double remainingPercentage = (1 - percentage) * 100;
+            if (remainingPercentage >= alertPercentage) {
+              return Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    // ignore: deprecated_member_use
+                    color: Colors.red.withOpacity(0.8),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.warning,
+                    color: Colors.white,
+                    size: isTablet ? 24 : 20,
+                  ),
                 ),
-                child: Icon(
-                  Icons.warning,
-                  color: Colors.white,
-                  size: isTablet ? 24 : 20,
-                ),
-              ),
-            );
-          } else {
-            return SizedBox.shrink();
-          }
-        }),
-      ],
-    );
+              );
+            } else {
+              return SizedBox.shrink();
+            }
+          }(),
+        ],
+      );
+    });
   }
 
   Widget _buildCategoryItem1(

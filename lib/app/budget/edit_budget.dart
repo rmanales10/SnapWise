@@ -45,7 +45,6 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-
       body: SizedBox(
         width: double.infinity,
         height: double.infinity,
@@ -76,7 +75,6 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
                           child: Icon(Icons.arrow_back, color: Colors.white),
                         ),
                       ),
-
                       Align(
                         alignment: Alignment.center,
                         child: Text(
@@ -99,7 +97,6 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
                       fontSize: 16,
                     ),
                   ),
-
                   const SizedBox(height: 10),
                 ],
               ),
@@ -298,12 +295,25 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        if (_budgetController.incomeData.value['amount'] <
+                      onPressed: () async {
+                        // Ensure latest income
+                        await _budgetController.fetchIncome();
+
+                        final double currentIncome =
+                            (_budgetController.incomeData.value['amount'] ??
+                                    0.0)
+                                .toDouble();
+
+                        if (currentIncome <= 0) {
+                          SnackbarService.showValidationWarning(
+                            'Please set your income first before editing the overall budget',
+                          );
+                        } else if (currentIncome <
                             double.parse(amountController.text)) {
                           SnackbarService.showWarning(
                             title: '⚠️ Warning',
-                            message: 'Insufficient Income Balance Your current income balance is not sufficient to proceed. Please add funds or adjust your budget amount.',
+                            message:
+                                'Insufficient Income Balance Your current income balance is not sufficient to proceed. Please add funds or adjust your budget amount.',
                           );
                         } else {
                           setOverallBudget();
@@ -380,7 +390,8 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
         context,
         MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
       );
-      SnackbarService.showSuccess(title: 'Success', message: 'Income set successfully');
+      SnackbarService.showSuccess(
+          title: 'Success', message: 'Income set successfully');
     }
   }
 }
@@ -408,16 +419,14 @@ class _PercentageThumbShape extends SliderComponentShape {
 
     // Define the thumb circle
     final rect = Rect.fromCenter(center: center, width: 40, height: 20);
-    final fillPaint =
-        Paint()
-          ..color = const Color(0xFF7F3DFF)
-          ..style = PaintingStyle.fill;
+    final fillPaint = Paint()
+      ..color = const Color(0xFF7F3DFF)
+      ..style = PaintingStyle.fill;
 
-    final borderPaint =
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4;
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
 
     // Draw thumb
     canvas.drawOval(rect, fillPaint);

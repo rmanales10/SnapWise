@@ -241,6 +241,14 @@ class _LoginPageState extends State<LoginPage> {
                               bool success =
                                   await controller.signInWithGoogle();
                               if (success) {
+                                SnackbarService.showSuccess(
+                                  title: 'Success',
+                                  message: 'Signed in with Google successfully',
+                                  context: context,
+                                );
+                                // Small delay to allow snackbar to show
+                                await Future.delayed(
+                                    const Duration(milliseconds: 100));
                                 Navigator.pushReplacement(
                                   // ignore: use_build_context_synchronously
                                   context,
@@ -248,10 +256,6 @@ class _LoginPageState extends State<LoginPage> {
                                     builder: (context) =>
                                         BottomNavBar(initialIndex: 0),
                                   ),
-                                );
-                                SnackbarService.showSuccess(
-                                  title: 'Success',
-                                  message: 'Signed in with Google successfully',
                                 );
                               }
                             },

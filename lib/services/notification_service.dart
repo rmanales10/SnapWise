@@ -320,9 +320,10 @@ class NotificationService extends GetxController {
     required double exceededAmount,
   }) async {
     try {
-      // Create unique notification key for overall budget
+      // Create unique notification key for overall budget scoped per user
+      final userId = _auth.currentUser?.uid ?? 'anon';
       final notificationKey =
-          'overall_budget_${budgetLimit.toStringAsFixed(0)}';
+          'overall_budget_${userId}_${budgetLimit.toStringAsFixed(0)}';
 
       // Check cooldown to prevent duplicate notifications
       if (!_shouldSendNotification(notificationKey)) {
@@ -401,9 +402,10 @@ class NotificationService extends GetxController {
     required double exceededAmount,
   }) async {
     try {
-      // Create unique notification key for category budget
+      // Create unique notification key for category budget scoped per user
+      final userId = _auth.currentUser?.uid ?? 'anon';
       final notificationKey =
-          'category_budget_${category}_${categoryLimit.toStringAsFixed(0)}';
+          'category_budget_${userId}_${category}_${categoryLimit.toStringAsFixed(0)}';
 
       // Check cooldown to prevent duplicate notifications
       if (!_shouldSendNotification(notificationKey)) {

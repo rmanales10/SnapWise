@@ -95,9 +95,16 @@ class HomeController extends GetxController {
         .listen((snapshot) {
       if (snapshot.exists) {
         final data = snapshot.data();
-        final budget = data?['totalBudget']?.toString() ?? '0.0';
-        log('💰 Real-time update: Budget changed to $budget');
-        totalBudget.value = budget;
+        // Use 'amount' field to match getTotalBudget() method
+        final amount = data?['amount'];
+
+        if (amount != null && amount is num) {
+          totalBudget.value = _formatAmount(amount);
+          log('💰 Real-time update: Budget changed to ${totalBudget.value} (raw: $amount)');
+        } else {
+          totalBudget.value = '0.00';
+          log('💰 Real-time update: No valid budget found');
+        }
       }
     }, onError: (error) {
       log('Error in budget listener: $error');
@@ -111,9 +118,16 @@ class HomeController extends GetxController {
         .listen((snapshot) {
       if (snapshot.exists) {
         final data = snapshot.data();
-        final income = data?['income']?.toString() ?? '0.0';
-        log('💵 Real-time update: Income changed to $income');
-        totalIncome.value = income;
+        // Use 'amount' field to match getTotalIncome() method
+        final amount = data?['amount'];
+
+        if (amount != null && amount is num) {
+          totalIncome.value = _formatAmount(amount);
+          log('💵 Real-time update: Income changed to ${totalIncome.value} (raw: $amount)');
+        } else {
+          totalIncome.value = '0.00';
+          log('💵 Real-time update: No valid income found');
+        }
       }
     }, onError: (error) {
       log('Error in income listener: $error');
@@ -225,6 +239,22 @@ class HomeController extends GetxController {
 
   // REMOVED: _verifyMonthlyCalculation method to prevent infinite refresh loops
   // The method was causing infinite loops due to data inconsistency detection
+
+  /// Helper method to format amount in M/k format
+  /// Reduces code duplication across listeners and fetch methods
+  String _formatAmount(num amount) {
+    double total = amount.toDouble();
+
+    if (total >= 1000000) {
+      double inMillions = total / 1000000;
+      return '${inMillions.toStringAsFixed(1)}M';
+    } else if (total >= 1000) {
+      double inThousands = total / 1000;
+      return '${inThousands.toStringAsFixed(1)}k';
+    } else {
+      return total.toStringAsFixed(2);
+    }
+  }
 
   // Helper function to get start and end of current month
   Map<String, Timestamp> _getCurrentMonthRange() {
@@ -759,17 +789,9 @@ class HomeController extends GetxController {
         return;
       }
 
-      double total = amount.toDouble();
-
-      if (total >= 1000000) {
-        double inMillions = total / 1000000;
-        totalBudget.value = '${inMillions.toStringAsFixed(1)}M';
-      } else if (total >= 1000) {
-        double inThousands = total / 1000;
-        totalBudget.value = '${inThousands.toStringAsFixed(1)}k';
-      } else {
-        totalBudget.value = total.toStringAsFixed(2);
-      }
+      // Use helper method to format - reduces code duplication
+      totalBudget.value = _formatAmount(amount);
+      log('Fetched budget: ${totalBudget.value} (raw: $amount)');
     } catch (e) {
       SnackbarService.showError(
           title: 'Budget Error',
@@ -802,23 +824,11 @@ class HomeController extends GetxController {
         return;
       }
 
-      double total = amount.toDouble();
-
+      // Use helper method to format - reduces code duplication
+      totalIncome.value = _formatAmount(amount);
       log('=== INCOME FETCH ===');
-      log('Raw income amount: $total');
-
-      if (total >= 1000000) {
-        double inMillions = total / 1000000;
-        totalIncome.value = '${inMillions.toStringAsFixed(1)}M';
-        log('Formatted income: ${totalIncome.value}');
-      } else if (total >= 1000) {
-        double inThousands = total / 1000;
-        totalIncome.value = '${inThousands.toStringAsFixed(1)}k';
-        log('Formatted income: ${totalIncome.value}');
-      } else {
-        totalIncome.value = total.toStringAsFixed(2);
-        log('Formatted income: ${totalIncome.value}');
-      }
+      log('Raw income amount: $amount');
+      log('Formatted income: ${totalIncome.value}');
       log('==================');
     } catch (e) {
       SnackbarService.showError(

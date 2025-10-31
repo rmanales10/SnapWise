@@ -8,7 +8,6 @@ class ExpenseController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final RxBool isSuccess = false.obs;
-  final RxList<String> categories = <String>[].obs;
   final List<String> builtInCategories = [
     'Food',
     'Transport',
@@ -16,6 +15,8 @@ class ExpenseController extends GetxController {
     'Shopping',
     'Bills',
   ];
+  // Initialize with built-in categories so dropdown shows them immediately
+  late final RxList<String> categories = builtInCategories.obs;
   final RxMap expenses = {}.obs;
 
   @override
@@ -116,14 +117,15 @@ class ExpenseController extends GetxController {
     try {
       final User? user = _auth.currentUser;
       if (user == null) {
-        throw Exception('User not authenticated');
+        // If user not authenticated, keep built-in categories
+        print('User not authenticated, using built-in categories only');
+        return;
       }
-      final monthRange = _getCurrentMonthRange();
+
+      // Fetch all user categories (not just current month)
       final QuerySnapshot querySnapshot = await _firestore
           .collection('categories')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
           .get();
 
       List<String> userCategories =
@@ -133,9 +135,16 @@ class ExpenseController extends GetxController {
       Set<String> allCategories = {...builtInCategories, ...userCategories};
 
       categories.value = allCategories.toList();
+      print('=== CATEGORIES LOADED ===');
+      print('Built-in: ${builtInCategories.length}');
+      print('User categories: ${userCategories.length}');
+      print('Total categories: ${categories.length}');
+      print('Categories: ${categories}');
+      print('========================');
     } catch (e) {
-      SnackbarService.showExpenseError(
-          'Failed to fetch categories: ${e.toString()}');
+      print('Error fetching categories: $e');
+      // Keep built-in categories on error
+      categories.value = builtInCategories;
     }
   }
 

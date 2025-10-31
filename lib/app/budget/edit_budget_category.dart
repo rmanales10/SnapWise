@@ -612,9 +612,29 @@ class _EditBudgetCategoryPageState extends State<EditBudgetCategoryPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        if (isdelete) {
+                          Navigator.pop(context);
+                          deleteBudget();
+                          return;
+                        }
+
+                        // Validate overall budget exists before editing category
+                        await _budgetController.fetchOverallBudget();
+                        final double overallBudget =
+                            (_budgetController.budgetData.value['amount'] ??
+                                    0.0)
+                                .toDouble();
+                        if (overallBudget <= 0) {
+                          SnackbarService.showValidationWarning(
+                            'Please set your overall budget first before editing category budgets',
+                          );
+                          Navigator.pop(context);
+                          return;
+                        }
+
                         Navigator.pop(context);
-                        isdelete ? deleteBudget() : setBudgetCategory();
+                        setBudgetCategory();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color.fromARGB(255, 3, 30, 53),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:snapwise/app/auth_screens/login/login_controller.dart';
 import 'package:snapwise/app/profile/profile_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
@@ -16,20 +15,12 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final loginController = Get.put(LoginController());
   final profileController = Get.put(ProfileController());
-  final _storage = GetStorage();
-  RxString displayName = ''.obs;
-  RxString photoUrl = ''.obs;
 
   @override
   void initState() {
     super.initState();
-    _fetchUserData();
+    // ProfileController already fetches data in onInit, just refresh it
     profileController.fetchProfileData();
-  }
-
-  void _fetchUserData() {
-    displayName.value = _storage.read('displayName') ?? '';
-    photoUrl.value = _storage.read('photoUrl') ?? '';
   }
 
   @override
@@ -53,9 +44,12 @@ class _ProfilePageState extends State<ProfilePage> {
             Padding(
               padding: const EdgeInsets.only(top: 50),
               child: Obx(() {
-                ImageProvider imageProvider = photoUrl.isNotEmpty
-                    ? NetworkImage(photoUrl.value) as ImageProvider
-                    : const AssetImage('assets/logo.png') as ImageProvider;
+                // Use profileController.photoUrl for consistency
+                ImageProvider imageProvider =
+                    profileController.photoUrl.value.isNotEmpty
+                        ? NetworkImage(profileController.photoUrl.value)
+                            as ImageProvider
+                        : const AssetImage('assets/logo.png') as ImageProvider;
 
                 return Row(
                   children: [
@@ -81,25 +75,26 @@ class _ProfilePageState extends State<ProfilePage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Show the actual username instead of "Username" label
                         Text(
-                          'Username',
-                          style: TextStyle(
-                            fontSize:
-                                isTablet ? 20 : 15, // Larger text for tablets
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        Text(
-                          profileController.username.value.isEmpty
-                              ? ''
-                              : profileController.username.value,
+                          profileController.username.value.isNotEmpty
+                              ? profileController.username.value
+                              : 'Loading...',
                           style: TextStyle(
                             fontSize:
                                 isTablet ? 25 : 20, // Larger text for tablets
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        // Show email below username
+                        if (profileController.email.value.isNotEmpty)
+                          Text(
+                            profileController.email.value,
+                            style: TextStyle(
+                              fontSize: isTablet ? 16 : 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
                       ],
                     ),
                   ],

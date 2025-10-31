@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:snapwise/app/auth_screens/main_screen/main_screen.dart';
 // Conditional import for web platform
 import 'package:snapwise/web/landing_page.dart'
@@ -35,6 +36,9 @@ import 'package:snapwise/services/notification_settings_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize GetStorage
+  await GetStorage.init();
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   if (!kIsWeb) {
@@ -46,27 +50,6 @@ void main() async {
   Get.put(NotificationSettingsService());
 
   runApp(kIsWeb ? WebScreen() : UserScreen());
-
-  // try {
-  //   // Initialize Firebase only if not in web or if web platform is supported
-  //   if (!kIsWeb || (kIsWeb && Firebase.apps.isEmpty)) {
-  //     await Firebase.initializeApp(
-  //       options: DefaultFirebaseOptions.currentPlatform,
-  //     );
-  //   }
-
-  //   // Initialize Firebase Messaging only if not web
-  //   if (!kIsWeb) {
-  //     final notificationService = NotificationService();
-  //     await notificationService.initialize();
-  //   }
-
-  //   runApp(kIsWeb ? WebScreen() : UserScreen());
-  // } catch (e) {
-  //   log('Error during app initialization: $e');
-  //   // Fallback to basic app initialization
-  //   runApp(kIsWeb ? WebScreen() : UserScreen());
-  // }
 }
 
 class UserScreen extends StatelessWidget {

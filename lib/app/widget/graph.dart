@@ -42,13 +42,8 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
           'Total expenses: ${expenses.fold(0.0, (sum, expense) => sum + expense)}');
     }
 
-    // Use the actual length of the data, not a fixed length
+    // Use the actual length of the data (handles 28/29/30/31 correctly)
     int dataLength = expenses.length;
-
-    // For daily view, limit to 30 days for better visualization
-    if (isDaily && dataLength > 30) {
-      dataLength = 30;
-    }
 
     // For monthly view, limit to 12 months
     if (!isDaily && dataLength > 12) {
@@ -437,7 +432,7 @@ class _TransactionsGraphState extends State<TransactionsGraph> {
                                       // Show "No data" if amount is 0
                                       String displayText = amount == 0
                                           ? '$dateLabel\nTotal: PHP 0.00\n(No expenses recorded)'
-                                          : '$dateLabel\nTotal: $totalAmount\n(Expenses + Favorites)';
+                                          : '$dateLabel\nTotal: $totalAmount\n(Receipt-date expenses only)';
 
                                       return BarTooltipItem(
                                         displayText,

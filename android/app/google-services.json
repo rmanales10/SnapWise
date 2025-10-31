@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "722916662508-c27s0a0qlvubmgba1la8qm30cejkkut1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.snapwise",
+            "certificate_hash": "2bf7034b5a22935564824e82fc140c64ba453921"
+          }
+        },
+        {
           "client_id": "722916662508-v4u8l28sub5i4sabqtn51n9tcchhk1o8.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

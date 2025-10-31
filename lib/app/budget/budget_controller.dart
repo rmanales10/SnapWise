@@ -24,6 +24,27 @@ class BudgetController extends GetxController {
   RxDouble totalCategoryBudget = 0.0.obs;
   QuerySnapshot? querySnapshot;
 
+  @override
+  void onInit() {
+    super.onInit();
+    // Auto-load data when controller is initialized
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    try {
+      await Future.wait([
+        refreshBudgetData(),
+        fetchOverallBudget(),
+        fetchIncome(),
+        totalOverallIncome(),
+      ]);
+      dev.log('BudgetController: Initial data loaded successfully');
+    } catch (e) {
+      dev.log('BudgetController: Error loading initial data: $e');
+    }
+  }
+
   Future<void> addBudget(
     String category,
     double amount,
@@ -520,7 +541,7 @@ class BudgetController extends GetxController {
       // Calculate remaining budget (overall budget minus sum of category budgets)
       remainingBudget.value = overallBudget - totalCategoryBudget.value;
 
-      // Calculate the percentage of overall budget remaining
+      // Calculate the percentage of overall budget remaining (0.0 - 1.0)
       if (overallBudget > 0) {
         remainingBudgetPercentage.value =
             (remainingBudget.value / overallBudget) == -1
@@ -530,17 +551,18 @@ class BudgetController extends GetxController {
         remainingBudgetPercentage.value = 0;
       }
 
-      // Ensure the percentage is not negative
-      remainingBudgetPercentage.value = remainingBudgetPercentage.value.clamp(
-        0,
-        100,
-      );
+      // Ensure the percentage is within 0..1
+      remainingBudgetPercentage.value =
+          remainingBudgetPercentage.value.clamp(0.0, 1.0);
 
       // Check for overall budget exceeded notification using overall budget
       await _checkOverallBudgetNotification(overallBudget);
 
       // Check for income notification
       await _checkIncomeNotification();
+
+      // Check category notifications centrally to avoid UI-triggered duplicates
+      await _checkAllCategoryNotifications(budgetSnapshot);
 
       // print('Total Category Budgets: $totalCategoryBudgets');
       // print('Overall Budget: $overallBudget');
@@ -592,6 +614,43 @@ class BudgetController extends GetxController {
       }
     } catch (e) {
       dev.log('Error checking overall budget notification: $e');
+    }
+  }
+
+  // Check category budgets for alerts/exceeded
+  Future<void> _checkAllCategoryNotifications(
+      QuerySnapshot budgetSnapshot) async {
+    try {
+      if (!Get.isRegistered<BudgetNotification>()) return;
+      final notifier = Get.find<BudgetNotification>();
+
+      for (var doc in budgetSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final String category = (data['category'] ?? '').toString();
+        if (category.isEmpty || category.toLowerCase() == 'budget') continue;
+
+        final double categoryLimit = (data['amount'] ?? 0.0).toDouble();
+        final double alertPercentage =
+            (data['alertPercentage'] ?? 80.0).toDouble();
+        final bool receiveAlert = (data['receiveAlert'] ?? false) as bool;
+        if (categoryLimit <= 0 || !receiveAlert) continue;
+
+        final double amountSpent = await fetchTotalAmountByCategory(category);
+        final double percentageSpent =
+            categoryLimit > 0 ? (amountSpent / categoryLimit) * 100 : 0.0;
+
+        if (percentageSpent >= alertPercentage || amountSpent > categoryLimit) {
+          final double exceeded = amountSpent - categoryLimit;
+          await notifier.sendCategoryBudgetExceededNotification(
+            category: category,
+            categoryExpenses: amountSpent,
+            categoryLimit: categoryLimit,
+            exceededAmount: exceeded,
+          );
+        }
+      }
+    } catch (e) {
+      dev.log('Error checking category notifications: $e');
     }
   }
 

@@ -83,7 +83,7 @@ class _CreateBudgetState extends State<CreateBudget> {
           children: [
             // Header background
             Container(
-              height: isTablet ? 400 : 250,
+              height: isTablet ? 480 : 360,
               width: double.infinity,
               decoration: const BoxDecoration(
                 color: Color.fromARGB(255, 3, 30, 53),
@@ -93,132 +93,265 @@ class _CreateBudgetState extends State<CreateBudget> {
                 ),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
+              child: SafeArea(
+                bottom: false,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Icon(Icons.arrow_back, color: Colors.white),
-                        ),
-                      ),
-                      Align(
+                      Stack(
                         alignment: Alignment.center,
-                        child: Text(
-                          "Create Budget",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child:
+                                  Icon(Icons.arrow_back, color: Colors.white),
+                            ),
                           ),
-                        ),
+                          Align(
+                            alignment: Alignment.center,
+                            child: Text(
+                              "Create Budget",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    height: 45,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Stack(
-                      children: [
-                        AnimatedPositioned(
-                          duration: const Duration(milliseconds: 300),
-                          top: 2.5,
-                          right: isOverall
-                              ? MediaQuery.of(context).size.width / 2 - 20
-                              : 3,
-                          left: isOverall
-                              ? 3
-                              : MediaQuery.of(context).size.width / 2 - 20,
-                          child: Container(
-                            width: MediaQuery.of(context).size.width / 2 - 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: const Color.fromARGB(255, 3, 30, 53),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
+                      const SizedBox(height: 20),
+                      Container(
+                        height: 45,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(30),
                         ),
-                        Row(
+                        child: Stack(
                           children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    isOverall = true;
-                                    // Clear category fields when switching to overall
-                                    categoryController.clear();
-                                    categoryAmountController.clear();
-                                  });
-                                },
-                                child: Container(
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    'Overall',
-                                    style: TextStyle(
-                                      color: isOverall
-                                          ? Colors.white
-                                          : Colors.black.withOpacity(0.7),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                            AnimatedPositioned(
+                              duration: const Duration(milliseconds: 300),
+                              top: 2.5,
+                              right: isOverall
+                                  ? MediaQuery.of(context).size.width / 2 - 20
+                                  : 3,
+                              left: isOverall
+                                  ? 3
+                                  : MediaQuery.of(context).size.width / 2 - 20,
+                              child: Container(
+                                width:
+                                    MediaQuery.of(context).size.width / 2 - 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: const Color.fromARGB(255, 3, 30, 53),
+                                  borderRadius: BorderRadius.circular(30),
                                 ),
                               ),
                             ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    isOverall = false;
-                                    // Clear overall fields when switching to category
-                                    overallAmountController.clear();
-                                  });
-                                },
-                                child: Container(
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    'Category',
-                                    style: TextStyle(
-                                      color: isOverall
-                                          ? Colors.black.withOpacity(0.7)
-                                          : Colors.white,
-                                      fontWeight: FontWeight.bold,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        isOverall = true;
+                                        // Clear category fields when switching to overall
+                                        categoryController.clear();
+                                        categoryAmountController.clear();
+                                      });
+                                    },
+                                    child: Container(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'Overall',
+                                        style: TextStyle(
+                                          color: isOverall
+                                              ? Colors.white
+                                              : Colors.black.withOpacity(0.7),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        isOverall = false;
+                                        // Clear overall fields when switching to category
+                                        overallAmountController.clear();
+                                      });
+                                    },
+                                    child: Container(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'Category',
+                                        style: TextStyle(
+                                          color: isOverall
+                                              ? Colors.black.withOpacity(0.7)
+                                              : Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Info banner for budget flow
+                      Obx(() {
+                        double currentIncome = _budgetController
+                                .incomeData.value['amount']
+                                ?.toDouble() ??
+                            0.0;
+                        double overallBudget = _budgetController
+                                .budgetData.value['amount']
+                                ?.toDouble() ??
+                            0.0;
+
+                        if (isOverall && currentIncome <= 0) {
+                          // Show warning for overall budget - need income
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.orange.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline,
+                                    color: Colors.orange.shade700, size: 20),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Income Required',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.orange.shade900,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Please set your income first before creating an overall budget',
+                                        style: TextStyle(
+                                          color: Colors.orange.shade800,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                        context, '/input-income');
+                                  },
+                                  child: Text(
+                                    'Set Income',
+                                    style: TextStyle(
+                                      color: Colors.orange.shade900,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        } else if (!isOverall && overallBudget <= 0) {
+                          // Show warning for category budget - need overall budget
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.orange.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline,
+                                    color: Colors.orange.shade700, size: 20),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Overall Budget Required',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.orange.shade900,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Please set your overall budget first before creating category budgets',
+                                        style: TextStyle(
+                                          color: Colors.orange.shade800,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      isOverall = true;
+                                    });
+                                  },
+                                  child: Text(
+                                    'Switch',
+                                    style: TextStyle(
+                                      color: Colors.orange.shade900,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      }),
+                      const SizedBox(height: 20),
+                      Text(
+                        isOverall
+                            ? "Set your budget"
+                            : "How much do you want to spend?",
+                        style: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                   ),
-                  const SizedBox(height: 40),
-                  Text(
-                    isOverall
-                        ? "Set your budget"
-                        : "How much do you want to spend?",
-                    style: TextStyle(
-                      color: Colors.grey.shade400,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
+                ),
               ),
             ),
 
             // Overlapping white container
             Positioned(
-              top: isTablet ? 280 : 210,
+              top: isTablet ? 300 : 260,
               left: 20,
               right: 20,
               child: Container(
@@ -431,39 +564,76 @@ class _CreateBudgetState extends State<CreateBudget> {
                       onPressed: () {
                         if (isOverall) {
                           // Overall budget logic
-                          if (overallAmountController.text.isNotEmpty) {
-                            if (_budgetController.incomeData.value['amount'] <
-                                double.parse(overallAmountController.text)) {
-                              SnackbarService.showValidationWarning(
-                                'Insufficient Income Balance. Your current income balance is not sufficient to proceed. Please add funds or adjust your budget amount.',
-                              );
-                            } else {
-                              setOverallBudget();
-                            }
+                          if (overallAmountController.text.isEmpty) {
+                            SnackbarService.showValidationError(
+                              'Please enter a budget amount',
+                            );
+                            return;
+                          }
+
+                          // Check if income is set first
+                          double currentIncome = _budgetController
+                                  .incomeData.value['amount']
+                                  ?.toDouble() ??
+                              0.0;
+                          if (currentIncome <= 0) {
+                            SnackbarService.showValidationWarning(
+                              'Please set your income first before creating an overall budget',
+                            );
+                            return;
+                          }
+
+                          // Check if budget exceeds income
+                          double budgetAmount =
+                              double.parse(overallAmountController.text);
+                          if (budgetAmount > currentIncome) {
+                            SnackbarService.showValidationWarning(
+                              'Insufficient Income Balance. Your current income balance is ₱${currentIncome.toStringAsFixed(2)}. Please add more income or adjust your budget amount.',
+                            );
+                          } else {
+                            setOverallBudget();
                           }
                         } else {
                           // Category budget logic
-                          if (categoryController.text.isNotEmpty &&
-                              categoryAmountController.text.isNotEmpty) {
-                            double remainingBudget = _budgetController
-                                    .budgetData.value['amount']
-                                    ?.toDouble() ??
-                                0.0;
-                            double newAmount = double.parse(
-                              categoryAmountController.text,
+                          if (categoryController.text.isEmpty) {
+                            SnackbarService.showValidationError(
+                              'Please select a category',
                             );
-                            double totalCategoryBudget = _budgetController
-                                .totalCategoryBudget
-                                .toDouble();
+                            return;
+                          }
 
-                            if (totalCategoryBudget + newAmount >
-                                remainingBudget) {
-                              SnackbarService.showValidationWarning(
-                                'Insufficient Budget Balance. The total of all category budgets cannot exceed the overall budget.',
-                              );
-                            } else {
-                              setBudgetCategory();
-                            }
+                          if (categoryAmountController.text.isEmpty) {
+                            SnackbarService.showValidationError(
+                              'Please enter a category budget amount',
+                            );
+                            return;
+                          }
+
+                          // Check if overall budget is set first
+                          double overallBudget = _budgetController
+                                  .budgetData.value['amount']
+                                  ?.toDouble() ??
+                              0.0;
+                          if (overallBudget <= 0) {
+                            SnackbarService.showValidationWarning(
+                              'Please set your overall budget first before creating category budgets',
+                            );
+                            return;
+                          }
+
+                          double remainingBudget = overallBudget;
+                          double newAmount =
+                              double.parse(categoryAmountController.text);
+                          double totalCategoryBudget =
+                              _budgetController.totalCategoryBudget.toDouble();
+
+                          if (totalCategoryBudget + newAmount >
+                              remainingBudget) {
+                            SnackbarService.showValidationWarning(
+                              'Insufficient Budget Balance. The total of all category budgets cannot exceed the overall budget.',
+                            );
+                          } else {
+                            setBudgetCategory();
                           }
                         }
                         Navigator.pop(context);
@@ -500,22 +670,27 @@ class _CreateBudgetState extends State<CreateBudget> {
       // Get all available categories (expense categories + favorites categories)
       List<String> allCategories = List.from(_expensecontroller.categories);
 
+      dev.log('=== CATEGORY SELECTOR DEBUG ===');
+      dev.log(
+          'Expense categories count: ${_expensecontroller.categories.length}');
+      dev.log('Expense categories: ${_expensecontroller.categories}');
+
       // Add favorites categories that are not already in expense categories
       Set<String> existingCategories =
           _expensecontroller.categories.map((cat) => cat.toLowerCase()).toSet();
 
-      dev.log(
-          'Debug: Favorites count: ${_favoriteController.favorites.length}');
+      dev.log('Favorites count: ${_favoriteController.favorites.length}');
       for (var favorite in _favoriteController.favorites) {
         String title = favorite['title'] ?? '';
-        dev.log('Debug: Favorite title: $title');
+        dev.log('Favorite title: $title');
         if (title.isNotEmpty &&
             !existingCategories.contains(title.toLowerCase())) {
           allCategories.add(title);
-          dev.log('Debug: Added favorite to categories: $title');
+          dev.log('Added favorite to categories: $title');
         }
       }
-      dev.log('Debug: All categories: $allCategories');
+      dev.log('Total categories available: ${allCategories.length}');
+      dev.log('All categories: $allCategories');
 
       // Create dropdown items with duplicate prevention
       List<DropdownMenuItem<String>> dropdownItems = [];
@@ -617,9 +792,21 @@ class _CreateBudgetState extends State<CreateBudget> {
                   usedValues.contains(categoryController.text)
               ? categoryController.text
               : null,
+          hint: Text(
+            'Select Category',
+            style: TextStyle(
+              color: Colors.grey.shade400,
+              fontSize: 16,
+            ),
+          ),
           icon: const Icon(Icons.keyboard_arrow_down),
           decoration: const InputDecoration(border: InputBorder.none),
-          items: dropdownItems,
+          items: dropdownItems.isEmpty
+              ? [
+                  const DropdownMenuItem(
+                      value: '__add_new__', child: Text("Add New"))
+                ]
+              : dropdownItems,
           onChanged: (value) async {
             if (value == '__add_new__') {
               String? newCategory = await _showAddCategoryBottomSheet(context);

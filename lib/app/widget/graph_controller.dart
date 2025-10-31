@@ -19,6 +19,9 @@ class GraphController extends GetxController {
   StreamSubscription<QuerySnapshot>? _expensesSubscription;
   StreamSubscription<QuerySnapshot>? _favoritesSubscription;
 
+  // Prevent multiple simultaneous calls
+  bool _isFetchingExpenses = false;
+
   @override
   void onInit() {
     super.onInit();
@@ -107,10 +110,19 @@ class GraphController extends GetxController {
   }
 
   Future<void> fetchExpenses() async {
+    // Prevent multiple simultaneous calls
+    if (_isFetchingExpenses) {
+      log('fetchExpenses already in progress, skipping...');
+      return;
+    }
+
+    _isFetchingExpenses = true;
+
     try {
       final User? user = _auth.currentUser;
       if (user == null) {
         log('No user logged in');
+        _isFetchingExpenses = false;
         return;
       }
 
@@ -127,7 +139,17 @@ class GraphController extends GetxController {
 
       for (var doc in querySnapshot.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        double amount = (data['amount'] as num).toDouble();
+        // Normalize amount: handle String/num and always use positive value for totals
+        double amount;
+        final rawAmount = data['amount'];
+        if (rawAmount is num) {
+          amount = rawAmount.toDouble().abs();
+        } else if (rawAmount is String) {
+          final cleaned = rawAmount.replaceAll(RegExp(r'[^0-9\.-]'), '');
+          amount = (double.tryParse(cleaned) ?? 0.0).abs();
+        } else {
+          amount = 0.0;
+        }
 
         // Use receiptDate for BOTH daily and monthly views
         // This shows expenses based on when they actually occurred (according to receipt)
@@ -168,9 +190,16 @@ class GraphController extends GetxController {
         log('  - TransactionDate: ${data['transactionDate']}');
         log('  - Using for graph: ${expenseDate.toString()}');
 
-        // Update both daily and monthly expenses using receiptDate
-        updateDailyExpenses(expenseDate, amount);
+        // Update monthly always
         updateMonthlyExpenses(expenseDate, amount);
+
+        // Update daily ONLY if a valid receiptDate string was provided
+        final bool hasReceiptDate = data['receiptDate'] != null &&
+            data['receiptDate'].toString().isNotEmpty;
+        if (hasReceiptDate) {
+          // Already parsed above when available
+          updateDailyExpenses(expenseDate, amount);
+        }
       }
 
       // Fetch and include favorites payments
@@ -184,6 +213,8 @@ class GraphController extends GetxController {
       log('Monthly expenses: ${monthlyExpenses.length} entries');
     } catch (e) {
       log('Error fetching expenses: $e');
+    } finally {
+      _isFetchingExpenses = false;
     }
   }
 
@@ -193,17 +224,21 @@ class GraphController extends GetxController {
       // Initialize FavoriteController if not already initialized
       FavoriteController favoriteController;
       try {
-        favoriteController = Get.put(FavoriteController());
+        favoriteController = Get.find<FavoriteController>();
       } catch (e) {
         favoriteController = Get.put(FavoriteController());
         // Setup the stream to load favorites data
         await favoriteController.setupFavoritesStream();
       }
 
+      log('Fetching favorites payments - found ${favoriteController.favorites.length} favorites');
+
       for (var favorite in favoriteController.favorites) {
         // Get payment history for this favorite
         List<Map<String, dynamic>> paymentHistory =
             List<Map<String, dynamic>>.from(favorite['paymentHistory'] ?? []);
+
+        log('Processing favorite: ${favorite['title']} with ${paymentHistory.length} payments');
 
         // Add each payment to the graph data
         for (var payment in paymentHistory) {
@@ -215,18 +250,32 @@ class GraphController extends GetxController {
           } else if (paymentDateRaw is DateTime) {
             paymentDate = paymentDateRaw;
           } else {
+            log('Skipping invalid payment date: $paymentDateRaw');
             continue; // Skip invalid dates
           }
 
-          double amount = (payment['amount'] ?? 0.0).toDouble();
+          // Normalize favorite payment amount to positive double
+          double amount;
+          final rawAmount = payment['amount'];
+          if (rawAmount is num) {
+            amount = rawAmount.toDouble().abs();
+          } else if (rawAmount is String) {
+            final cleaned = rawAmount.replaceAll(RegExp(r'[^0-9\.-]'), '');
+            amount = (double.tryParse(cleaned) ?? 0.0).abs();
+          } else {
+            amount = 0.0;
+          }
 
-          // Add to both daily and monthly graph data using the payment timestamp
+          // Add favorites to both daily and monthly aggregation
+          // Daily graph includes both regular expenses and favorites
           updateDailyExpenses(paymentDate, amount);
           updateMonthlyExpenses(paymentDate, amount);
 
           log('Added favorite payment: ${favorite['title']} - Amount: $amount - Date: ${paymentDate.toString()}');
         }
       }
+
+      log('Finished processing ${favoriteController.favorites.length} favorites');
     } catch (e) {
       log('Error fetching favorites payments: $e');
     }
@@ -239,12 +288,13 @@ class GraphController extends GetxController {
 
     log('Getting current month expenses for $currentMonthKey, $daysInMonth days');
     log('Daily expenses keys: ${dailyExpenses.keys.take(5).toList()}');
+    log('Full daily expenses map: $dailyExpenses');
 
     List<double> result = List.generate(daysInMonth, (index) {
       final day = index + 1;
       final dateKey = '$currentMonthKey-${day.toString().padLeft(2, '0')}';
 
-      // Get regular expenses (favorites are already included in dailyExpenses)
+      // Get regular expenses (favorites are NOT included in daily buckets)
       double regularExpenses = dailyExpenses[dateKey] ?? 0.0;
 
       return regularExpenses;
