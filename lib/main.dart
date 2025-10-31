@@ -32,6 +32,7 @@ import 'package:snapwise/app/widget/bottomnavbar.dart';
 import 'package:snapwise/services/firebase_options.dart';
 import 'package:snapwise/services/notification_service.dart';
 import 'package:snapwise/services/notification_settings_service.dart';
+import 'package:snapwise/services/monthly_reset_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +49,9 @@ void main() async {
 
   // Initialize notification settings service (works on all platforms)
   Get.put(NotificationSettingsService());
+
+  // Initialize monthly reset service
+  Get.put(MonthlyResetService());
 
   runApp(kIsWeb ? WebScreen() : UserScreen());
 }

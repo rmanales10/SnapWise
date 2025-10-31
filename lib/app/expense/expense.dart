@@ -38,7 +38,10 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
   void initState() {
     super.initState();
     controller.fetchCategories();
-    dateController.text = DateTime.now().toString().split(' ')[0];
+    // Initialize both dates to current date
+    final today = DateTime.now().toString().split(' ')[0];
+    dateController.text = today;
+    receiptDateController.text = today;
   }
 
   @override

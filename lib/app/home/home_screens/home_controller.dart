@@ -7,6 +7,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../services/snackbar_service.dart';
+import '../../../services/monthly_reset_service.dart';
+import '../../widget/monthly_reset_income_dialog.dart';
 
 class HomeController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -36,10 +38,45 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // Check and perform monthly reset if needed
+    _checkMonthlyReset();
     // Set up real-time listeners
     _setupRealtimeListeners();
     // Initial data fetch
     refreshAllData();
+  }
+
+  // Check if monthly reset is needed and show income dialog if needed
+  Future<void> _checkMonthlyReset() async {
+    try {
+      if (Get.isRegistered<MonthlyResetService>()) {
+        final monthlyResetService = Get.find<MonthlyResetService>();
+        await monthlyResetService.checkAndPerformMonthlyReset();
+      }
+    } catch (e) {
+      log('Error checking monthly reset: $e');
+    }
+  }
+
+  // Check income after data refresh and show dialog if needed
+  Future<void> _checkIncomeAfterRefresh() async {
+    try {
+      // Wait a bit for UI to be ready
+      await Future.delayed(const Duration(milliseconds: 1000));
+
+      // Get current income value
+      final rawIncome = getRawIncome();
+      log('=== INCOME CHECK AFTER REFRESH ===');
+      log('Raw income: $rawIncome');
+
+      if (rawIncome == 0.0 || rawIncome <= 0) {
+        log('Income is 0 - showing income dialog');
+        // Show blocking dialog to set income
+        await MonthlyResetIncomeDialog.show();
+      }
+    } catch (e) {
+      log('Error checking income after refresh: $e');
+    }
   }
 
   @override
@@ -216,6 +253,9 @@ class HomeController extends GetxController {
       // Log the final cached values to ensure consistency
       log('=== FINAL CACHED VALUES ===');
       log('transactionsHistory.length: ${transactionsHistory.length}');
+
+      // Check if income needs to be set after data refresh
+      _checkIncomeAfterRefresh();
       log('totalPaymentHistory.value: ${totalPaymentHistory.value}');
       log('Current month total: ${_currentMonthTotal.value}');
       log('Current getTotalSpent(): ${getTotalSpent()}');

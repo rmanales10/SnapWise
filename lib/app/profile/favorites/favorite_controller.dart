@@ -229,28 +229,16 @@ class FavoriteController extends GetxController {
     super.onClose();
   }
 
-  // Helper function to get start and end of current month
-  Map<String, Timestamp> _getCurrentMonthRange() {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final startOfNextMonth = (now.month < 12)
-        ? DateTime(now.year, now.month + 1, 1)
-        : DateTime(now.year + 1, 1, 1);
-    return {
-      'start': Timestamp.fromDate(startOfMonth),
-      'end': Timestamp.fromDate(startOfNextMonth),
-    };
-  }
-
   Future<void> setupFavoritesStream() async {
     final User? user = _auth.currentUser;
     if (user == null) return;
-    final monthRange = _getCurrentMonthRange();
+
+    // IMPORTANT: Load ALL favorites regardless of month
+    // Favorites persist across months and should always be displayed
+    // No month filtering - favorites are never reset
     _favoritesSubscription = _firestore
         .collection('favorites')
         .where('userId', isEqualTo: user.uid)
-        .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-        .where('timestamp', isLessThan: monthRange['end'])
         .orderBy('timestamp', descending: true)
         .snapshots()
         .listen(
@@ -509,12 +497,10 @@ class FavoriteController extends GetxController {
       if (user == null) {
         throw Exception('User not authenticated');
       }
-      final monthRange = _getCurrentMonthRange();
+      // Delete ALL favorites regardless of month (consistent with favorites persistence)
       final QuerySnapshot querySnapshot = await _firestore
           .collection('favorites')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
           .get();
 
       final batch = _firestore.batch();

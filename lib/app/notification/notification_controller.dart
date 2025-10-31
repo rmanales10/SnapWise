@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,6 +10,9 @@ class NotificationController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   RxList notifications = [].obs;
+
+  // Real-time stream subscription
+  StreamSubscription<QuerySnapshot>? _notificationsSubscription;
 
   // Configurable constants
   static const int _oldNotificationCleanupDays = 30;
@@ -48,20 +52,73 @@ class NotificationController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _setupRealtimeListener();
     fetchNotifications();
   }
 
-  // Helper function to get start and end of current month
-  Map<String, Timestamp> _getCurrentMonthRange() {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final startOfNextMonth = (now.month < 12)
-        ? DateTime(now.year, now.month + 1, 1)
-        : DateTime(now.year + 1, 1, 1);
-    return {
-      'start': Timestamp.fromDate(startOfMonth),
-      'end': Timestamp.fromDate(startOfNextMonth),
-    };
+  @override
+  void onClose() {
+    // Cancel subscription
+    _notificationsSubscription?.cancel();
+    super.onClose();
+  }
+
+  /// Set up real-time Firestore listener for automatic notification updates
+  void _setupRealtimeListener() {
+    final user = _auth.currentUser;
+    if (user == null) {
+      print(
+          'NotificationController: User not authenticated, cannot set up listener');
+      return;
+    }
+
+    print('🔔 NotificationController: Setting up real-time listener');
+
+    // Listen to notifications changes
+    final cutoffDate =
+        DateTime.now().subtract(Duration(days: _oldNotificationCleanupDays));
+    final oldTimestamp = Timestamp.fromDate(cutoffDate);
+
+    _notificationsSubscription = _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: user.uid)
+        .where('timestamp', isGreaterThanOrEqualTo: oldTimestamp)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .listen((snapshot) {
+      print('🔔 NotificationController: Notifications changed, refreshing...');
+      // Debounce rapid updates
+      Future.delayed(Duration(milliseconds: 500), () {
+        if (snapshot.metadata.hasPendingWrites) return;
+        _updateNotificationsFromSnapshot(snapshot);
+      });
+    }, onError: (error) {
+      print('NotificationController: Error in notifications listener: $error');
+    });
+
+    print('✅ NotificationController: Real-time listener active');
+  }
+
+  /// Update notifications from Firestore snapshot
+  void _updateNotificationsFromSnapshot(QuerySnapshot snapshot) {
+    try {
+      notifications.value = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'id': doc.id,
+          'title': data['title'] ?? 'Notification',
+          'description': data['body'] ?? 'No description available',
+          'timestamp': data['timestamp'],
+          'type': data['type'] ?? 'general',
+          'icon': _getNotificationIcon(data['type']),
+          'color': _getNotificationColor(data['type']),
+          'isRead': data['isRead'] ?? false,
+        };
+      }).toList();
+      print('Updated notifications: ${notifications.length} items');
+    } catch (e) {
+      print('Error updating notifications from snapshot: $e');
+    }
   }
 
   // Helper method to check if a notification contains incorrect data
@@ -139,12 +196,15 @@ class NotificationController extends GetxController {
       // Clean up old notifications with incorrect data first
       await _cleanupIncorrectNotifications();
 
-      final monthRange = _getCurrentMonthRange();
+      // Fetch notifications from the last 30 days (same as cleanup window)
+      final cutoffDate =
+          DateTime.now().subtract(Duration(days: _oldNotificationCleanupDays));
+      final oldTimestamp = Timestamp.fromDate(cutoffDate);
+
       final QuerySnapshot querySnapshot = await _firestore
           .collection('notifications')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
+          .where('timestamp', isGreaterThanOrEqualTo: oldTimestamp)
           .orderBy('timestamp', descending: true)
           .get();
 
@@ -287,6 +347,8 @@ class NotificationController extends GetxController {
         return Icons.check_circle;
       case 'expense_added':
         return Icons.add_shopping_cart;
+      case 'monthly_reset':
+        return Icons.calendar_today;
       default:
         return Icons.notifications;
     }
@@ -308,6 +370,8 @@ class NotificationController extends GetxController {
         return Colors.green;
       case 'expense_added':
         return Colors.purple;
+      case 'monthly_reset':
+        return Colors.teal;
       default:
         return Colors.grey;
     }

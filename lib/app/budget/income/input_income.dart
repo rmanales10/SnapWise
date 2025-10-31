@@ -82,7 +82,6 @@ class _InputIncomeState extends State<InputIncome> {
                           child: Icon(Icons.arrow_back, color: Colors.white),
                         ),
                       ),
-
                       Align(
                         alignment: Alignment.center,
                         child: Text(
@@ -105,7 +104,6 @@ class _InputIncomeState extends State<InputIncome> {
                       fontSize: 16,
                     ),
                   ),
-
                   const SizedBox(height: 10),
                 ],
               ),
@@ -337,7 +335,7 @@ class _InputIncomeState extends State<InputIncome> {
 
   Widget _buildAmountInput() {
     return TextField(
-      enabled: amountController.text.isNotEmpty ? false : true,
+      // enabled: amountController.text.isNotEmpty ? false : true,
       cursorColor: const Color.fromARGB(255, 3, 30, 53),
 
       controller: amountController,
@@ -380,7 +378,8 @@ class _InputIncomeState extends State<InputIncome> {
         context,
         MaterialPageRoute(builder: (context) => BottomNavBar(initialIndex: 2)),
       );
-      SnackbarService.showSuccess(title: 'Success', message: 'Income saved successfully');
+      SnackbarService.showSuccess(
+          title: 'Success', message: 'Income saved successfully');
     }
   }
 }
@@ -408,16 +407,14 @@ class _PercentageThumbShape extends SliderComponentShape {
 
     // Define the thumb circle
     final rect = Rect.fromCenter(center: center, width: 40, height: 20);
-    final fillPaint =
-        Paint()
-          ..color = const Color(0xFF7F3DFF)
-          ..style = PaintingStyle.fill;
+    final fillPaint = Paint()
+      ..color = const Color(0xFF7F3DFF)
+      ..style = PaintingStyle.fill;
 
-    final borderPaint =
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4;
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
 
     // Draw thumb
     canvas.drawOval(rect, fillPaint);

@@ -145,6 +145,9 @@ class BudgetController extends GetxController {
     bool receiveAlert,
   ) async {
     try {
+      // Reset success flag at start
+      isSuccess.value = false;
+
       if (amount <= 0) {
         throw Exception('Invalid category or amount');
       }
@@ -161,9 +164,14 @@ class BudgetController extends GetxController {
         'receiveAlert': receiveAlert,
         'timestamp': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      // Set success only after successful save
       isSuccess.value = true;
     } catch (e) {
+      // Ensure success is false on error
+      isSuccess.value = false;
       SnackbarService.showIncomeError('Failed to add income: ${e.toString()}');
+      rethrow; // Re-throw to let caller handle the error
     }
   }
 
@@ -309,29 +317,39 @@ class BudgetController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final monthRange = _getCurrentMonthRange();
+        // Fetch all budgets for the user, ordered by most recent first
+        // Then keep only the most recent budget per category
+        // This ensures budgets persist across months, but new ones override old ones
         final querySnapshot = await _firestore
             .collection('budget')
             .where('userId', isEqualTo: user.uid)
-            .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-            .where('timestamp', isLessThan: monthRange['end'])
             .orderBy('timestamp', descending: true)
             .get();
 
-        final fetchBudgetCategories = querySnapshot.docs.map((doc) {
+        // Group by category and keep only the most recent budget per category
+        Map<String, Map<String, dynamic>> latestBudgets = {};
+        for (var doc in querySnapshot.docs) {
           final data = doc.data();
-          return {
-            'budgetId': data['budgetId'],
-            'id': doc.id,
-            'alertPercentage': data['alertPercentage'],
-            'receiveAlert': data['receiveAlert'],
-            "icon": _getCategoryIcon(data['category']),
-            "color": _getCategoryColor(data['category']),
-            "title": data['category'],
-            "amount": "${data['amount'].toStringAsFixed(2)}",
-            'isFromFavorites': false, // Mark as regular budget category
-          };
-        }).toList();
+          final category = (data['category'] ?? '').toString();
+          if (category.isEmpty) continue;
+
+          // If this category hasn't been seen yet (or this is more recent due to ordering)
+          if (!latestBudgets.containsKey(category)) {
+            latestBudgets[category] = {
+              'budgetId': data['budgetId'],
+              'id': doc.id,
+              'alertPercentage': data['alertPercentage'],
+              'receiveAlert': data['receiveAlert'],
+              "icon": _getCategoryIcon(category),
+              "color": _getCategoryColor(category),
+              "title": category,
+              "amount": "${(data['amount'] ?? 0.0).toStringAsFixed(2)}",
+              'isFromFavorites': false,
+            };
+          }
+        }
+
+        final fetchBudgetCategories = latestBudgets.values.toList();
 
         // Add favorites categories to budget categories
         await _addFavoritesCategoriesToBudget(fetchBudgetCategories);
@@ -399,18 +417,19 @@ class BudgetController extends GetxController {
   }
 
   // Check if a favorite has been set as a budget category
+  // No month filter - budgets persist across months, monthly reset handles resets
   Future<bool> _checkIfFavoriteHasBudgetCategory(String favoriteTitle) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return false;
 
-      final monthRange = _getCurrentMonthRange();
+      // Get most recent budget for this category (no month filter)
       final querySnapshot = await _firestore
           .collection('budget')
           .where('userId', isEqualTo: user.uid)
           .where('category', isEqualTo: favoriteTitle)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
+          .orderBy('timestamp', descending: true)
+          .limit(1)
           .get();
 
       return querySnapshot.docs.isNotEmpty;
@@ -421,19 +440,20 @@ class BudgetController extends GetxController {
   }
 
   // Get budget data for a favorite category
+  // No month filter - budgets persist across months, monthly reset handles resets
   Future<Map<String, dynamic>> _getFavoriteBudgetData(
       String favoriteTitle) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return {};
 
-      final monthRange = _getCurrentMonthRange();
+      // Get most recent budget for this category (no month filter)
       final querySnapshot = await _firestore
           .collection('budget')
           .where('userId', isEqualTo: user.uid)
           .where('category', isEqualTo: favoriteTitle)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
+          .orderBy('timestamp', descending: true)
+          .limit(1)
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
@@ -520,22 +540,37 @@ class BudgetController extends GetxController {
       await fetchOverallBudget();
       double overallBudget = budgetData.value['amount'] ?? 0.0;
 
-      // Fetch all budget categories for the current month
-      final monthRange = _getCurrentMonthRange();
+      // Fetch all budget categories (most recent per category)
       QuerySnapshot budgetSnapshot = await _firestore
           .collection('budget')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
+          .orderBy('timestamp', descending: true)
           .get();
 
       totalCategoryBudget.value = 0.0;
       Map<String, double> categoryBudgets = {};
+
+      // Group by category and keep only the most recent budget per category
+      Map<String, Map<String, dynamic>> latestBudgets = {};
       for (var doc in budgetSnapshot.docs) {
-        String category = doc['category'];
-        double amount = doc['amount'];
-        categoryBudgets[category] = amount;
-        totalCategoryBudget.value += amount;
+        final data = doc.data() as Map<String, dynamic>;
+        final category = (data['category'] ?? '').toString();
+        if (category.isEmpty) continue;
+
+        // If this category hasn't been seen yet, keep it
+        if (!latestBudgets.containsKey(category)) {
+          latestBudgets[category] = data;
+        }
+      }
+
+      // Now sum up the amounts from the latest budgets only
+      for (var budgetData in latestBudgets.values) {
+        final category = (budgetData['category'] ?? '').toString();
+        final amount = (budgetData['amount'] ?? 0.0).toDouble();
+        if (category.isNotEmpty && amount > 0) {
+          categoryBudgets[category] = amount;
+          totalCategoryBudget.value += amount;
+        }
       }
 
       // Calculate remaining budget (overall budget minus sum of category budgets)
@@ -698,13 +733,12 @@ class BudgetController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final monthRange = _getCurrentMonthRange();
+        // Fetch ALL expenses for this category, filter by receiptDate in code
+        // Don't use timestamp filter because receiptDate is the source of truth
         final querySnapshot = await _firestore
             .collection('expenses')
             .where('userId', isEqualTo: user.uid)
             .where('category', isEqualTo: category)
-            .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-            .where('timestamp', isLessThan: monthRange['end'])
             .get();
 
         double totalAmount = 0.0;
@@ -998,12 +1032,11 @@ class BudgetController extends GetxController {
       if (user == null) {
         throw Exception('User not authenticated');
       }
-      final monthRange = _getCurrentMonthRange();
+      // Fetch ALL expenses for this user, filter by receiptDate in code
+      // Don't use timestamp filter because receiptDate is the source of truth
       final QuerySnapshot expensesSnapshot = await _firestore
           .collection('expenses')
           .where('userId', isEqualTo: user.uid)
-          .where('timestamp', isGreaterThanOrEqualTo: monthRange['start'])
-          .where('timestamp', isLessThan: monthRange['end'])
           .get();
 
       Map<String, double> categoryTotals = {};
@@ -1054,6 +1087,15 @@ class BudgetController extends GetxController {
 
       // Add favorites expenses to category totals
       await _addFavoritesExpensesToCategoryTotals(categoryTotals);
+
+      // Add budget categories that don't have expenses yet (from saved predictions)
+      // This ensures Budget tab categories also appear in Income tab
+      await _addBudgetCategoriesToIncomeCategories(categoryTotals);
+
+      // Filter out categories with 0.0 or negative values (only show categories with actual expenses)
+      // BUT keep categories that exist in budgets even if they have 0 expenses
+      // This way saved prediction categories show in Income tab
+      await _keepBudgetCategoriesEvenIfZero(categoryTotals);
 
       // Sort the map by total amount in descending order
       var sortedCategories = categoryTotals.entries.toList()
@@ -1129,6 +1171,63 @@ class BudgetController extends GetxController {
       }
     } catch (e) {
       dev.log('Error adding favorites expenses to category totals: $e');
+    }
+  }
+
+  // Add budget categories to income categories (even if they have 0 expenses)
+  // This ensures saved prediction categories appear in Income tab
+  Future<void> _addBudgetCategoriesToIncomeCategories(
+      Map<String, double> categoryTotals) async {
+    try {
+      // Get all budget categories
+      await fetchBudgetCategory();
+
+      // Add budget categories that don't exist in expenses yet
+      for (var budgetCategory in budgetCategories) {
+        final categoryName = (budgetCategory['title'] ?? '').toString();
+        if (categoryName.isNotEmpty &&
+            !categoryTotals.containsKey(categoryName)) {
+          // Add with 0.0 so it shows in Income tab even without expenses
+          categoryTotals[categoryName] = 0.0;
+          dev.log(
+              'Added budget category to income categories: $categoryName (0.0 expenses)');
+        }
+      }
+    } catch (e) {
+      dev.log('Error adding budget categories to income categories: $e');
+    }
+  }
+
+  // Keep budget categories even if they have 0 expenses
+  // This ensures categories from saved predictions show in Income tab
+  Future<void> _keepBudgetCategoriesEvenIfZero(
+      Map<String, double> categoryTotals) async {
+    try {
+      // Get all budget categories
+      final Set<String> budgetCategoryNames = budgetCategories
+          .map((cat) => (cat['title'] ?? '').toString())
+          .where((name) => name.isNotEmpty)
+          .toSet();
+
+      // Remove non-budget categories that have 0 or negative values
+      // But keep budget categories even if they're 0
+      categoryTotals.removeWhere((key, value) {
+        // Keep if it has expenses > 0
+        if (value > 0.0) return false;
+
+        // Keep if it's a budget category (even if 0)
+        if (budgetCategoryNames.contains(key)) {
+          return false; // Don't remove budget categories with 0 expenses
+        }
+
+        // Remove non-budget categories with 0 or negative expenses
+        return true;
+      });
+
+      dev.log(
+          'Kept ${budgetCategoryNames.length} budget categories in income view');
+    } catch (e) {
+      dev.log('Error keeping budget categories: $e');
     }
   }
 }
