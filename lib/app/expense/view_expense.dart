@@ -29,7 +29,7 @@ class _ViewExpenseState extends State<ViewExpense> {
     text: "Shopping",
   );
   final TextEditingController dateController =
-      TextEditingController(); // Transaction date
+      TextEditingController(); // Posting Date
   final TextEditingController receiptDateController =
       TextEditingController(); // Receipt date
   @override
@@ -44,7 +44,7 @@ class _ViewExpenseState extends State<ViewExpense> {
     setState(() {
       amountController.text = controller.expenses['amount'].toString();
       categoryController.text = controller.expenses['category'].toString();
-      // Use receipt date if available, otherwise use transaction date, otherwise current date
+      // Use receipt date if available, otherwise use Posting Date, otherwise current date
       receiptDateController.text = controller.expenses['receiptDate'] ??
           controller.expenses['date'] ??
           DateTime.now().toString().split(' ')[0];
@@ -1088,7 +1088,7 @@ class _ViewExpenseState extends State<ViewExpense> {
                             : '₱${amountController.text}'),
                     const SizedBox(height: 4),
                     _buildConfirmationRow(
-                        'Transaction Date',
+                        'Posting Date',
                         dateController.text.isEmpty
                             ? 'Not selected'
                             : dateController.text),
@@ -1322,7 +1322,7 @@ class _ViewExpenseState extends State<ViewExpense> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Transaction Date (When Entered)',
+          'Posting Date (When Entered)',
           style: TextStyle(
             fontSize: isTablet ? 20 : 16,
             fontWeight: FontWeight.w600,
@@ -1356,7 +1356,7 @@ class _ViewExpenseState extends State<ViewExpense> {
         }
       },
       decoration: InputDecoration(
-        hintText: "Select transaction date",
+        hintText: "Select Posting Date",
         hintStyle: TextStyle(fontSize: isTablet ? 18 : 16),
         suffixIcon: Icon(
           Icons.calendar_today,
@@ -1486,7 +1486,7 @@ class _ViewExpenseState extends State<ViewExpense> {
     }
 
     if (dateController.text.isEmpty) {
-      _showErrorSnackbar('Please select a transaction date');
+      _showErrorSnackbar('Please select a Posting Date');
       return;
     }
 
@@ -1505,7 +1505,7 @@ class _ViewExpenseState extends State<ViewExpense> {
         amount,
         base64Image ?? 'No Image',
         receiptDateController.text, // Receipt date (for graph)
-        dateController.text, // Transaction date (when input)
+        dateController.text, // Posting Date (when input)
       );
       if (controller.isSuccess.value == true) {
         try {

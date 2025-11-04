@@ -86,7 +86,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
         final timestamp = data['timestamp'] as Timestamp;
         final date = timestamp.toDate();
 
-        // Parse receipt date and transaction date
+        // Parse receipt date and Posting Date
         DateTime? receiptDate;
         DateTime? transactionDate;
 
@@ -116,7 +116,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
           'icon': _getCategoryIcon(data['category'] ?? ''),
           'receiptDate': receiptDate,
           'transactionDate': transactionDate ??
-              date, // Use transaction date if available, otherwise timestamp
+              date, // Use Posting Date if available, otherwise timestamp
           'base64Image': data['base64Image'], // Add base64Image field
         });
       }
@@ -143,7 +143,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
             'receiptDate':
                 paymentDate, // For favorites, receipt date is the same as payment date
             'transactionDate':
-                paymentDate, // For favorites, transaction date is the same as payment date
+                paymentDate, // For favorites, Posting Date is the same as payment date
           });
         }
       }
@@ -1065,7 +1065,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                         if (payment['transactionDate'] != null)
                           _buildModernDetailRow(
                             Icons.schedule,
-                            'Transaction Date',
+                            'Posting Date',
                             DateFormat('MMM d, yyyy • h:mm a')
                                 .format(payment['transactionDate']),
                             Color(0xFF673AB7),
@@ -1306,7 +1306,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                         if (expense['transactionDate'] != null)
                           _buildModernDetailRow(
                             Icons.access_time,
-                            'Transaction Date',
+                            'Posting Date',
                             DateFormat('MMM d, yyyy • h:mm a')
                                 .format(expense['transactionDate']),
                             Color(0xFFe67e22),

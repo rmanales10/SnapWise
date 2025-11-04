@@ -6,7 +6,6 @@ import 'chatbot.dart';
 // Conditional import for feedback controller
 import 'feedback_controller.dart'
     if (dart.library.io) 'feedback_controller_stub.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'dart:html' as html show AnchorElement;
 
 class LandingPage extends StatefulWidget {

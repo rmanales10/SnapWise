@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -24,11 +25,112 @@ class BudgetController extends GetxController {
   RxDouble totalCategoryBudget = 0.0.obs;
   QuerySnapshot? querySnapshot;
 
+  // Real-time stream subscriptions
+  StreamSubscription<DocumentSnapshot>? _overallBudgetSubscription;
+  StreamSubscription<QuerySnapshot>? _budgetCategoriesSubscription;
+  StreamSubscription<QuerySnapshot>? _expensesSubscription;
+  StreamSubscription<DocumentSnapshot>? _incomeSubscription;
+
+  // Prevent concurrent refreshes
+  bool _isRefreshing = false;
+
   @override
   void onInit() {
     super.onInit();
+    // Set up real-time listeners
+    _setupRealtimeListeners();
     // Auto-load data when controller is initialized
     _initializeData();
+  }
+
+  @override
+  void onClose() {
+    // Cancel subscriptions
+    _overallBudgetSubscription?.cancel();
+    _budgetCategoriesSubscription?.cancel();
+    _expensesSubscription?.cancel();
+    _incomeSubscription?.cancel();
+    super.onClose();
+  }
+
+  /// Set up real-time Firestore listeners for automatic budget updates
+  void _setupRealtimeListeners() {
+    final user = _auth.currentUser;
+    if (user == null) {
+      dev.log(
+          'BudgetController: User not authenticated, cannot set up listeners');
+      return;
+    }
+
+    dev.log('💰 BudgetController: Setting up real-time listeners');
+
+    // Listen to overall budget changes
+    _overallBudgetSubscription = _firestore
+        .collection('overallBudget')
+        .doc(user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      dev.log('💰 BudgetController: Overall budget changed');
+      _handleBudgetChange();
+    }, onError: (error) {
+      dev.log('BudgetController: Error in overall budget listener: $error');
+    });
+
+    // Listen to budget categories changes
+    _budgetCategoriesSubscription = _firestore
+        .collection('budget')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      dev.log('💰 BudgetController: Budget categories changed');
+      _handleBudgetChange();
+    }, onError: (error) {
+      dev.log('BudgetController: Error in budget categories listener: $error');
+    });
+
+    // Listen to expenses changes
+    _expensesSubscription = _firestore
+        .collection('expenses')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      dev.log('💰 BudgetController: Expenses changed');
+      _handleBudgetChange();
+    }, onError: (error) {
+      dev.log('BudgetController: Error in expenses listener: $error');
+    });
+
+    // Listen to income changes
+    _incomeSubscription = _firestore
+        .collection('income')
+        .doc(user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      dev.log('💰 BudgetController: Income changed');
+      _handleBudgetChange();
+    }, onError: (error) {
+      dev.log('BudgetController: Error in income listener: $error');
+    });
+
+    dev.log('✅ BudgetController: Real-time listeners active');
+  }
+
+  /// Handle budget data changes with debouncing
+  void _handleBudgetChange() async {
+    if (_isRefreshing) {
+      dev.log('BudgetController: Already refreshing, skipping...');
+      return;
+    }
+
+    _isRefreshing = true;
+    try {
+      // Debounce rapid updates
+      await Future.delayed(Duration(milliseconds: 500));
+      await refreshBudgetData();
+      dev.log('✅ BudgetController: Budget data refreshed');
+    } finally {
+      _isRefreshing = false;
+    }
   }
 
   Future<void> _initializeData() async {
@@ -573,8 +675,11 @@ class BudgetController extends GetxController {
         }
       }
 
-      // Calculate remaining budget (overall budget minus sum of category budgets)
-      remainingBudget.value = overallBudget - totalCategoryBudget.value;
+      // Fetch actual total expenses for the current month
+      double totalExpenses = await fetchTotalExpenses();
+
+      // Calculate remaining budget (overall budget minus actual expenses spent)
+      remainingBudget.value = overallBudget - totalExpenses;
 
       // Calculate the percentage of overall budget remaining (0.0 - 1.0)
       if (overallBudget > 0) {

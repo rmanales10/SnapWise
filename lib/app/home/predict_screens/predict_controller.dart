@@ -618,41 +618,37 @@ class PredictController extends GetxController {
       final user = _auth.currentUser;
       if (user == null) return;
 
-      final now = DateTime.now();
-      final nextMonth = DateTime(now.year, now.month + 1, 1);
-      final nextMonthKey =
-          '${nextMonth.year}-${nextMonth.month.toString().padLeft(2, '0')}';
-
-      // Set overall budget for next month
-      await _firestore.collection('budget').doc(user.uid).set({
-        'budgetData': {
-          nextMonthKey: {
-            'totalBudget': totalBudget.value,
-            'alertPercentage': 80.0, // Default alert at 80%
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }
-        }
+      // Set overall budget for current month (not next month - let MonthlyResetService handle that)
+      // This ensures categories are visible immediately after saving prediction
+      await _firestore.collection('overallBudget').doc(user.uid).set({
+        'userId': user.uid,
+        'amount': totalBudget.value,
+        'alertPercentage': 80.0,
+        'receiveAlert': true,
+        'timestamp': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // Set category budgets for next month
+      // Set category budgets for current month
       for (var category in budgetCategories) {
-        await _firestore.collection('budget').doc(user.uid).set({
-          'budgetData': {
-            nextMonthKey: {
-              'categories': {
-                category['name']: {
-                  'limit': category['amount'],
-                  'alertPercentage': 80.0,
-                  'createdAt': FieldValue.serverTimestamp(),
-                }
-              }
-            }
-          }
+        String generateRandomBudgetId() {
+          final random = Random();
+          final number = random.nextInt(100000).toString().padLeft(5, '0');
+          return 'budget#$number';
+        }
+
+        final budgetId = generateRandomBudgetId();
+        await _firestore.collection('budget').doc(budgetId).set({
+          'budgetId': budgetId,
+          'userId': user.uid,
+          'category': category['name'],
+          'amount': category['amount'],
+          'alertPercentage': 80.0,
+          'receiveAlert': true,
+          'timestamp': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
 
-      dev.log('Auto-set budget for next month: $nextMonthKey');
+      dev.log('Auto-set budget for current month');
       dev.log('Total budget: ${totalBudget.value}');
       dev.log('Categories: ${budgetCategories.length}');
       dev.log(

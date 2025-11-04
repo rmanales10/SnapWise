@@ -69,9 +69,15 @@ class NotificationService extends GetxController {
   }) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        print('🔔 Cannot save notification - user not logged in');
+        return;
+      }
 
-      await _firestore.collection('notifications').add({
+      print('🔔 Saving notification to Firestore: $title');
+      print('   User ID: ${user.uid}');
+      DocumentReference docRef =
+          await _firestore.collection('notifications').add({
         'userId': user.uid,
         'title': title,
         'body': body,
@@ -80,9 +86,17 @@ class NotificationService extends GetxController {
         'timestamp': FieldValue.serverTimestamp(),
         'isRead': false,
       });
+      print(
+          '✅ Notification saved successfully to Firestore with ID: ${docRef.id}');
+
+      // Wait a bit and then verify the document was created
+      await Future.delayed(Duration(seconds: 2));
+      DocumentSnapshot doc = await docRef.get();
+      print(
+          '   Verification - Document exists: ${doc.exists}, Data: ${doc.data()}');
     } catch (e) {
       if (kDebugMode) {
-        print('Error saving notification to Firestore: $e');
+        print('❌ Error saving notification to Firestore: $e');
       }
     }
   }
@@ -320,6 +334,9 @@ class NotificationService extends GetxController {
     required double exceededAmount,
   }) async {
     try {
+      print(
+          '🔔 showOverallBudgetExceeded called: totalExpenses=$totalExpenses, budgetLimit=$budgetLimit, exceededAmount=$exceededAmount');
+
       // Create unique notification key for overall budget scoped per user
       final userId = _auth.currentUser?.uid ?? 'anon';
       final notificationKey =
@@ -328,10 +345,12 @@ class NotificationService extends GetxController {
       // Check cooldown to prevent duplicate notifications
       if (!_shouldSendNotification(notificationKey)) {
         if (kDebugMode) {
-          print('Skipping overall budget notification - cooldown active');
+          print('⏸️ Skipping overall budget notification - cooldown active');
         }
         return;
       }
+
+      print('✅ Cooldown passed, proceeding with notification');
       AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         OVERALL_BUDGET_CHANNEL,
         'Overall Budget Alerts',
@@ -402,6 +421,9 @@ class NotificationService extends GetxController {
     required double exceededAmount,
   }) async {
     try {
+      print(
+          '🔔 showCategoryBudgetExceeded called: category=$category, expenses=$categoryExpenses, limit=$categoryLimit, exceeded=$exceededAmount');
+
       // Create unique notification key for category budget scoped per user
       final userId = _auth.currentUser?.uid ?? 'anon';
       final notificationKey =
@@ -411,10 +433,12 @@ class NotificationService extends GetxController {
       if (!_shouldSendNotification(notificationKey)) {
         if (kDebugMode) {
           print(
-              'Skipping category budget notification for $category - cooldown active');
+              '⏸️ Skipping category budget notification for $category - cooldown active');
         }
         return;
       }
+
+      print('✅ Cooldown passed, proceeding with category notification');
 
       // Debug logging
       if (kDebugMode) {

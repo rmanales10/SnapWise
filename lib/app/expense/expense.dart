@@ -28,7 +28,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
   final TextEditingController amountController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
   final TextEditingController dateController =
-      TextEditingController(); // Transaction date
+      TextEditingController(); // Posting Date
   final TextEditingController receiptDateController =
       TextEditingController(); // Receipt date from OCR
 
@@ -566,7 +566,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
             expenseDetails['date'] ?? DateTime.now().toString().split(' ')[0];
         dateController.text = DateTime.now()
             .toString()
-            .split(' ')[0]; // Transaction date is current date
+            .split(' ')[0]; // Posting Date is current date
         isProcessingImage = false; // Stop loading
       });
 
@@ -705,7 +705,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
                               _buildDetailRow('Amount', amountController.text),
                               const SizedBox(height: 8),
                               _buildDetailRow(
-                                  'Transaction Date', dateController.text),
+                                  'Posting Date', dateController.text),
                               const SizedBox(height: 8),
                               _buildDetailRow(
                                   'Receipt Date', receiptDateController.text),
@@ -1127,7 +1127,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
                             : '₱${amountController.text}'),
                     const SizedBox(height: 4),
                     _buildConfirmationRow(
-                        'Transaction Date',
+                        'Posting Date',
                         dateController.text.isEmpty
                             ? 'Not selected'
                             : dateController.text),
@@ -1254,7 +1254,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Transaction Date (When Entered)',
+          'Posting Date (When Entered)',
           style: TextStyle(
             fontSize: isTablet ? 20 : 16,
             fontWeight: FontWeight.w600,
@@ -1288,7 +1288,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
         }
       },
       decoration: InputDecoration(
-        hintText: "Select transaction date",
+        hintText: "Select Posting Date",
         hintStyle: TextStyle(fontSize: isTablet ? 18 : 16),
         suffixIcon: Icon(
           Icons.calendar_today,
@@ -1395,7 +1395,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     }
 
     if (dateController.text.isEmpty) {
-      _showErrorSnackbar('Please select a transaction date');
+      _showErrorSnackbar('Please select a Posting Date');
       return;
     }
 
@@ -1414,7 +1414,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
         amount,
         base64Image ?? 'No Image',
         receiptDateController.text, // Receipt date (for graph)
-        dateController.text, // Transaction date (when input)
+        dateController.text, // Posting Date (when input)
       );
 
       if (controller.isSuccess.value == true) {

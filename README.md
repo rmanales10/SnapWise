@@ -254,7 +254,7 @@ The app includes comprehensive notification support for:
 - **Manual Override**: Full control to modify AI-suggested categories and amounts
 - **Dual Date Tracking**: 
   - **Receipt Date**: The actual date on the physical receipt (used for budget calculations and graphs)
-  - **Transaction Date**: The date when the expense was added to the app (used for "Recent Transactions")
+  - **Posting Date**: The date when the expense was added to the app (used for "Recent Transactions")
 - **Image Compression**: Automatic image compression using `flutter_image_compress` to ensure Firestore compatibility
 - **Base64 Storage**: Secure storage of receipt images in Firebase Firestore (< 1MB limit)
 - **Error Handling**: Graceful fallback when AI extraction fails with user-friendly error messages

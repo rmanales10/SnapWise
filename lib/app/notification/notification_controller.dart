@@ -16,38 +16,6 @@ class NotificationController extends GetxController {
 
   // Configurable constants
   static const int _oldNotificationCleanupDays = 30;
-  static const List<String> _incorrectBudgetPatterns = [
-    '₱0.00',
-    '₱3100.00',
-    '₱8000.00',
-    '₱-300.00',
-    '₱-',
-    'Budget budget',
-  ];
-  static const List<String> _incorrectNotificationPatterns = [
-    'exceeded',
-    'Overall Budget Alert!',
-    'Spent: ₱-',
-    'budget (₱-',
-    '100%',
-  ];
-
-  // Method to add custom cleanup patterns
-  void addCleanupPattern(String pattern) {
-    if (!_incorrectBudgetPatterns.contains(pattern)) {
-      // Note: This would require making the list non-const,
-      // but for now we'll keep it as a design consideration
-    }
-  }
-
-  // Method to get current cleanup configuration
-  Map<String, dynamic> getCleanupConfiguration() {
-    return {
-      'oldNotificationCleanupDays': _oldNotificationCleanupDays,
-      'incorrectBudgetPatterns': _incorrectBudgetPatterns,
-      'incorrectNotificationPatterns': _incorrectNotificationPatterns,
-    };
-  }
 
   @override
   void onInit() {
@@ -79,6 +47,8 @@ class NotificationController extends GetxController {
         DateTime.now().subtract(Duration(days: _oldNotificationCleanupDays));
     final oldTimestamp = Timestamp.fromDate(cutoffDate);
 
+    print('   Cutoff date: $cutoffDate (30 days ago)');
+
     _notificationsSubscription = _firestore
         .collection('notifications')
         .where('userId', isEqualTo: user.uid)
@@ -87,9 +57,10 @@ class NotificationController extends GetxController {
         .snapshots()
         .listen((snapshot) {
       print('🔔 NotificationController: Notifications changed, refreshing...');
+      print(
+          '   Snapshot has ${snapshot.docs.length} documents, hasPendingWrites: ${snapshot.metadata.hasPendingWrites}');
       // Debounce rapid updates
       Future.delayed(Duration(milliseconds: 500), () {
-        if (snapshot.metadata.hasPendingWrites) return;
         _updateNotificationsFromSnapshot(snapshot);
       });
     }, onError: (error) {
@@ -102,8 +73,10 @@ class NotificationController extends GetxController {
   /// Update notifications from Firestore snapshot
   void _updateNotificationsFromSnapshot(QuerySnapshot snapshot) {
     try {
+      print('Processing ${snapshot.docs.length} documents from snapshot');
       notifications.value = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
+        print('  Document: ${data['title']}, timestamp: ${data['timestamp']}');
         return {
           'id': doc.id,
           'title': data['title'] ?? 'Notification',
@@ -121,69 +94,10 @@ class NotificationController extends GetxController {
     }
   }
 
-  // Helper method to check if a notification contains incorrect data
-  bool _isIncorrectNotification(String title, String body) {
-    // Check for basic incorrect budget patterns
-    for (String pattern in _incorrectBudgetPatterns) {
-      if (body.contains(pattern) || title.contains(pattern)) {
-        return true;
-      }
-    }
-
-    // Check for complex patterns
-    if ((body.contains('exceeded') && body.contains('₱0.00')) ||
-        (title.contains('Overall Budget Alert!') &&
-            body.contains('₱8000.00')) ||
-        (body.contains('Spent: ₱-') && body.contains('budget (₱-')) ||
-        (body.contains('100%') && body.contains('₱-300.00'))) {
-      return true;
-    }
-
-    return false;
-  }
-
   // Helper method to generate grouping key for notifications
   String _getNotificationGroupKey(Map<String, dynamic> notification) {
     // Group by type and title for better duplicate detection
     return '${notification['type']}_${notification['title']}';
-  }
-
-  // Clean up old notifications with incorrect data
-  Future<void> _cleanupIncorrectNotifications() async {
-    try {
-      final User? user = _auth.currentUser;
-      if (user == null) return;
-
-      // Get all notifications for the user
-      final QuerySnapshot querySnapshot = await _firestore
-          .collection('notifications')
-          .where('userId', isEqualTo: user.uid)
-          .get();
-
-      List<String> notificationsToDelete = [];
-
-      for (var doc in querySnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final body = data['body'] ?? '';
-        final title = data['title'] ?? '';
-
-        // Check for notifications with incorrect budget data using configurable patterns
-        if (_isIncorrectNotification(title, body)) {
-          notificationsToDelete.add(doc.id);
-        }
-      }
-
-      // Delete incorrect notifications
-      if (notificationsToDelete.isNotEmpty) {
-        for (String docId in notificationsToDelete) {
-          await _firestore.collection('notifications').doc(docId).delete();
-        }
-        print(
-            'Cleaned up ${notificationsToDelete.length} incorrect notifications');
-      }
-    } catch (e) {
-      print('Error cleaning up notifications: $e');
-    }
   }
 
   Future<void> fetchNotifications() async {
@@ -193,13 +107,12 @@ class NotificationController extends GetxController {
         throw Exception('User not authenticated');
       }
 
-      // Clean up old notifications with incorrect data first
-      await _cleanupIncorrectNotifications();
-
-      // Fetch notifications from the last 30 days (same as cleanup window)
+      // Fetch notifications from the last 30 days
       final cutoffDate =
           DateTime.now().subtract(Duration(days: _oldNotificationCleanupDays));
       final oldTimestamp = Timestamp.fromDate(cutoffDate);
+
+      print('   Query cutoff: $oldTimestamp');
 
       final QuerySnapshot querySnapshot = await _firestore
           .collection('notifications')
@@ -207,6 +120,8 @@ class NotificationController extends GetxController {
           .where('timestamp', isGreaterThanOrEqualTo: oldTimestamp)
           .orderBy('timestamp', descending: true)
           .get();
+
+      print('   Query returned ${querySnapshot.docs.length} documents');
 
       notifications.value = querySnapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
@@ -226,8 +141,7 @@ class NotificationController extends GetxController {
       // Remove duplicate notifications after fetching
       removeDuplicateNotifications();
 
-      // Clear old notifications (runs in background)
-      clearOldNotifications();
+      print('✅ Fetched ${notifications.length} notifications from Firestore');
     } catch (e) {
       SnackbarService.showError(
           title: 'Notification Error',
@@ -279,6 +193,8 @@ class NotificationController extends GetxController {
   // Remove duplicate notifications (keep only the most recent of each type)
   void removeDuplicateNotifications() {
     try {
+      print('Removing duplicates from ${notifications.length} notifications');
+
       // Group notifications by type and title
       Map<String, List<Map<String, dynamic>>> groupedNotifications = {};
 
@@ -290,12 +206,17 @@ class NotificationController extends GetxController {
         groupedNotifications[key]!.add(notification);
       }
 
+      print(
+          'Grouped into ${groupedNotifications.length} unique notification types');
+
       // Keep only the most recent notification of each type
       List<Map<String, dynamic>> notificationsToKeep = [];
       List<String> notificationsToDelete = [];
 
       for (var group in groupedNotifications.values) {
         if (group.length > 1) {
+          print(
+              'Found ${group.length} duplicates for type: ${_getNotificationGroupKey(group.first)}');
           // Sort by timestamp (most recent first)
           group.sort((a, b) {
             Timestamp timestampA = a['timestamp'] as Timestamp;
@@ -325,7 +246,8 @@ class NotificationController extends GetxController {
       notifications.value = notificationsToKeep;
       notifications.refresh();
 
-      print('Removed ${notificationsToDelete.length} duplicate notifications');
+      print(
+          'Removed ${notificationsToDelete.length} duplicate notifications, kept ${notificationsToKeep.length}');
     } catch (e) {
       print('Error removing duplicate notifications: $e');
     }

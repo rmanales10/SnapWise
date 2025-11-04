@@ -321,7 +321,7 @@ class HomeController extends GetxController {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        // Fetch all expenses and filter by TRANSACTION DATE (when user added) for today only
+        // Fetch all expenses and filter by Posting Date (when user added) for today only
         final querySnapshot = await _firestore
             .collection('expenses')
             .where('userId', isEqualTo: user.uid)
@@ -333,7 +333,7 @@ class HomeController extends GetxController {
         DateTime endOfToday =
             DateTime(now.year, now.month, now.day, 23, 59, 59);
 
-        log('=== FETCHING RECENT TRANSACTIONS (Transaction Date) ===');
+        log('=== FETCHING RECENT TRANSACTIONS (Posting Date) ===');
         log('Current DateTime.now(): $now');
         log('Start of today: $startOfToday');
         log('End of today: $endOfToday');
@@ -343,7 +343,7 @@ class HomeController extends GetxController {
             .map((doc) {
               final data = doc.data();
 
-              // Check if expense was ADDED today based on TRANSACTION DATE
+              // Check if expense was ADDED today based on Posting Date
               bool isAddedToday = false;
 
               // Use transactionDate to check if expense was added today
@@ -357,9 +357,9 @@ class HomeController extends GetxController {
                       transactionDate
                           .isBefore(endOfToday.add(const Duration(seconds: 1)));
 
-                  log('Transaction date: $transactionDate - isAddedToday: $isAddedToday');
+                  log('Posting Date: $transactionDate - isAddedToday: $isAddedToday');
                 } catch (e) {
-                  // If transaction date parsing fails, fall back to timestamp
+                  // If Posting Date parsing fails, fall back to timestamp
                   DateTime timestamp =
                       (data['timestamp'] as Timestamp).toDate();
                   isAddedToday = timestamp.isAfter(
@@ -367,17 +367,17 @@ class HomeController extends GetxController {
                       timestamp
                           .isBefore(endOfToday.add(const Duration(seconds: 1)));
 
-                  log('Transaction date parsing failed, using timestamp: $timestamp - isAddedToday: $isAddedToday');
+                  log('Posting Date parsing failed, using timestamp: $timestamp - isAddedToday: $isAddedToday');
                 }
               } else {
-                // If no transaction date, fall back to timestamp
+                // If no Posting Date, fall back to timestamp
                 DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
                 isAddedToday = timestamp.isAfter(
                         startOfToday.subtract(const Duration(seconds: 1))) &&
                     timestamp
                         .isBefore(endOfToday.add(const Duration(seconds: 1)));
 
-                log('No transaction date, using timestamp: $timestamp - isAddedToday: $isAddedToday');
+                log('No Posting Date, using timestamp: $timestamp - isAddedToday: $isAddedToday');
               }
 
               // Display receipt date (the actual date of the expense)
@@ -400,7 +400,7 @@ class HomeController extends GetxController {
                 "title": data['category'],
                 "date": displayDate, // Show receipt date
                 "amount": "-${data['amount'].toStringAsFixed(2)}",
-                "isToday": isAddedToday, // Filter by transaction date
+                "isToday": isAddedToday, // Filter by Posting Date
               };
             })
             .where((transaction) => transaction['isToday'] == true)
