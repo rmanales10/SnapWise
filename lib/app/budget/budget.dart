@@ -232,6 +232,44 @@ class _BudgetPageState extends State<BudgetPage> {
     return categories;
   }
 
+  // Method to sort income categories
+  List<MapEntry<String, double>> _getSortedIncomeCategories() {
+    List<MapEntry<String, double>> incomeCategories =
+        List.from(_budgetController.expensesByCategory.entries);
+
+    incomeCategories.sort((a, b) {
+      int comparison = 0;
+      String categoryA = a.key;
+      String categoryB = b.key;
+      double amountA = a.value;
+      double amountB = b.value;
+
+      switch (currentSortBy) {
+        case 'name':
+          comparison = categoryA.compareTo(categoryB);
+          break;
+        case 'amount':
+          // Sort by amount spent (this is the same as "spent" for income categories)
+          comparison = amountA.compareTo(amountB);
+          break;
+        case 'spent':
+          // Sort by amount spent
+          comparison = amountA.compareTo(amountB);
+          break;
+        case 'remaining':
+          // For income categories, "remaining" means how much of the income is left
+          // We sort by the inverse - higher spent = lower remaining
+          // So we sort by amount in reverse (descending by default, then apply ascending flag)
+          comparison = amountB.compareTo(amountA); // Reverse for remaining
+          break;
+      }
+
+      return isAscending ? comparison : -comparison;
+    });
+
+    return incomeCategories;
+  }
+
   // Check for category budget notification based on alert percentage
   Future<void> _checkCategoryBudgetNotification(
     String category,
@@ -523,6 +561,10 @@ class _BudgetPageState extends State<BudgetPage> {
                 child: SingleChildScrollView(
                   physics: AlwaysScrollableScrollPhysics(),
                   child: Obx(() {
+                    // Access reactive variables to ensure Obx rebuilds when they change
+                    final _ = _budgetController.expensesByCategory.length;
+                    final __ = _budgetController.incomeData.value;
+
                     return isbudgetTab
                         ? FutureBuilder<List<Map<String, dynamic>>>(
                             future: (currentSortBy == 'spent' ||
@@ -658,39 +700,45 @@ class _BudgetPageState extends State<BudgetPage> {
                               );
                             },
                           )
-                        : Column(
-                            children: _budgetController
-                                .expensesByCategory.entries
-                                .map((
-                              entry,
-                            ) {
-                              String category = entry.key;
-                              double amountSpent = entry.value;
-                              return _buildCategoryItem2(
-                                isTablet,
-                                icon: _getCategoryIcon(category),
-                                category: category,
-                                amountSpent: amountSpent,
-                                totalBudget: _budgetController
-                                        .incomeData.value['amount'] ??
-                                    0.0,
-                                color: _getCategoryColor(category),
-                                exceeded: false,
-                                percentageOfIncome: _budgetController
-                                                .incomeData.value['amount'] !=
-                                            null &&
-                                        _budgetController
-                                                .incomeData.value['amount'] !=
-                                            0
-                                    ? ((amountSpent /
-                                            _budgetController
-                                                .incomeData.value['amount'] *
-                                            100)
-                                        .clamp(0.0, 100.0)
-                                        .toStringAsFixed(1))
-                                    : '0.0',
+                        : Builder(
+                            builder: (context) {
+                              // Use Builder to ensure sorting state is captured
+                              final sortedCategories =
+                                  _getSortedIncomeCategories();
+                              return Column(
+                                children: sortedCategories.map((
+                                  entry,
+                                ) {
+                                  String category = entry.key;
+                                  double amountSpent = entry.value;
+                                  return _buildCategoryItem2(
+                                    isTablet,
+                                    icon: _getCategoryIcon(category),
+                                    category: category,
+                                    amountSpent: amountSpent,
+                                    totalBudget: _budgetController
+                                            .incomeData.value['amount'] ??
+                                        0.0,
+                                    color: _getCategoryColor(category),
+                                    exceeded: false,
+                                    percentageOfIncome: _budgetController
+                                                    .incomeData
+                                                    .value['amount'] !=
+                                                null &&
+                                            _budgetController.incomeData
+                                                    .value['amount'] !=
+                                                0
+                                        ? ((amountSpent /
+                                                _budgetController.incomeData
+                                                    .value['amount'] *
+                                                100)
+                                            .clamp(0.0, 100.0)
+                                            .toStringAsFixed(1))
+                                        : '0.0',
+                                  );
+                                }).toList(),
                               );
-                            }).toList(),
+                            },
                           );
                   }),
                 ),

@@ -3,6 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../app/auth_screens/sms_service/sms_service.dart';
 
 class NotificationService extends GetxController {
   static final FlutterLocalNotificationsPlugin
@@ -10,6 +11,7 @@ class NotificationService extends GetxController {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final SmsService _smsService = Get.put(SmsService());
 
   // Cooldown mechanism to prevent duplicate notifications
   final Map<String, DateTime> _lastNotificationTimes = {};
@@ -58,6 +60,64 @@ class NotificationService extends GetxController {
   // Update last notification time
   void _updateLastNotificationTime(String notificationKey) {
     _lastNotificationTimes[notificationKey] = DateTime.now();
+  }
+
+  // Get user's phone number from Firestore
+  Future<String?> _getUserPhoneNumber() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return null;
+
+      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      if (userDoc.exists) {
+        final data = userDoc.data() as Map<String, dynamic>;
+        final phoneNumber = data['phoneNumber'] as String?;
+        if (phoneNumber != null && phoneNumber.isNotEmpty) {
+          return phoneNumber;
+        }
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error getting user phone number: $e');
+      }
+      return null;
+    }
+  }
+
+  // Send SMS notification
+  Future<void> _sendSmsNotification({
+    required String title,
+    required String body,
+  }) async {
+    try {
+      final phoneNumber = await _getUserPhoneNumber();
+      if (phoneNumber == null || phoneNumber.isEmpty) {
+        if (kDebugMode) {
+          print('📱 No phone number found for user, skipping SMS');
+        }
+        return;
+      }
+
+      if (kDebugMode) {
+        print('📱 Sending SMS to: $phoneNumber');
+      }
+
+      await _smsService.sendNotification(
+        phoneNumber: phoneNumber,
+        title: title,
+        message: body,
+      );
+
+      if (kDebugMode) {
+        print('✅ SMS notification sent successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error sending SMS notification: $e');
+      }
+      // Don't throw error - SMS failure shouldn't break notification flow
+    }
   }
 
   // Save notification to Firestore for history
@@ -404,6 +464,12 @@ class NotificationService extends GetxController {
         },
       );
 
+      // Send SMS notification
+      await _sendSmsNotification(
+        title: title,
+        body: message,
+      );
+
       // Update cooldown timestamp
       _updateLastNotificationTime(notificationKey);
     } catch (e) {
@@ -504,6 +570,12 @@ class NotificationService extends GetxController {
         },
       );
 
+      // Send SMS notification
+      await _sendSmsNotification(
+        title: title,
+        body: message,
+      );
+
       // Update cooldown timestamp
       _updateLastNotificationTime(notificationKey);
     } catch (e) {
@@ -560,6 +632,13 @@ class NotificationService extends GetxController {
           'remainingIncome': remainingIncome,
         },
       );
+
+      // Send SMS notification
+      await _sendSmsNotification(
+        title: '💰 Income Alert',
+        body:
+            'You\'ve spent ${(spentPercentage * 100).toStringAsFixed(2)}% of your income. Remaining: ₱${remainingIncome.toStringAsFixed(2)}',
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Error showing income alert notification: $e');
@@ -614,6 +693,12 @@ class NotificationService extends GetxController {
           'amount': amount,
           'receiptDate': receiptDate,
         },
+      );
+
+      // Send SMS notification
+      await _sendSmsNotification(
+        title: '💸 Expense Added',
+        body: '₱${amount.toStringAsFixed(2)} for $category on $receiptDate',
       );
     } catch (e) {
       if (kDebugMode) {
@@ -671,6 +756,13 @@ class NotificationService extends GetxController {
           'amountToPay': amountToPay,
           'frequency': frequency,
         },
+      );
+
+      // Send SMS notification
+      await _sendSmsNotification(
+        title: '💰 Payment Due Today!',
+        body:
+            '$title payment of ₱${amountToPay.toStringAsFixed(2)} is due today ($frequency)',
       );
     } catch (e) {
       if (kDebugMode) {
@@ -731,6 +823,13 @@ class NotificationService extends GetxController {
           'frequency': frequency,
           'daysUntilDue': daysUntilDue,
         },
+      );
+
+      // Send SMS notification
+      await _sendSmsNotification(
+        title: '⏰ Payment Due Soon!',
+        body:
+            '$title payment of ₱${amountToPay.toStringAsFixed(2)} is due $dayText ($frequency)',
       );
     } catch (e) {
       if (kDebugMode) {
@@ -793,6 +892,13 @@ class NotificationService extends GetxController {
           'daysOverdue': daysOverdue,
         },
       );
+
+      // Send SMS notification
+      await _sendSmsNotification(
+        title: '🚨 Payment Overdue!',
+        body:
+            '$title payment of ₱${amountToPay.toStringAsFixed(2)} was due $dayText ($frequency)',
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Error showing payment overdue notification: $e');
@@ -846,6 +952,13 @@ class NotificationService extends GetxController {
           'paymentTitle': title,
           'totalAmount': totalAmount,
         },
+      );
+
+      // Send SMS notification
+      await _sendSmsNotification(
+        title: '✅ Payment Completed!',
+        body:
+            '$title payment of ₱${totalAmount.toStringAsFixed(2)} has been completed successfully!',
       );
     } catch (e) {
       if (kDebugMode) {

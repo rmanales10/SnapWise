@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 class RegistrationSuccessPage extends StatelessWidget {
-  final bool isTablet =
-      MediaQueryData.fromView(
+  final bool isTablet = MediaQueryData.fromView(
         // ignore: deprecated_member_use
         WidgetsBinding.instance.window,
       ).size.shortestSide >
@@ -16,7 +15,7 @@ class RegistrationSuccessPage extends StatelessWidget {
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding:  EdgeInsets.symmetric(horizontal: isTablet ? 50 : 24),
+            padding: EdgeInsets.symmetric(horizontal: isTablet ? 50 : 24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

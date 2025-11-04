@@ -79,7 +79,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         Text(
                           profileController.username.value.isNotEmpty
                               ? profileController.username.value
-                              : 'Loading...',
+                              : profileController.email.value.isNotEmpty
+                                  ? profileController.email.value.split('@')[0]
+                                  : 'User',
                           style: TextStyle(
                             fontSize:
                                 isTablet ? 25 : 20, // Larger text for tablets
