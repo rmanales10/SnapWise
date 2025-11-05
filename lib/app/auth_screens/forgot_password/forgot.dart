@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/auth_screens/forgot_password/forgot_controller.dart';
-import 'package:snapwise/app/auth_screens/forgot_password/verify_code.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -188,7 +187,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    'Sending verification email...',
+                                    'Sending password reset email...',
                                     style: TextStyle(
                                       color: Colors.grey.shade600,
                                       fontSize: 14,
@@ -272,26 +271,26 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     try {
       await controller
-          .sendVerificationEmail(controller.emailController.text.trim());
+          .sendPasswordResetEmail(controller.emailController.text.trim());
 
-      if (controller.isUserFound.value) {
-        // Navigate to verification screen
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                VerifyCode(email: controller.emailController.text.trim()),
-          ),
-        );
+      if (controller.isSuccess.value) {
+        // Show success message and navigate back to login
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.pop(context);
+          }
+        });
       } else {
-        // Show error if user not found
+        // Show error if email sending failed
         setState(() {
-          _emailError = 'No account found with this email address';
+          _emailError = controller.errorMessage.value.isNotEmpty
+              ? controller.errorMessage.value
+              : 'Failed to send password reset email. Please try again.';
         });
       }
     } catch (e) {
       setState(() {
-        _emailError = 'Failed to send verification email. Please try again.';
+        _emailError = 'Failed to send password reset email. Please try again.';
       });
     } finally {
       setState(() {

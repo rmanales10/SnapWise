@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:snapwise/app/auth_screens/register/register_controller.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
-import 'package:snapwise/app/auth_screens/verify/verify_screen.dart';
 import 'package:snapwise/services/snackbar_service.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -131,7 +130,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
                     // Phone Number
                     const Text(
-                      "Phone Number",
+                      "Phone Number (Required)",
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -147,7 +146,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         _phoneNumber = phone.completeNumber;
                       },
                       decoration: InputDecoration(
-                        hintText: 'Phone Number',
+                        hintText: '9123456789',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(
@@ -424,52 +423,27 @@ class _RegisterPageState extends State<RegisterPage> {
 
   // In your form submission:
   void onSubmit() async {
-    // ignore: use_build_context_synchronously
-
     // Set the controller values
-    _controller.username = _usernameController.text;
-    _controller.email = _emailController.text;
+    _controller.username = _usernameController.text.trim();
+    _controller.email = _emailController.text.trim();
     _controller.password = _passwordController.text;
     _controller.phoneNumber = _phoneNumber;
-
-    // Debug: Log phone number before registration
-    print('📱 Register Form: _phoneNumber value: $_phoneNumber');
-    print('📱 Register Form: _phoneNumber length: ${_phoneNumber.length}');
-    print('📱 Register Form: _phoneNumber isEmpty: ${_phoneNumber.isEmpty}');
-    print(
-        '📱 Register Form: Controller phoneNumber: ${_controller.phoneNumber}');
-
-    // Validate phone number
-    if (_phoneNumber.isEmpty) {
-      SnackbarService.showError(
-          title: 'Registration Error',
-          message: 'Please enter a valid phone number');
-      setState(() {
-        _isSubmitting = false;
-      });
-      return;
-    }
 
     // Call the registration method
     bool success = await _controller.register();
 
     if (success) {
-      print(
-          '📱 Register Form: Navigating to VerifyScreen with phone: $_phoneNumber');
-      // Navigate to verify screen after successful registration
-      Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => VerifyScreen(
-                    email: _emailController.text,
-                    username: _usernameController.text,
-                    password: _passwordController.text,
-                    phoneNumber: _phoneNumber,
-                  )));
+      // Show success message and navigate to login
+      SnackbarService.showSuccess(
+          title: 'Registration Successful',
+          message:
+              'Account created! Please check your email inbox (and spam folder) to verify your account. You can login after verification.');
+
+      // Sign out the user (they need to verify email first)
+      // ignore: use_build_context_synchronously
+      Navigator.pushReplacementNamed(context, '/login');
     } else {
-      // Show error message if registration fails
-      SnackbarService.showError(
-          title: 'Registration Error', message: _controller.errorMessage.value);
+      // Error message is already shown in the controller
     }
     setState(() {
       _isSubmitting = false;

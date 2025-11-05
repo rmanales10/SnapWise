@@ -24,6 +24,7 @@ class ProfileController extends GetxController {
     final User? user = _auth.currentUser;
     if (user != null) {
       // Set immediate fallback from local storage or email
+      // This is just for initial display before Firestore data loads
       final storedUsername = _storage.read<String>('userDisplayName');
       username.value = storedUsername ??
           user.displayName ??
@@ -52,14 +53,15 @@ class ProfileController extends GetxController {
         final data = snapshot.data() as Map<String, dynamic>;
         developer.log('Firestore data: $data');
 
-        // Priority: displayName (Google) > username (Email/Password) > Local Storage > Firebase Auth displayName > email prefix
-        username.value = data['displayName'] ??
-            data['username'] ??
+        // Priority: username from Firestore (created during signup) > displayName (Google) > Local Storage > Firebase Auth displayName > email prefix
+        username.value = data['username'] ??
+            data['displayName'] ??
             _storage.read<String>('userDisplayName') ??
             user.displayName ??
             user.email?.split('@')[0] ??
             'User';
 
+        // Get full email for storage, but we'll extract Gmail name for display
         email.value = data['email'] ?? user.email ?? '';
         photoUrl.value = data['photoUrl'] ?? user.photoURL ?? '';
 
@@ -73,6 +75,7 @@ class ProfileController extends GetxController {
         // Fallback to local storage or Firebase Auth data if Firestore doesn't have the user
         developer.log(
             'No Firestore data, using local storage or Firebase Auth data');
+        // Try to get username from local storage first (might have been set before)
         final storedUsername = _storage.read<String>('userDisplayName');
         username.value = storedUsername ??
             user.displayName ??

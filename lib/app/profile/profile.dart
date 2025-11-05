@@ -75,7 +75,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Show the actual username instead of "Username" label
+                        // Show username from Firestore (created during signup)
                         Text(
                           profileController.username.value.isNotEmpty
                               ? profileController.username.value
@@ -88,10 +88,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        // Show email below username
+                        // Show Gmail name (part before @) below username
                         if (profileController.email.value.isNotEmpty)
                           Text(
-                            profileController.email.value,
+                            profileController.email.value.split('@')[0],
                             style: TextStyle(
                               fontSize: isTablet ? 16 : 14,
                               color: Colors.grey.shade600,

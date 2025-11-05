@@ -5,13 +5,12 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'dart:math';
 import '../../../services/snackbar_service.dart';
 
 import 'package:snapwise/app/auth_screens/login/login.dart';
 
 // Enum for login result
-enum LoginResult { success, unverified, error }
+enum LoginResult { success, error }
 
 class LoginController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -76,47 +75,61 @@ class LoginController extends GetxController {
 
     try {
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: emailController.text,
+        email: emailController.text.trim(),
         password: passwordController.text,
       );
 
-      _isLoading.value = false;
-
-      // Check if user exists in Firestore and is verified
-      DocumentSnapshot userDoc = await _firestore
-          .collection('users')
-          .doc(userCredential.user?.uid)
-          .get();
-
-      if (!userDoc.exists || userDoc.get('isVerified') != true) {
-        // Store user credentials temporarily for verification
-        await _storage.write('tempUserEmail', emailController.text);
-        await _storage.write('tempUserPassword', passwordController.text);
-        await _storage.write('tempUserUid', userCredential.user?.uid);
-
-        // Get phone number from Firestore if it exists
-        String? phoneNumber;
-        if (userDoc.exists) {
-          final userData = userDoc.data() as Map<String, dynamic>?;
-          phoneNumber = userData?['phoneNumber'] as String?;
-        }
-
-        // Store phone number in temporary storage (even if null, so we can update it)
-        await _storage.write('tempUserPhoneNumber', phoneNumber ?? '');
-
-        // Generate verification code for SMS
-        String verificationCode = _generateVerificationCode();
-        await _storage.write('verificationCode', verificationCode);
-        developer.log('Generated verification code: $verificationCode');
-
-        // SMS verification will be handled by the verification screen
-        errorMessage = 'Please check your phone for verification';
+      User? user = userCredential.user;
+      if (user == null) {
+        _isLoading.value = false;
+        errorMessage = 'Failed to sign in. Please try again.';
+        SnackbarService.showError(title: 'Login Error', message: errorMessage);
         _auth.signOut();
-        return LoginResult.unverified;
+        return LoginResult.error;
       }
 
+      // Reload user to get latest email verification status
+      await user.reload();
+      user = _auth.currentUser;
+
+      // Check if email is verified
+      if (user != null && !user.emailVerified) {
+        _isLoading.value = false;
+        errorMessage =
+            'Please verify your email before logging in. Check your inbox for the verification email.';
+        SnackbarService.showError(
+            title: 'Email Not Verified',
+            message:
+                'Please verify your email before logging in. Check your inbox for the verification email.');
+        _auth.signOut();
+        return LoginResult.error;
+      }
+
+      // Check if user is still valid after reload
+      if (user == null) {
+        _isLoading.value = false;
+        errorMessage = 'Failed to sign in. Please try again.';
+        SnackbarService.showError(title: 'Login Error', message: errorMessage);
+        _auth.signOut();
+        return LoginResult.error;
+      }
+
+      // Check if user exists in Firestore
+      DocumentSnapshot userDoc =
+          await _firestore.collection('users').doc(user.uid).get();
+
+      // Update isVerified status in Firestore if email is verified
+      if (user.emailVerified && userDoc.exists) {
+        await _firestore.collection('users').doc(user.uid).update({
+          'isVerified': true,
+          'verifiedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      _isLoading.value = false;
+
       // Update user data
-      updateUserData(userCredential.user);
+      updateUserData(user);
 
       return LoginResult.success;
     } on FirebaseAuthException catch (e) {
@@ -150,70 +163,6 @@ class LoginController extends GetxController {
           title: 'Login Error', message: 'An unexpected error occurred');
       _auth.signOut();
       return LoginResult.error;
-    }
-  }
-
-  String _generateVerificationCode() {
-    final random = Random();
-    String code = '';
-    for (int i = 0; i < 6; i++) {
-      code += random.nextInt(10).toString();
-    }
-    return code;
-  }
-
-  Future<bool> verifyCode(String code) async {
-    try {
-      final storedCode = await _storage.read('verificationCode') ?? '';
-      developer.log('Verifying SMS code: $code');
-      developer.log('Expected code: $storedCode');
-
-      if (code == storedCode) {
-        // Get stored user credentials
-        final email = await _storage.read('tempUserEmail');
-        final password = await _storage.read('tempUserPassword');
-        final uid = await _storage.read('tempUserUid');
-        final phoneNumber = await _storage.read('tempUserPhoneNumber');
-
-        if (email != null && password != null && uid != null) {
-          // Prepare update data
-          Map<String, dynamic> updateData = {
-            'isVerified': true,
-            'verifiedAt': FieldValue.serverTimestamp(),
-          };
-
-          // Update phone number if it exists from temp storage
-          // (This would be the phone number from Firestore or passed from VerifyScreen)
-          if (phoneNumber != null && phoneNumber.toString().isNotEmpty) {
-            updateData['phoneNumber'] = phoneNumber;
-          }
-
-          // Update user verification status and phone number in Firestore
-          await _firestore.collection('users').doc(uid).update(updateData);
-
-          // Clear temporary data
-          await _storage.remove('tempUserEmail');
-          await _storage.remove('tempUserPassword');
-          await _storage.remove('tempUserUid');
-          await _storage.remove('tempUserPhoneNumber');
-          await _storage.remove('verificationCode');
-
-          // Get current user and update data
-          User? currentUser = _auth.currentUser;
-          if (currentUser != null) {
-            updateUserData(currentUser);
-          }
-
-          return true;
-        }
-      }
-      SnackbarService.showError(
-          title: 'Verification Error', message: 'Invalid code');
-      return false;
-    } catch (e) {
-      developer.log('Error verifying SMS code: $e');
-      _auth.signOut();
-      return false;
     }
   }
 
