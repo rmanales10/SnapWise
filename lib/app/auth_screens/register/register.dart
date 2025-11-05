@@ -432,10 +432,30 @@ class _RegisterPageState extends State<RegisterPage> {
     _controller.password = _passwordController.text;
     _controller.phoneNumber = _phoneNumber;
 
+    // Debug: Log phone number before registration
+    print('📱 Register Form: _phoneNumber value: $_phoneNumber');
+    print('📱 Register Form: _phoneNumber length: ${_phoneNumber.length}');
+    print('📱 Register Form: _phoneNumber isEmpty: ${_phoneNumber.isEmpty}');
+    print(
+        '📱 Register Form: Controller phoneNumber: ${_controller.phoneNumber}');
+
+    // Validate phone number
+    if (_phoneNumber.isEmpty) {
+      SnackbarService.showError(
+          title: 'Registration Error',
+          message: 'Please enter a valid phone number');
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
+
     // Call the registration method
     bool success = await _controller.register();
 
     if (success) {
+      print(
+          '📱 Register Form: Navigating to VerifyScreen with phone: $_phoneNumber');
       // Navigate to verify screen after successful registration
       Navigator.push(
           context,

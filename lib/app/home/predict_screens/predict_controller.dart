@@ -6,6 +6,12 @@ import 'package:snapwise/services/snackbar_service.dart';
 import 'dart:developer' as dev;
 import 'dart:math';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'dart:typed_data';
 
 class PredictController extends GetxController {
   final RxDouble totalBudget = 0.0.obs;
@@ -685,6 +691,321 @@ class PredictController extends GetxController {
     } catch (e) {
       dev.log('Error fetching saved predictions: $e');
       savedPredictions.value = [];
+    }
+  }
+
+  // Generate PDF Report
+  Future<void> generatePdfReport() async {
+    try {
+      isLoading.value = true;
+
+      // Helper function to replace Unicode characters with ASCII equivalents for PDF
+      String pdfSafeText(String text) {
+        return text
+            .replaceAll('₱', 'PHP ') // Replace peso sign with "PHP "
+            .replaceAll('•', '*'); // Replace bullet with asterisk
+      }
+
+      // Load images
+      final ByteData logoData = await rootBundle.load('assets/print/logo.png');
+      final Uint8List logoBytes = logoData.buffer.asUint8List();
+      final pw.MemoryImage logoImage = pw.MemoryImage(logoBytes);
+
+      final ByteData printLogoData =
+          await rootBundle.load('assets/print/print_logo.jpg');
+      final Uint8List printLogoBytes = printLogoData.buffer.asUint8List();
+      final pw.MemoryImage printLogoImage = pw.MemoryImage(printLogoBytes);
+
+      // Create PDF document with font theme
+      final pdf = pw.Document();
+
+      // Get current date
+      final now = DateTime.now();
+      final dateFormat = DateFormat('MMMM dd, yyyy');
+      final timeFormat = DateFormat('h:mm a');
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(40),
+          header: (pw.Context context) {
+            return pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Image(logoImage, height: 50),
+                pw.Image(printLogoImage, height: 50),
+              ],
+            );
+          },
+          footer: (pw.Context context) {
+            return pw.Container(
+              alignment: pw.Alignment.center,
+              margin: const pw.EdgeInsets.only(top: 20),
+              padding: const pw.EdgeInsets.symmetric(vertical: 10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border(
+                  top: pw.BorderSide(color: PdfColors.grey300, width: 1),
+                ),
+              ),
+              child: pw.Text(
+                'Generated on ${dateFormat.format(now)} at ${timeFormat.format(now)}',
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey600,
+                ),
+              ),
+            );
+          },
+          build: (pw.Context context) {
+            return [
+              // Title
+              pw.Header(
+                level: 0,
+                child: pw.Text(
+                  'Budget Prediction Report',
+                  style: pw.TextStyle(
+                    fontSize: 24,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.grey900,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // Summary Section
+              pw.Container(
+                padding: const pw.EdgeInsets.all(15),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  borderRadius: pw.BorderRadius.circular(8),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Predicted Budget for Next Month',
+                      style: pw.TextStyle(
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 10),
+                    pw.Text(
+                      'PHP ${totalBudget.value.toStringAsFixed(2)}',
+                      style: pw.TextStyle(
+                        fontSize: 28,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blue900,
+                      ),
+                    ),
+                    pw.SizedBox(height: 5),
+                    pw.Text(
+                      'Based on your last ${dataDurationMonths.value} months of spending data',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // Historical Data Section
+              if (historicalData.isNotEmpty) ...[
+                pw.Text(
+                  'Historical Spending Summary',
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300),
+                  children: [
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            'Month',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            'Total Spent',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    ),
+                    ...historicalData.take(10).map((month) {
+                      // Parse the month string (format: 'YYYY-MM') to DateTime
+                      final monthStr = month['month'] as String;
+                      DateTime monthDate;
+                      try {
+                        // Parse 'YYYY-MM' format and set to first day of month
+                        final parts = monthStr.split('-');
+                        if (parts.length == 2) {
+                          monthDate = DateTime(
+                            int.parse(parts[0]),
+                            int.parse(parts[1]),
+                            1,
+                          );
+                        } else {
+                          monthDate = DateTime.now();
+                        }
+                      } catch (e) {
+                        // Fallback to current date if parsing fails
+                        monthDate = DateTime.now();
+                      }
+                      return pw.TableRow(
+                        children: [
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(8),
+                            child: pw.Text(
+                              DateFormat('MMM yyyy').format(monthDate),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(8),
+                            child: pw.Text(
+                              pdfSafeText(
+                                  '₱${(month['total'] as double).toStringAsFixed(2)}'),
+                              textAlign: pw.TextAlign.right,
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+                pw.SizedBox(height: 20),
+              ],
+
+              // Budget Categories Section
+              pw.Text(
+                'Predicted Budget by Category',
+                style: pw.TextStyle(
+                  fontSize: 18,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey300),
+                children: [
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Category',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Amount',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          textAlign: pw.TextAlign.right,
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Percentage',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          textAlign: pw.TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                  ...budgetCategories.map((category) {
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(category['name'] ?? 'N/A'),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            pdfSafeText(
+                                '₱${(category['amount'] as double?)?.toStringAsFixed(2) ?? '0.00'}'),
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            '${(category['percentage'] as double?)?.toStringAsFixed(1) ?? '0.0'}%',
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+
+              // Insights Section
+              if (insights.value.isNotEmpty) ...[
+                pw.Text(
+                  'Insights',
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(15),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.blue50,
+                    borderRadius: pw.BorderRadius.circular(8),
+                    border: pw.Border.all(color: PdfColors.blue200),
+                  ),
+                  child: pw.Text(
+                    pdfSafeText(insights.value),
+                    style: pw.TextStyle(
+                      fontSize: 12,
+                      color: PdfColors.grey800,
+                    ),
+                  ),
+                ),
+              ],
+            ];
+          },
+        ),
+      );
+
+      // Share or save PDF
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+      );
+
+      isLoading.value = false;
+      SnackbarService.showSuccess(
+        title: 'Success',
+        message: 'PDF report generated successfully!',
+      );
+    } catch (e) {
+      isLoading.value = false;
+      dev.log('Error generating PDF: $e');
+      SnackbarService.showError(
+        title: 'Error',
+        message: 'Failed to generate PDF report: $e',
+      );
     }
   }
 }

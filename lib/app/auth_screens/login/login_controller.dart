@@ -94,6 +94,16 @@ class LoginController extends GetxController {
         await _storage.write('tempUserPassword', passwordController.text);
         await _storage.write('tempUserUid', userCredential.user?.uid);
 
+        // Get phone number from Firestore if it exists
+        String? phoneNumber;
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>?;
+          phoneNumber = userData?['phoneNumber'] as String?;
+        }
+
+        // Store phone number in temporary storage (even if null, so we can update it)
+        await _storage.write('tempUserPhoneNumber', phoneNumber ?? '');
+
         // Generate verification code for SMS
         String verificationCode = _generateVerificationCode();
         await _storage.write('verificationCode', verificationCode);
@@ -163,18 +173,29 @@ class LoginController extends GetxController {
         final email = await _storage.read('tempUserEmail');
         final password = await _storage.read('tempUserPassword');
         final uid = await _storage.read('tempUserUid');
+        final phoneNumber = await _storage.read('tempUserPhoneNumber');
 
         if (email != null && password != null && uid != null) {
-          // Update user verification status in Firestore
-          await _firestore.collection('users').doc(uid).update({
+          // Prepare update data
+          Map<String, dynamic> updateData = {
             'isVerified': true,
             'verifiedAt': FieldValue.serverTimestamp(),
-          });
+          };
+
+          // Update phone number if it exists from temp storage
+          // (This would be the phone number from Firestore or passed from VerifyScreen)
+          if (phoneNumber != null && phoneNumber.toString().isNotEmpty) {
+            updateData['phoneNumber'] = phoneNumber;
+          }
+
+          // Update user verification status and phone number in Firestore
+          await _firestore.collection('users').doc(uid).update(updateData);
 
           // Clear temporary data
           await _storage.remove('tempUserEmail');
           await _storage.remove('tempUserPassword');
           await _storage.remove('tempUserUid');
+          await _storage.remove('tempUserPhoneNumber');
           await _storage.remove('verificationCode');
 
           // Get current user and update data
@@ -382,6 +403,20 @@ class LoginController extends GetxController {
 
   Future<void> storeExtendedUserInfo(User user) async {
     try {
+      // Fetch existing user document to preserve phone number if it exists
+      DocumentSnapshot userDoc =
+          await _firestore.collection('users').doc(user.uid).get();
+
+      // Preserve existing phone number from Firestore, or use Firebase Auth phone number
+      String? existingPhoneNumber;
+      if (userDoc.exists) {
+        final userData = userDoc.data() as Map<String, dynamic>?;
+        existingPhoneNumber = userData?['phoneNumber'] as String?;
+      }
+
+      // Use existing phone number if available, otherwise fall back to Firebase Auth phone number
+      final phoneNumber = existingPhoneNumber ?? user.phoneNumber ?? '';
+
       // Fetch IP address and country
       final response = await _connect.get('https://ipapi.co/json/');
       final ipData = response.body;
@@ -392,7 +427,7 @@ class LoginController extends GetxController {
       // Prepare user data for Firestore (can use DateTime)
       final userDataFirestore = {
         'displayName': user.displayName ?? '',
-        'phoneNumber': user.phoneNumber ?? '',
+        'phoneNumber': phoneNumber,
         'email': user.email ?? '',
         'country': country,
         'status': 'active', // Default status
@@ -402,7 +437,7 @@ class LoginController extends GetxController {
       // Prepare user data for local storage (convert DateTime to String)
       final userDataLocal = {
         'displayName': user.displayName ?? '',
-        'phoneNumber': user.phoneNumber ?? '',
+        'phoneNumber': phoneNumber,
         'email': user.email ?? '',
         'country': country,
         'status': 'active',
@@ -419,6 +454,9 @@ class LoginController extends GetxController {
       await _storage.write('extendedUserInfo', userDataLocal);
 
       developer.log('Extended user info stored successfully');
+      if (phoneNumber.isNotEmpty) {
+        developer.log('Phone number preserved: $phoneNumber');
+      }
     } catch (e) {
       developer.log('Error storing extended user info: $e');
       SnackbarService.showError(

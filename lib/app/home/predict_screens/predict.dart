@@ -39,6 +39,20 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
         ),
         actions: [
           Padding(
+            padding: const EdgeInsets.only(right: 5),
+            child: IconButton(
+              icon: Icon(
+                LucideIcons.fileText,
+                color: Colors.black,
+                size: isTablet ? 28 : 20,
+              ),
+              onPressed: () {
+                _controller.generatePdfReport();
+              },
+              tooltip: 'Export PDF Report',
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.only(right: 10),
             child: IconButton(
               icon: Icon(
@@ -75,13 +89,13 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                   ),
                 )
               : SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: isTablet ? 30 : 16,
-            vertical: isTablet ? 25 : 15,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+                    vertical: isTablet ? 25 : 15,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       // Prediction Summary
                       _buildPredictionSummary(),
                       SizedBox(height: isTablet ? 30 : 20),
@@ -366,33 +380,33 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
 
   Widget _buildPredictionGraph() {
     return Container(
-                width: double.infinity,
+      width: double.infinity,
       padding: EdgeInsets.all(isTablet ? 20 : 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(isTablet ? 20 : 15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isTablet ? 20 : 15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
             'Daily Spending Prediction for Next Month',
-                      style: TextStyle(
+            style: TextStyle(
               fontSize: isTablet ? 20 : 18,
               fontWeight: FontWeight.bold,
               color: const Color.fromARGB(255, 3, 30, 53),
-                      ),
-                    ),
+            ),
+          ),
           SizedBox(height: isTablet ? 20 : 15),
           Obx(() => _controller.predictionGraph.isEmpty
-                        ? Container(
+              ? Container(
                   height: 200,
                   child: Center(
                     child: Column(
@@ -489,7 +503,7 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                                         (day % 5 == 0 || day == 1)) {
                                       return Text(
                                         '$day',
-                              style: TextStyle(
+                                        style: TextStyle(
                                           fontSize: 12,
                                           color: Colors.grey[600],
                                         ),
@@ -536,7 +550,7 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
 
                                   return FlDotCirclePainter(
                                     radius: 4,
-                                color: const Color.fromARGB(255, 3, 30, 53),
+                                    color: const Color.fromARGB(255, 3, 30, 53),
                                     strokeWidth: 2,
                                     strokeColor: Colors.white,
                                   );
@@ -549,9 +563,9 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                               ),
                             ),
                           ],
-                            ),
-                          ),
-                        )
+                        ),
+                      ),
+                    )
                   : Container(
                       height: 200,
                       child: Center(
@@ -597,14 +611,14 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
               SizedBox(width: 10),
               Text(
                 'Insights & Analysis',
-                          style: TextStyle(
+                style: TextStyle(
                   fontSize: isTablet ? 20 : 18,
-                            fontWeight: FontWeight.bold,
-                            color: const Color.fromARGB(255, 3, 30, 53),
-                          ),
-                        ),
-                  ],
+                  fontWeight: FontWeight.bold,
+                  color: const Color.fromARGB(255, 3, 30, 53),
                 ),
+              ),
+            ],
+          ),
           SizedBox(height: isTablet ? 20 : 15),
           Obx(() => Text(
                 _controller.insights.value,
@@ -623,27 +637,27 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-              Text(
+        Text(
           'Predicted Category Breakdown',
-                style: TextStyle(
-                  fontSize: isTablet ? 22 : 18,
-                  fontWeight: FontWeight.bold,
+          style: TextStyle(
+            fontSize: isTablet ? 22 : 18,
+            fontWeight: FontWeight.bold,
             color: const Color.fromARGB(255, 3, 30, 53),
-                ),
-              ),
-              SizedBox(height: isTablet ? 20 : 15),
+          ),
+        ),
+        SizedBox(height: isTablet ? 20 : 15),
         Obx(() => GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _controller.budgetCategories.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: isTablet ? 3 : 2,
-                  crossAxisSpacing: isTablet ? 20 : 15,
-                  mainAxisSpacing: isTablet ? 20 : 15,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _controller.budgetCategories.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: isTablet ? 3 : 2,
+                crossAxisSpacing: isTablet ? 20 : 15,
+                mainAxisSpacing: isTablet ? 20 : 15,
                 childAspectRatio: isTablet ? 1.1 : 1.2,
-                ),
-                itemBuilder: (context, index) {
-                  final category = _controller.budgetCategories[index];
+              ),
+              itemBuilder: (context, index) {
+                final category = _controller.budgetCategories[index];
                 return _buildCategoryCard(category);
               },
             )),
@@ -652,25 +666,25 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
   }
 
   Widget _buildCategoryCard(Map<String, dynamic> category) {
-        return Container(
+    return Container(
       padding: EdgeInsets.all(isTablet ? 16 : 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(isTablet ? 15 : 12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isTablet ? 15 : 12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
               Container(
                 padding: EdgeInsets.all(6),
                 decoration: BoxDecoration(
@@ -686,18 +700,18 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
               ),
               SizedBox(width: 8),
               Expanded(
-                    child: Text(
+                child: Text(
                   category['name'],
-                      style: TextStyle(
+                  style: TextStyle(
                     fontSize: isTablet ? 14 : 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+                ),
               ),
+            ],
+          ),
           SizedBox(height: 12),
           Text(
             'PHP ${(category['amount'] as double? ?? 0.0).toStringAsFixed(2)}',
@@ -749,9 +763,9 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
               SizedBox(width: 10),
               Text(
                 'Saved Predictions',
-                    style: TextStyle(
-                      fontSize: isTablet ? 20 : 18,
-                      fontWeight: FontWeight.bold,
+                style: TextStyle(
+                  fontSize: isTablet ? 20 : 18,
+                  fontWeight: FontWeight.bold,
                   color: const Color.fromARGB(255, 3, 30, 53),
                 ),
               ),
@@ -784,10 +798,10 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                           style: TextStyle(
                             fontSize: isTablet ? 14 : 12,
                             color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-            ],
-          ),
                   ),
                 )
               : ListView.builder(
@@ -818,8 +832,8 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
         color: Color(0xFFF8F9FE),
         borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
         border: Border.all(color: Colors.grey.withOpacity(0.2)),
-          ),
-          child: Column(
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -843,7 +857,7 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
             ],
           ),
           SizedBox(height: isTablet ? 12 : 8),
-              Text(
+          Text(
             'Categories:',
             style: TextStyle(
               fontSize: isTablet ? 14 : 12,
@@ -872,18 +886,18 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                 ),
                 child: Text(
                   '$name: ₱${amount.toStringAsFixed(0)} (${percentage.toStringAsFixed(1)}%)',
-                style: TextStyle(
+                  style: TextStyle(
                     fontSize: isTablet ? 12 : 10,
                     color: Colors.grey[700],
+                  ),
                 ),
-              ),
               );
             }).toList(),
           ),
           SizedBox(height: isTablet ? 12 : 8),
-              Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+            children: [
               Text(
                 'Saved on ${DateFormat('MMM d, yyyy').format(date)}',
                 style: TextStyle(
@@ -914,13 +928,13 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
               ? null
               : () {
                   _controller.savePrediction();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(
+                },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color.fromARGB(255, 3, 30, 53),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: EdgeInsets.symmetric(
               vertical: isTablet ? 18 : 16,
             ),
           ),
@@ -949,14 +963,14 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                 )
               : Text(
                   'Save Prediction',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: isTablet ? 18 : 16,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isTablet ? 18 : 16,
                     fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
                   ),
+                ),
+        ),
+      ),
     );
   }
 }

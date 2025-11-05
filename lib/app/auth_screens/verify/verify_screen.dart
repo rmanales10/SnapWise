@@ -313,6 +313,12 @@ class VerifyScreenState extends State<VerifyScreen> {
     _controller.phoneNumber = widget.phoneNumber;
     _controller.email = widget.email;
 
+    // If this is login verification and phone number is provided, store it in temp storage
+    if (widget.isLoginVerification && widget.phoneNumber.isNotEmpty) {
+      final storage = GetStorage();
+      await storage.write('tempUserPhoneNumber', widget.phoneNumber);
+    }
+
     // Check if controller is still valid before accessing text
     if (_pinController.text.length != 6) {
       SnackbarService.showError(
@@ -365,6 +371,13 @@ class VerifyScreenState extends State<VerifyScreen> {
       // Check if widget is still mounted before proceeding
       if (!mounted) return;
 
+      // Debug: Log phone number before registration
+      print('📱 Registration: Phone number from widget: ${widget.phoneNumber}');
+      print(
+          '📱 Registration: Phone number length: ${widget.phoneNumber.length}');
+      print(
+          '📱 Registration: Phone number isEmpty: ${widget.phoneNumber.isEmpty}');
+
       // Create user with email and password after successful verification
       UserCredential userCredential =
           await _auth.createUserWithEmailAndPassword(
@@ -375,6 +388,22 @@ class VerifyScreenState extends State<VerifyScreen> {
       User? currentUser = userCredential.user;
 
       if (currentUser != null) {
+        // Ensure phone number is not empty, use the widget value or fallback to controller
+        String phoneNumberToStore = widget.phoneNumber.trim();
+
+        // If widget phone number is empty, try to get it from controller
+        if (phoneNumberToStore.isEmpty && !widget.isLoginVerification) {
+          if (_controller is RegisterController) {
+            phoneNumberToStore =
+                (_controller as RegisterController).phoneNumber.trim();
+            print(
+                '📱 Registration: Using phone number from controller: $phoneNumberToStore');
+          }
+        }
+
+        print(
+            '📱 Registration: Final phone number to store: $phoneNumberToStore');
+
         // Create user document in Firestore
         await FirebaseFirestore.instance
             .collection('users')
@@ -382,12 +411,15 @@ class VerifyScreenState extends State<VerifyScreen> {
             .set({
           'username': widget.username,
           'email': widget.email,
-          'phoneNumber': widget.phoneNumber,
+          'phoneNumber': phoneNumberToStore,
           'isVerified': true,
           'verifiedAt': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
           'password': encryptText(widget.password),
         });
+
+        print(
+            '📱 Registration: User document created with phone number: $phoneNumberToStore');
 
         // Store user data in local storage
         final storage = GetStorage();
@@ -395,7 +427,7 @@ class VerifyScreenState extends State<VerifyScreen> {
         await storage.write('userUid', currentUser.uid);
         await storage.write('userEmail', currentUser.email);
         await storage.write('userDisplayName', widget.username);
-        await storage.write('userPhoneNumber', widget.phoneNumber);
+        await storage.write('userPhoneNumber', phoneNumberToStore);
         await storage.write('userPhotoUrl', currentUser.photoURL ?? '');
 
         // Check if widget is still mounted before showing success message

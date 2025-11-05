@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:snapwise/app/auth_screens/login/login_controller.dart';
 import 'package:snapwise/app/widget/bottomnavbar.dart';
 import 'package:snapwise/app/auth_screens/verify/verify_screen.dart';
@@ -343,6 +344,10 @@ class _LoginPageState extends State<LoginPage> {
       );
       controller.clearData();
     } else if (result == LoginResult.unverified) {
+      // Get phone number from temporary storage (stored during login)
+      final storage = GetStorage();
+      final phoneNumber = storage.read('tempUserPhoneNumber') ?? '';
+
       // Navigate to verify screen
       Navigator.push(
         // ignore: use_build_context_synchronously
@@ -352,7 +357,7 @@ class _LoginPageState extends State<LoginPage> {
             email: controller.emailController.text,
             username: '', // Not needed for login verification
             password: controller.passwordController.text,
-            phoneNumber: '',
+            phoneNumber: phoneNumber.toString(),
             isLoginVerification: true, // Mark this as login verification
           ),
         ),

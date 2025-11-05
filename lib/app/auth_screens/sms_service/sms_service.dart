@@ -78,10 +78,10 @@ class SmsService extends GetxController {
         log.log('SMS sent successfully: $responseData');
 
         // Show success message
-        SnackbarService.showSuccess(
-          title: 'SMS Sent',
-          message: 'Message sent to ${formattedNumbers.length} recipient(s)',
-        );
+        // SnackbarService.showSuccess(
+        //   title: 'SMS Sent',
+        //   message: 'Message sent to ${formattedNumbers.length} recipient(s)',
+        // );
 
         return true;
       } else {
@@ -141,12 +141,52 @@ class SmsService extends GetxController {
   }
 
   /// Send notification SMS
+  /// Limits total message to 50 characters
   Future<bool> sendNotification({
     required String phoneNumber,
     required String title,
     required String message,
   }) async {
-    String fullMessage = 'Your SnapWise $title\n\n$message\n\n- SnapWise';
+    // Simplified format: "SnapWise: [content]"
+    // Format overhead: "SnapWise: " = 10 characters
+    // Available for content: 50 - 10 = 40 characters
+
+    const int maxTotalLength = 50;
+    const String prefix = 'SnapWise: ';
+    const int prefixLength = prefix.length; // 10
+    const int maxContentLength = maxTotalLength - prefixLength; // 40
+
+    // Combine title and message more compactly
+    // Remove emojis from title for SMS (they take extra characters)
+    String cleanTitle = title.replaceAll(RegExp(r'[🚨⚠️💰💸⏰✅]'), '').trim();
+
+    // Create compact message: prefer message content over title
+    String content = message.isNotEmpty ? message : cleanTitle;
+
+    // If we have both title and message, combine them compactly
+    if (cleanTitle.isNotEmpty && message.isNotEmpty && cleanTitle != message) {
+      // Use format: "Title: Message" if both exist and different
+      content = '$cleanTitle: $message';
+    }
+
+    // Truncate if necessary
+    if (content.length > maxContentLength) {
+      content = content.substring(0, maxContentLength - 3) + '...';
+      log.log('📱 SMS message truncated to fit 50 character limit');
+    }
+
+    String fullMessage = '$prefix$content';
+
+    // Double-check total length doesn't exceed limit
+    if (fullMessage.length > maxTotalLength) {
+      int excess = fullMessage.length - maxTotalLength;
+      content = content.substring(0, content.length - excess);
+      fullMessage = '$prefix$content';
+    }
+
+    log.log('📱 SMS message: "$fullMessage"');
+    log.log(
+        '📱 SMS message length: ${fullMessage.length} characters (max: $maxTotalLength)');
 
     return await sendSms(
       number: phoneNumber,
