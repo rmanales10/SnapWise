@@ -26,10 +26,7 @@ class ProfileController extends GetxController {
       // Set immediate fallback from local storage or email
       // This is just for initial display before Firestore data loads
       final storedUsername = _storage.read<String>('userDisplayName');
-      username.value = storedUsername ??
-          user.displayName ??
-          user.email?.split('@')[0] ??
-          'User';
+      username.value = storedUsername ?? user.displayName ?? 'User';
       email.value = user.email ?? '';
       photoUrl.value = user.photoURL ?? '';
     }

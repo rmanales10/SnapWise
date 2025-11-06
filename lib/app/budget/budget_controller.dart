@@ -675,11 +675,10 @@ class BudgetController extends GetxController {
         }
       }
 
-      // Fetch actual total expenses for the current month
-      double totalExpenses = await fetchTotalExpenses();
-
-      // Calculate remaining budget (overall budget minus actual expenses spent)
-      remainingBudget.value = overallBudget - totalExpenses;
+      // Calculate remaining budget (overall budget minus category budgets allocated)
+      // Example: Overall 20k - Food 10k - Transport 5k = Remaining 5k
+      // Note: This calculates based on allocated category budgets, not actual expenses
+      remainingBudget.value = overallBudget - totalCategoryBudget.value;
 
       // Calculate the percentage of overall budget remaining (0.0 - 1.0)
       if (overallBudget > 0) {

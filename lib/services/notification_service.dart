@@ -85,12 +85,21 @@ class NotificationService extends GetxController {
     }
   }
 
-  // Send SMS notification
+  // Send SMS notification (only for favorites)
   Future<void> _sendSmsNotification({
     required String title,
     required String body,
+    bool isFavorites = false,
   }) async {
     try {
+      // Only send SMS for favorites notifications
+      if (!isFavorites) {
+        if (kDebugMode) {
+          print('📱 SMS skipped - not a favorites notification');
+        }
+        return;
+      }
+
       final phoneNumber = await _getUserPhoneNumber();
       if (phoneNumber == null || phoneNumber.isEmpty) {
         if (kDebugMode) {
@@ -758,11 +767,12 @@ class NotificationService extends GetxController {
         },
       );
 
-      // Send SMS notification
+      // Send SMS notification (favorites only)
       await _sendSmsNotification(
         title: '💰 Payment Due Today!',
         body:
             '$title payment of ₱${amountToPay.toStringAsFixed(2)} is due today ($frequency)',
+        isFavorites: true,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -825,11 +835,12 @@ class NotificationService extends GetxController {
         },
       );
 
-      // Send SMS notification
+      // Send SMS notification (favorites only)
       await _sendSmsNotification(
         title: '⏰ Payment Due Soon!',
         body:
             '$title payment of ₱${amountToPay.toStringAsFixed(2)} is due $dayText ($frequency)',
+        isFavorites: true,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -893,11 +904,12 @@ class NotificationService extends GetxController {
         },
       );
 
-      // Send SMS notification
+      // Send SMS notification (favorites only)
       await _sendSmsNotification(
         title: '🚨 Payment Overdue!',
         body:
             '$title payment of ₱${amountToPay.toStringAsFixed(2)} was due $dayText ($frequency)',
+        isFavorites: true,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -954,11 +966,12 @@ class NotificationService extends GetxController {
         },
       );
 
-      // Send SMS notification
+      // Send SMS notification (favorites only)
       await _sendSmsNotification(
         title: '✅ Payment Completed!',
         body:
             '$title payment of ₱${totalAmount.toStringAsFixed(2)} has been completed successfully!',
+        isFavorites: true,
       );
     } catch (e) {
       if (kDebugMode) {
