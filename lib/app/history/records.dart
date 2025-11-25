@@ -111,12 +111,10 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
           'type': 'expense',
           'title': data['category'] ?? 'Unknown',
           'amount': data['amount'] ?? 0.0,
-          'date': receiptDate ??
-              date, // Use receipt date if available, otherwise timestamp
+          'date': date, // Use timestamp as the primary date
           'icon': _getCategoryIcon(data['category'] ?? ''),
           'receiptDate': receiptDate,
-          'transactionDate': transactionDate ??
-              date, // Use Posting Date if available, otherwise timestamp
+          'transactionDate': transactionDate ?? date,
           'base64Image': data['base64Image'], // Add base64Image field
         });
       }
@@ -423,43 +421,19 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
       for (var doc in expensesSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
 
-        // Check if expense is from today based on receipt date (preferred) or timestamp
+        // Check if expense is from today based on timestamp (preferred)
         bool isToday = false;
         DateTime? expenseDate;
 
-        // First try receipt date
-        if (data['receiptDate'] != null &&
-            data['receiptDate'].toString().isNotEmpty) {
-          try {
-            if (data['receiptDate'] is Timestamp) {
-              expenseDate = (data['receiptDate'] as Timestamp).toDate();
-            } else if (data['receiptDate'] is String) {
-              expenseDate = DateTime.parse(data['receiptDate']);
-            }
-
-            if (expenseDate != null) {
-              isToday = expenseDate
-                      .isAfter(startOfToday.subtract(Duration(seconds: 1))) &&
-                  expenseDate.isBefore(endOfToday.add(Duration(seconds: 1)));
-              print('Checking receipt date: $expenseDate - isToday: $isToday');
-            }
-          } catch (e) {
-            print('Error parsing receipt date: $e');
-          }
-        }
-
-        // If receipt date is not available or not today, check timestamp
-        if (!isToday) {
-          try {
-            DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
-            isToday = timestamp
-                    .isAfter(startOfToday.subtract(Duration(seconds: 1))) &&
-                timestamp.isBefore(endOfToday.add(Duration(seconds: 1)));
-            expenseDate = timestamp;
-            print('Checking timestamp: $timestamp - isToday: $isToday');
-          } catch (e) {
-            print('Error parsing timestamp: $e');
-          }
+        try {
+          DateTime timestamp = (data['timestamp'] as Timestamp).toDate();
+          isToday = timestamp
+                  .isAfter(startOfToday.subtract(Duration(seconds: 1))) &&
+              timestamp.isBefore(endOfToday.add(Duration(seconds: 1)));
+          expenseDate = timestamp;
+          print('Checking timestamp: $timestamp - isToday: $isToday');
+        } catch (e) {
+          print('Error parsing timestamp: $e');
         }
 
         if (isToday && expenseDate != null) {

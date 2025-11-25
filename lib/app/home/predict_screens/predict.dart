@@ -156,12 +156,16 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                 size: isTablet ? 28 : 24,
               ),
               SizedBox(width: 10),
-              Text(
-                'Predicted Budget for Next Month',
-                style: TextStyle(
-                  fontSize: isTablet ? 20 : 18,
-                  fontWeight: FontWeight.bold,
-                  color: const Color.fromARGB(255, 3, 30, 53),
+              Flexible(
+                child: Text(
+                  'Predicted Budget for Next Month',
+                  style: TextStyle(
+                    fontSize: isTablet ? 20 : 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color.fromARGB(255, 3, 30, 53),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ),
             ],
@@ -214,12 +218,16 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                 size: isTablet ? 28 : 24,
               ),
               SizedBox(width: 10),
-              Text(
-                'Historical Spending (Past 6-10 Mo.)',
-                style: TextStyle(
-                  fontSize: isTablet ? 20 : 18,
-                  fontWeight: FontWeight.bold,
-                  color: const Color.fromARGB(255, 3, 30, 53),
+              Flexible(
+                child: Text(
+                  'Historical Spending (Past 6-10 Mo.)',
+                  style: TextStyle(
+                    fontSize: isTablet ? 20 : 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color.fromARGB(255, 3, 30, 53),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
@@ -609,12 +617,16 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                 size: isTablet ? 28 : 24,
               ),
               SizedBox(width: 10),
-              Text(
-                'Insights & Analysis',
-                style: TextStyle(
-                  fontSize: isTablet ? 20 : 18,
-                  fontWeight: FontWeight.bold,
-                  color: const Color.fromARGB(255, 3, 30, 53),
+              Flexible(
+                child: Text(
+                  'Insights & Analysis',
+                  style: TextStyle(
+                    fontSize: isTablet ? 20 : 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color.fromARGB(255, 3, 30, 53),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
@@ -761,12 +773,16 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
                 size: isTablet ? 24 : 20,
               ),
               SizedBox(width: 10),
-              Text(
-                'Saved Predictions',
-                style: TextStyle(
-                  fontSize: isTablet ? 20 : 18,
-                  fontWeight: FontWeight.bold,
-                  color: const Color.fromARGB(255, 3, 30, 53),
+              Flexible(
+                child: Text(
+                  'Saved Predictions',
+                  style: TextStyle(
+                    fontSize: isTablet ? 20 : 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color.fromARGB(255, 3, 30, 53),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
@@ -923,53 +939,96 @@ class _PredictBudgetPageState extends State<PredictBudgetPage> {
     return Container(
       width: double.infinity,
       child: Obx(
-        () => ElevatedButton(
-          onPressed: _controller.isSaving.value
-              ? null
-              : () {
-                  _controller.savePrediction();
-                },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: EdgeInsets.symmetric(
-              vertical: isTablet ? 18 : 16,
-            ),
-          ),
-          child: _controller.isSaving.value
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        () {
+          final isLastDay = _controller.isLastDayOfMonth();
+          final isSaving = _controller.isSaving.value;
+          
+          return Column(
+            children: [
+              // Info text
+              if (!isLastDay)
+                Container(
+                  padding: EdgeInsets.all(12),
+                  margin: EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Predictions can only be saved on the last day of the month',
+                          style: TextStyle(
+                            color: Colors.orange[800],
+                            fontSize: isTablet ? 14 : 12,
+                          ),
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 10),
-                    Text(
-                      'Saving...',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: isTablet ? 18 : 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                )
-              : Text(
-                  'Save Prediction',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isTablet ? 18 : 16,
-                    fontWeight: FontWeight.bold,
+                    ],
                   ),
                 ),
-        ),
+              // Save button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: (isSaving || !isLastDay)
+                      ? null
+                      : () {
+                          _controller.savePrediction();
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 3, 30, 53),
+                    disabledBackgroundColor: Colors.grey[300],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      vertical: isTablet ? 18 : 16,
+                    ),
+                  ),
+                  child: isSaving
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'Saving...',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: isTablet ? 18 : 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          isLastDay
+                              ? 'Save Prediction for Next Month'
+                              : 'Save Prediction (Available on Last Day)',
+                          style: TextStyle(
+                            color: isLastDay ? Colors.white : Colors.grey[600],
+                            fontSize: isTablet ? 18 : 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

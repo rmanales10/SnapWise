@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../app/auth_screens/sms_service/sms_service.dart';
+import 'background_notification_service.dart';
 
 class NotificationService extends GetxController {
   static final FlutterLocalNotificationsPlugin
@@ -408,18 +409,23 @@ class NotificationService extends GetxController {
 
       // Create unique notification key for overall budget scoped per user
       final userId = _auth.currentUser?.uid ?? 'anon';
-      final notificationKey =
-          'overall_budget_${userId}_${budgetLimit.toStringAsFixed(0)}';
+      final notificationKey = 'budget_${budgetLimit.toStringAsFixed(0)}';
 
-      // Check cooldown to prevent duplicate notifications
-      if (!_shouldSendNotification(notificationKey)) {
+      // Check with BackgroundNotificationService for duplicates
+      final alreadySent = await BackgroundNotificationService.wasNotificationSent(
+        userId: userId,
+        notificationType: 'budget_exceeded',
+        notificationKey: notificationKey,
+      );
+
+      if (alreadySent) {
         if (kDebugMode) {
-          print('⏸️ Skipping overall budget notification - cooldown active');
+          print('⏸️ Skipping overall budget notification - already sent recently');
         }
         return;
       }
 
-      print('✅ Cooldown passed, proceeding with notification');
+      print('✅ Duplicate check passed, proceeding with notification');
       AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         OVERALL_BUDGET_CHANNEL,
         'Overall Budget Alerts',
@@ -479,8 +485,12 @@ class NotificationService extends GetxController {
         body: message,
       );
 
-      // Update cooldown timestamp
-      _updateLastNotificationTime(notificationKey);
+      // Mark as sent in BackgroundNotificationService
+      await BackgroundNotificationService.markNotificationSent(
+        userId: userId,
+        notificationType: 'budget_exceeded',
+        notificationKey: notificationKey,
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Error showing overall budget notification: $e');
@@ -501,19 +511,24 @@ class NotificationService extends GetxController {
 
       // Create unique notification key for category budget scoped per user
       final userId = _auth.currentUser?.uid ?? 'anon';
-      final notificationKey =
-          'category_budget_${userId}_${category}_${categoryLimit.toStringAsFixed(0)}';
+      final notificationKey = '${category}_${categoryLimit.toStringAsFixed(0)}';
 
-      // Check cooldown to prevent duplicate notifications
-      if (!_shouldSendNotification(notificationKey)) {
+      // Check with BackgroundNotificationService for duplicates
+      final alreadySent = await BackgroundNotificationService.wasNotificationSent(
+        userId: userId,
+        notificationType: 'category_budget_exceeded',
+        notificationKey: notificationKey,
+      );
+
+      if (alreadySent) {
         if (kDebugMode) {
           print(
-              '⏸️ Skipping category budget notification for $category - cooldown active');
+              '⏸️ Skipping category budget notification for $category - already sent recently');
         }
         return;
       }
 
-      print('✅ Cooldown passed, proceeding with category notification');
+      print('✅ Duplicate check passed, proceeding with category notification');
 
       // Debug logging
       if (kDebugMode) {
@@ -585,8 +600,12 @@ class NotificationService extends GetxController {
         body: message,
       );
 
-      // Update cooldown timestamp
-      _updateLastNotificationTime(notificationKey);
+      // Mark as sent in BackgroundNotificationService
+      await BackgroundNotificationService.markNotificationSent(
+        userId: userId,
+        notificationType: 'category_budget_exceeded',
+        notificationKey: notificationKey,
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Error showing category budget notification: $e');

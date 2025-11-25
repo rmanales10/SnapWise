@@ -69,6 +69,18 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  String _formatCompactCurrency(double amount) {
+    if (amount >= 1000000000) {
+      return '${(amount / 1000000000).toStringAsFixed(1)}B';
+    } else if (amount >= 1000000) {
+      return '${(amount / 1000000).toStringAsFixed(1)}M';
+    } else if (amount >= 1000) {
+      return '${(amount / 1000).toStringAsFixed(1)}k';
+    } else {
+      return amount.toStringAsFixed(2);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -164,10 +176,10 @@ class _HomePageState extends State<HomePage> {
               String balanceText;
               if (balance > 0) {
                 balanceText =
-                    '₱ ${balance.toStringAsFixed(2)}'; // Show positive for remaining money
+                    '₱ ${_formatCompactCurrency(balance)}'; // Show positive for remaining money
               } else if (balance < 0) {
                 balanceText =
-                    '₱ -${(-balance).toStringAsFixed(2)}'; // Show negative for overspending
+                    '₱ -${_formatCompactCurrency(-balance)}'; // Show negative for overspending
               } else {
                 balanceText = '₱ 0.00';
               }
@@ -240,7 +252,7 @@ class _HomePageState extends State<HomePage> {
                       Obx(() => _buildBalanceCard(
                             'assets/sales 1.png',
                             'Total Spent',
-                            'PHP ${controller.getTotalSpent()}',
+                            'PHP ${_formatCompactCurrency(controller.getCurrentMonthTotalFromCache())}',
                           )),
                       SizedBox(width: isTablet ? 30 : 10),
                       GestureDetector(

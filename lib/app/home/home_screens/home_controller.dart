@@ -240,6 +240,7 @@ class HomeController extends GetxController {
 
     try {
       await Future.wait([
+        _checkMonthlyReset(),
         fetchTransactions(),
         getTotalPaymentHistory(),
         getTotalIncome(),
@@ -822,6 +823,29 @@ class HomeController extends GetxController {
       }
 
       final budgetData = budgetDoc.data() as Map<String, dynamic>;
+      
+      // Check if budget is from current month
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      final startOfNextMonth = (now.month < 12)
+          ? DateTime(now.year, now.month + 1, 1)
+          : DateTime(now.year + 1, 1, 1);
+      
+      bool isCurrentMonth = false;
+      if (budgetData['timestamp'] != null) {
+        final Timestamp budgetTimestamp = budgetData['timestamp'] as Timestamp;
+        final budgetDate = budgetTimestamp.toDate();
+        isCurrentMonth = budgetDate.isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                        budgetDate.isBefore(startOfNextMonth);
+      }
+      
+      if (!isCurrentMonth) {
+        // Budget is from previous month, treat as 0
+        totalBudget.value = '0.00';
+        log('Budget is from previous month, displaying as 0');
+        return;
+      }
+      
       final amount = budgetData['amount'];
 
       if (amount == null || amount is! num) {
@@ -857,6 +881,29 @@ class HomeController extends GetxController {
       }
 
       final incomeData = incomeDoc.data() as Map<String, dynamic>;
+      
+      // Check if income is from current month
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
+      final startOfNextMonth = (now.month < 12)
+          ? DateTime(now.year, now.month + 1, 1)
+          : DateTime(now.year + 1, 1, 1);
+      
+      bool isCurrentMonth = false;
+      if (incomeData['timestamp'] != null) {
+        final Timestamp incomeTimestamp = incomeData['timestamp'] as Timestamp;
+        final incomeDate = incomeTimestamp.toDate();
+        isCurrentMonth = incomeDate.isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                        incomeDate.isBefore(startOfNextMonth);
+      }
+      
+      if (!isCurrentMonth) {
+        // Income is from previous month, treat as 0
+        totalIncome.value = '0.00';
+        log('Income is from previous month, displaying as 0');
+        return;
+      }
+      
       final amount = incomeData['amount'];
 
       if (amount == null || amount is! num) {

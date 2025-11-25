@@ -389,54 +389,69 @@ class MonthlyResetService extends GetxService {
           await _firestore.collection('predictionBudget').doc(user.uid).get();
 
       if (predictionDoc.exists) {
-        // Apply prediction to new month
         final predictionData = predictionDoc.data()!;
-        final totalBudget =
-            (predictionData['totalBudget'] as num?)?.toDouble() ?? 0.0;
-        final categories =
-            List<Map<String, dynamic>>.from(predictionData['categories'] ?? []);
+        final forMonth = predictionData['forMonth'] as String?;
+        final appliedToNextMonth = predictionData['appliedToNextMonth'] as bool? ?? false;
+        
+        // Only apply if prediction is for this month and hasn't been applied yet
+        if (forMonth == newMonthKey && !appliedToNextMonth) {
+          // Apply prediction to new month
+          final totalBudget =
+              (predictionData['totalBudget'] as num?)?.toDouble() ?? 0.0;
+          final categories =
+              List<Map<String, dynamic>>.from(predictionData['categories'] ?? []);
 
-        dev.log('Applying saved prediction to new month: $newMonthKey');
+          dev.log('Applying saved prediction to new month: $newMonthKey');
 
-        // Set overall budget
-        if (totalBudget > 0) {
-          await _firestore.collection('overallBudget').doc(user.uid).set({
-            'userId': user.uid,
-            'amount': totalBudget,
-            'alertPercentage': 80.0,
-            'receiveAlert': true,
-            'timestamp': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-
-          dev.log('Applied overall budget: ₱${totalBudget.toStringAsFixed(2)}');
-        }
-
-        // Set category budgets
-        for (var category in categories) {
-          final categoryName = category['name'] ?? '';
-          final categoryAmount =
-              (category['amount'] as num?)?.toDouble() ?? 0.0;
-
-          if (categoryName.isNotEmpty && categoryAmount > 0) {
-            // Create budget document ID using category name
-            final budgetId = '${user.uid}_${categoryName}';
-
-            await _firestore.collection('budget').doc(budgetId).set({
-              'budgetId': budgetId,
+          // Set overall budget
+          if (totalBudget > 0) {
+            await _firestore.collection('overallBudget').doc(user.uid).set({
               'userId': user.uid,
-              'category': categoryName,
-              'amount': categoryAmount,
+              'amount': totalBudget,
               'alertPercentage': 80.0,
               'receiveAlert': true,
               'timestamp': FieldValue.serverTimestamp(),
             }, SetOptions(merge: true));
 
-            dev.log(
-                'Applied category budget: $categoryName - ₱${categoryAmount.toStringAsFixed(2)}');
+            dev.log('Applied overall budget: ₱${totalBudget.toStringAsFixed(2)}');
           }
-        }
 
-        dev.log('✅ Prediction applied successfully to new month');
+          // Set category budgets
+          for (var category in categories) {
+            final categoryName = category['name'] ?? '';
+            final categoryAmount =
+                (category['amount'] as num?)?.toDouble() ?? 0.0;
+
+            if (categoryName.isNotEmpty && categoryAmount > 0) {
+              // Create budget document ID using category name
+              final budgetId = '${user.uid}_${categoryName}';
+
+              await _firestore.collection('budget').doc(budgetId).set({
+                'budgetId': budgetId,
+                'userId': user.uid,
+                'category': categoryName,
+                'amount': categoryAmount,
+                'alertPercentage': 80.0,
+                'receiveAlert': true,
+                'timestamp': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+
+              dev.log(
+                  'Applied category budget: $categoryName - ₱${categoryAmount.toStringAsFixed(2)}');
+            }
+          }
+
+          // Mark prediction as applied
+          await _firestore.collection('predictionBudget').doc(user.uid).update({
+            'appliedToNextMonth': true,
+          });
+
+          dev.log('✅ Prediction applied successfully to new month');
+        } else if (appliedToNextMonth) {
+          dev.log('Prediction already applied for this month');
+        } else {
+          dev.log('Prediction is not for this month (forMonth: $forMonth, newMonthKey: $newMonthKey)');
+        }
       } else {
         // No prediction, reset budgets to 0
         await _firestore.collection('overallBudget').doc(user.uid).set({

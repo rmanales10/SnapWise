@@ -33,6 +33,7 @@ import 'package:snapwise/services/firebase_options.dart';
 import 'package:snapwise/services/notification_service.dart';
 import 'package:snapwise/services/notification_settings_service.dart';
 import 'package:snapwise/services/monthly_reset_service.dart';
+import 'package:snapwise/services/background_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +46,9 @@ void main() async {
   if (!kIsWeb) {
     // Initialize notification service
     Get.put(NotificationService());
+    
+    // Initialize background notification service
+    await BackgroundNotificationService.initialize();
   }
 
   // Initialize notification settings service (works on all platforms)

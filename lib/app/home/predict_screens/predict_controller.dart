@@ -132,20 +132,15 @@ class PredictController extends GetxController {
 
       dev.log('Monthly expenses after favorites: $monthlyExpenses');
 
-      // Store historical data (last 6 months for analysis)
+      // Store historical data (6-10 months for analysis)
       // Sort by month key to get the most recent months
       var sortedEntries = monthlyExpenses.entries.toList()
         ..sort(
             (a, b) => b.key.compareTo(a.key)); // Sort descending (newest first)
 
-      // Take the last 6 months of data, or all available if less than 6
-      var selectedEntries = sortedEntries.take(6).toList();
-
-      // If we don't have enough recent data, try to get more from a longer period
-      if (selectedEntries.length < 3 && monthlyExpenses.length > 6) {
-        dev.log('Not enough recent data, extending range to get more months');
-        selectedEntries = sortedEntries.take(6).toList();
-      }
+      // Take up to 10 months of data, or all available if less than 10
+      // This ensures we use 6-10 months as specified
+      var selectedEntries = sortedEntries.take(10).toList();
 
       historicalData.value = selectedEntries.map((entry) {
         return {
@@ -381,17 +376,8 @@ class PredictController extends GetxController {
   // Generate predictions for next month
   Future<void> _generatePredictions() async {
     if (historicalData.isEmpty) {
-      // If no historical data, use default categories
-      budgetCategories.value = categoryTemplates.map((template) {
-        return {
-          ...template,
-          'amount': 1000.0, // Default amount
-          'prediction': true,
-          'percentage': 100.0 / categoryTemplates.length,
-          'color': template['color'] ?? Colors.grey,
-        };
-      }).toList();
-      totalBudget.value = 6000.0;
+      // If no historical data, fetch current budget categories
+      await _fetchCurrentBudgetCategories();
       return;
     }
 
@@ -417,35 +403,105 @@ class PredictController extends GetxController {
       });
     }
 
-    // Generate predictions for each category
-    budgetCategories.value = categoryTemplates.map((template) {
-      String categoryName = template['name'];
+    // Fetch current budget categories from Firestore
+    List<Map<String, dynamic>> currentBudgetCategories =
+        await _fetchCurrentBudgetCategories();
+
+    // Generate predictions only for categories that exist in current budget
+    List<Map<String, dynamic>> predictions = [];
+    double totalPredictedAmount = 0.0;
+
+    for (var budgetCategory in currentBudgetCategories) {
+      String categoryName = budgetCategory['name'];
       double categoryAmount = 0.0;
       double categoryPercentage = 0.0;
 
       if (categoryPercentages.containsKey(categoryName)) {
+        // Category has historical data
         categoryPercentage =
             (categoryPercentages[categoryName]! / totalCategorySpending) * 100;
         categoryAmount = (predictedTotal * categoryPercentage) / 100;
       } else {
-        // If no historical data for this category, use average
-        categoryPercentage = 100.0 / categoryTemplates.length;
-        categoryAmount = predictedTotal / categoryTemplates.length;
+        // No historical data for this category, use a small default
+        categoryPercentage = 5.0; // 5% default
+        categoryAmount = predictedTotal * 0.05;
       }
 
-      return {
-        ...template,
+      predictions.add({
+        ...budgetCategory,
         'amount': categoryAmount,
         'prediction': true,
         'percentage': categoryPercentage,
-        'color': template['color'] ?? Colors.grey,
-      };
-    }).toList();
+      });
 
-    totalBudget.value = predictedTotal;
-    dev.log('Generated predictions: ${totalBudget.value}');
+      totalPredictedAmount += categoryAmount;
+    }
+
+    // If no current budget categories exist, show empty state
+    if (predictions.isEmpty) {
+      budgetCategories.value = [];
+      totalBudget.value = 0.0;
+      dev.log('No current budget categories found');
+      return;
+    }
+
+    budgetCategories.value = predictions;
+    totalBudget.value = totalPredictedAmount;
+    
+    dev.log('Generated predictions for ${predictions.length} categories');
+    dev.log('Total predicted budget: ${totalBudget.value}');
     dev.log(
         'Category percentages: ${budgetCategories.map((c) => '${c['name']}: ${c['percentage']}%').join(', ')}');
+  }
+
+  // Fetch current budget categories from Firestore
+  Future<List<Map<String, dynamic>>> _fetchCurrentBudgetCategories() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return [];
+
+      // Fetch all budgets for the user, ordered by most recent first
+      final querySnapshot = await _firestore
+          .collection('budget')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      // Group by category and keep only the most recent budget per category
+      Map<String, Map<String, dynamic>> latestBudgets = {};
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        final category = (data['category'] ?? '').toString();
+        if (category.isEmpty) continue;
+
+        // If this category hasn't been seen yet (or this is more recent due to ordering)
+        if (!latestBudgets.containsKey(category)) {
+          // Find matching template for icon and color
+          Map<String, dynamic>? template = categoryTemplates.firstWhere(
+            (t) => t['name'].toString().toLowerCase() == category.toLowerCase(),
+            orElse: () => {
+              'name': category,
+              'icon': Icons.more_horiz,
+              'color': Colors.grey
+            },
+          );
+
+          latestBudgets[category] = {
+            'name': category,
+            'icon': template['icon'],
+            'color': template['color'],
+          };
+        }
+      }
+
+      dev.log('Fetched ${latestBudgets.length} current budget categories');
+      dev.log('Categories: ${latestBudgets.keys.join(', ')}');
+
+      return latestBudgets.values.toList();
+    } catch (e) {
+      dev.log('Error fetching current budget categories: $e');
+      return [];
+    }
   }
 
   // Create prediction graph data for daily predictions
@@ -573,13 +629,25 @@ class PredictController extends GetxController {
     return 0.0;
   }
 
-  // Save prediction to Firebase and auto-set budget for next month
+  // Save prediction to Firebase and prepare for next month
+  // Can only be called on the last day of the month
   Future<void> savePrediction() async {
     try {
+      // Check if it's the last day of the month
+      final now = DateTime.now();
+      final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
+      
+      if (now.day != lastDayOfMonth) {
+        SnackbarService.showError(
+            title: 'Not Available',
+            message: 'You can only save predictions on the last day of the month (Day $lastDayOfMonth).');
+        return;
+      }
+
       isSaving.value = true;
       final user = _auth.currentUser;
       if (user != null) {
-        // Save prediction data
+        // Save prediction data for next month
         await _firestore.collection('predictionBudget').doc(user.uid).set({
           'totalBudget': totalBudget.value,
           'categories': budgetCategories
@@ -591,10 +659,9 @@ class PredictController extends GetxController {
               .toList(),
           'insights': insights.value,
           'timestamp': FieldValue.serverTimestamp(),
+          'forMonth': '${now.year}-${(now.month + 1).toString().padLeft(2, '0')}', // Next month
+          'appliedToNextMonth': false, // Will be set to true when applied
         }, SetOptions(merge: true));
-
-        // Auto-set budget for next month
-        await _autoSetBudgetForNextMonth();
 
         // Refresh saved predictions list
         await fetchSavedPredictions();
@@ -602,13 +669,13 @@ class PredictController extends GetxController {
         SnackbarService.showSuccess(
             title: 'Success',
             message:
-                'Prediction saved! Overall budget (₱${totalBudget.value.toStringAsFixed(2)}) and category budgets automatically set for next month.');
+                'Prediction saved! Budget (₱${totalBudget.value.toStringAsFixed(2)}) will be automatically applied on the 1st of next month.');
 
         // Navigate back to home after successful save
         await Future.delayed(
             Duration(milliseconds: 500)); // Small delay to show success message
         Get.offAll(() =>
-            BottomNavBar()); // Navigate to predict and clear all previous routes
+            BottomNavBar()); // Navigate to home and clear all previous routes
       }
     } catch (e) {
       SnackbarService.showError(
@@ -618,51 +685,14 @@ class PredictController extends GetxController {
     }
   }
 
-  // Auto-set budget for next month based on prediction
-  Future<void> _autoSetBudgetForNextMonth() async {
-    try {
-      final user = _auth.currentUser;
-      if (user == null) return;
-
-      // Set overall budget for current month (not next month - let MonthlyResetService handle that)
-      // This ensures categories are visible immediately after saving prediction
-      await _firestore.collection('overallBudget').doc(user.uid).set({
-        'userId': user.uid,
-        'amount': totalBudget.value,
-        'alertPercentage': 80.0,
-        'receiveAlert': true,
-        'timestamp': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      // Set category budgets for current month
-      for (var category in budgetCategories) {
-        String generateRandomBudgetId() {
-          final random = Random();
-          final number = random.nextInt(100000).toString().padLeft(5, '0');
-          return 'budget#$number';
-        }
-
-        final budgetId = generateRandomBudgetId();
-        await _firestore.collection('budget').doc(budgetId).set({
-          'budgetId': budgetId,
-          'userId': user.uid,
-          'category': category['name'],
-          'amount': category['amount'],
-          'alertPercentage': 80.0,
-          'receiveAlert': true,
-          'timestamp': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
-
-      dev.log('Auto-set budget for current month');
-      dev.log('Total budget: ${totalBudget.value}');
-      dev.log('Categories: ${budgetCategories.length}');
-      dev.log(
-          'Category details: ${budgetCategories.map((c) => '${c['name']}: ₱${c['amount']}').join(', ')}');
-    } catch (e) {
-      dev.log('Error auto-setting budget for next month: $e');
-    }
+  // Check if today is the last day of the month
+  bool isLastDayOfMonth() {
+    final now = DateTime.now();
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
+    return now.day == lastDayOfMonth;
   }
+
+
 
   // Fetch saved predictions
   Future<void> fetchSavedPredictions() async {

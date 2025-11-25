@@ -230,90 +230,118 @@ class _ProfilePageState extends State<ProfilePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isTablet ? 40 : 25, // More padding for tablets
-            vertical: isTablet ? 30 : 20, // More vertical padding for tablets
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 5,
-                width: 40,
-                margin: const EdgeInsets.only(bottom: 15),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+        bool isLoading = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? 40 : 25, // More padding for tablets
+                vertical: isTablet ? 30 : 20, // More vertical padding for tablets
               ),
-              Text(
-                'Logout?',
-                style: TextStyle(
-                  fontSize: isTablet ? 22 : 18, // Larger text for tablets
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Are you sure you want to logout?',
-                style: TextStyle(
-                  color: Colors.black54,
-                  fontSize: isTablet ? 18 : 16, // Larger text for tablets
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade200,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          vertical: isTablet ? 16 : 12,
-                        ), // Larger padding for tablets
-                      ),
-                      child: Text(
-                        'No',
-                        style: TextStyle(
-                          fontSize:
-                              isTablet ? 18 : 16, // Larger text for tablets
-                        ),
-                      ),
+                  Container(
+                    height: 5,
+                    width: 40,
+                    margin: const EdgeInsets.only(bottom: 15),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => loginController.logout(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          vertical: isTablet ? 16 : 12,
-                        ), // Larger padding for tablets
-                      ),
-                      child: Text(
-                        'Yes',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize:
-                              isTablet ? 18 : 16, // Larger text for tablets
-                        ),
-                      ),
+                  Text(
+                    'Logout?',
+                    style: TextStyle(
+                      fontSize: isTablet ? 22 : 18, // Larger text for tablets
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Are you sure you want to logout?',
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: isTablet ? 18 : 16, // Larger text for tablets
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading ? null : () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade200,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              vertical: isTablet ? 16 : 12,
+                            ), // Larger padding for tablets
+                          ),
+                          child: Text(
+                            'No',
+                            style: TextStyle(
+                              fontSize:
+                                  isTablet ? 18 : 16, // Larger text for tablets
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () async {
+                                  setState(() {
+                                    isLoading = true;
+                                  });
+                                  await loginController.logout(context);
+                                  if (context.mounted) {
+                                    setState(() {
+                                      isLoading = false;
+                                    });
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color.fromARGB(255, 3, 30, 53),
+                            disabledBackgroundColor: const Color.fromARGB(255, 3, 30, 53).withOpacity(0.6),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              vertical: isTablet ? 16 : 12,
+                            ), // Larger padding for tablets
+                          ),
+                          child: isLoading
+                              ? SizedBox(
+                                  height: isTablet ? 24 : 20,
+                                  width: isTablet ? 24 : 20,
+                                  child: const CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  'Yes',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: isTablet
+                                        ? 18
+                                        : 16, // Larger text for tablets
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

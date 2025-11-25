@@ -39,8 +39,9 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     super.initState();
     controller.fetchCategories();
     // Initialize both dates to current date
-    final today = DateTime.now().toString().split(' ')[0];
-    dateController.text = today;
+    final now = DateTime.now();
+    final today = now.toString().split(' ')[0];
+    dateController.text = now.toString().substring(0, 16); // Date and Time
     receiptDateController.text = today;
   }
 
@@ -114,8 +115,6 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
                           _buildCategorySelectorWithLabel(),
                           SizedBox(height: isTablet ? 25 : 20),
                           _buildAmountInputWithLabel(),
-                          SizedBox(height: isTablet ? 25 : 20),
-                          _buildDateInputWithLabel(),
                           SizedBox(height: isTablet ? 25 : 20),
                           _buildReceiptDateInputWithLabel(),
                           SizedBox(height: isTablet ? 25 : 20),
@@ -566,7 +565,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
             expenseDetails['date'] ?? DateTime.now().toString().split(' ')[0];
         dateController.text = DateTime.now()
             .toString()
-            .split(' ')[0]; // Posting Date is current date
+            .substring(0, 16); // Posting Date is current date and time
         isProcessingImage = false; // Stop loading
       });
 
@@ -704,8 +703,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
                               const SizedBox(height: 8),
                               _buildDetailRow('Amount', amountController.text),
                               const SizedBox(height: 8),
-                              _buildDetailRow(
-                                  'Posting Date', dateController.text),
+                              // Posting Date row removed
+
                               const SizedBox(height: 8),
                               _buildDetailRow(
                                   'Receipt Date', receiptDateController.text),
@@ -1061,136 +1060,165 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isTablet ? 40 : 25,
-            vertical: isTablet ? 30 : 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 5,
-                width: 40,
-                margin: const EdgeInsets.only(bottom: 15),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+        bool isLoading = false;
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? 40 : 25,
+                vertical: isTablet ? 30 : 20,
               ),
-              Text(
-                'Confirmation',
-                style: TextStyle(
-                  fontSize: isTablet ? 22 : 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Are you sure you want to save this expense?',
-                style: TextStyle(
-                  color: Colors.black54,
-                  fontSize: isTablet ? 18 : 16,
-                ),
-              ),
-              const SizedBox(height: 15),
-              // Show expense details
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Expense Details:',
-                      style: TextStyle(
-                        fontSize: isTablet ? 16 : 14,
-                        fontWeight: FontWeight.bold,
-                        color: const Color.fromARGB(255, 3, 30, 53),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildConfirmationRow(
-                        'Category',
-                        categoryController.text.isEmpty
-                            ? 'Not selected'
-                            : categoryController.text),
-                    const SizedBox(height: 4),
-                    _buildConfirmationRow(
-                        'Amount',
-                        amountController.text.isEmpty
-                            ? 'Not entered'
-                            : '₱${amountController.text}'),
-                    const SizedBox(height: 4),
-                    _buildConfirmationRow(
-                        'Posting Date',
-                        dateController.text.isEmpty
-                            ? 'Not selected'
-                            : dateController.text),
-                    const SizedBox(height: 4),
-                    _buildConfirmationRow(
-                        'Receipt Date',
-                        receiptDateController.text.isEmpty
-                            ? 'Not selected'
-                            : receiptDateController.text),
-                    const SizedBox(height: 4),
-                    _buildConfirmationRow('Attachment',
-                        base64Image == null ? 'None' : 'Image attached'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade200,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          vertical: isTablet ? 16 : 12,
-                        ),
-                      ),
-                      child: Text(
-                        'No',
-                        style: TextStyle(fontSize: isTablet ? 18 : 16),
-                      ),
+                  Container(
+                    height: 5,
+                    width: 40,
+                    margin: const EdgeInsets.only(bottom: 15),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => _addExpense(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 3, 30, 53),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          vertical: isTablet ? 16 : 12,
-                        ),
-                      ),
-                      child: Text(
-                        'Yes',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: isTablet ? 18 : 16,
-                        ),
-                      ),
+                  Text(
+                    'Confirmation',
+                    style: TextStyle(
+                      fontSize: isTablet ? 22 : 18,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Are you sure you want to save this expense?',
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: isTablet ? 18 : 16,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  // Show expense details
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Expense Details:',
+                          style: TextStyle(
+                            fontSize: isTablet ? 16 : 14,
+                            fontWeight: FontWeight.bold,
+                            color: const Color.fromARGB(255, 3, 30, 53),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildConfirmationRow(
+                            'Category',
+                            categoryController.text.isEmpty
+                                ? 'Not selected'
+                                : categoryController.text),
+                        const SizedBox(height: 4),
+                        _buildConfirmationRow(
+                            'Amount',
+                            amountController.text.isEmpty
+                                ? 'Not entered'
+                                : '₱${amountController.text}'),
+                        const SizedBox(height: 4),
+                        // Posting Date confirmation row removed
+
+                        const SizedBox(height: 4),
+                        _buildConfirmationRow(
+                            'Receipt Date',
+                            receiptDateController.text.isEmpty
+                                ? 'Not selected'
+                                : receiptDateController.text),
+                        const SizedBox(height: 4),
+                        _buildConfirmationRow('Attachment',
+                            base64Image == null ? 'None' : 'Image attached'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading ? null : () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade200,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              vertical: isTablet ? 16 : 12,
+                            ),
+                          ),
+                          child: Text(
+                            'No',
+                            style: TextStyle(fontSize: isTablet ? 18 : 16),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : () async {
+                                  setModalState(() {
+                                    isLoading = true;
+                                  });
+                                  await _addExpense();
+                                  // If the dialog is still open (e.g. error occurred), stop loading
+                                  // We use a try-catch because if the dialog is closed, setModalState might throw
+                                  try {
+                                    if (mounted) {
+                                      setModalState(() {
+                                        isLoading = false;
+                                      });
+                                    }
+                                  } catch (e) {
+                                    // Dialog likely closed, ignore
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color.fromARGB(255, 3, 30, 53),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              vertical: isTablet ? 16 : 12,
+                            ),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  'Yes',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: isTablet ? 18 : 16,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1248,72 +1276,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
     );
   }
 
-  Widget _buildDateInputWithLabel() {
-    final isTablet = MediaQuery.of(context).size.width >= 600;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Posting Date (When Entered)',
-          style: TextStyle(
-            fontSize: isTablet ? 20 : 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey[700],
-          ),
-        ),
-        SizedBox(height: isTablet ? 12 : 8),
-        _buildDateInput(),
-      ],
-    );
-  }
+  // _buildDateInputWithLabel and _buildDateInput removed
 
-  Widget _buildDateInput() {
-    final isTablet = MediaQuery.of(context).size.width >= 600;
-    return TextField(
-      cursorColor: const Color.fromARGB(255, 3, 30, 53),
-      controller: dateController,
-      readOnly: true,
-      style: TextStyle(fontSize: isTablet ? 18 : 16),
-      onTap: () async {
-        final DateTime? picked = await showDatePicker(
-          context: context,
-          initialDate: DateTime.now(),
-          firstDate: DateTime(2000),
-          lastDate: DateTime.now(),
-        );
-        if (picked != null) {
-          setState(() {
-            dateController.text = picked.toString().split(' ')[0];
-          });
-        }
-      },
-      decoration: InputDecoration(
-        hintText: "Select Posting Date",
-        hintStyle: TextStyle(fontSize: isTablet ? 18 : 16),
-        suffixIcon: Icon(
-          Icons.calendar_today,
-          color: Colors.grey.shade600,
-          size: isTablet ? 24 : 20,
-        ),
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: isTablet ? 20 : 16,
-          vertical: isTablet ? 18 : 14,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-      ),
-    );
-  }
 
   Widget _buildReceiptDateInputWithLabel() {
     final isTablet = MediaQuery.of(context).size.width >= 600;
@@ -1394,10 +1358,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       return;
     }
 
-    if (dateController.text.isEmpty) {
-      _showErrorSnackbar('Please select a Posting Date');
-      return;
-    }
+    // Posting Date validation removed (handled automatically)
+
 
     if (receiptDateController.text.isEmpty) {
       _showErrorSnackbar('Please select a receipt date');
@@ -1420,6 +1382,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
       if (controller.isSuccess.value == true) {
         print('Expense saved successfully, starting post-save operations...');
 
+        if (!mounted) return;
+
         try {
           // Close the confirmation dialog first
           if (Navigator.canPop(context)) {
@@ -1430,6 +1394,8 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
           print('Refreshing home data...');
           await homeController.refreshAllData();
           print('Home data refreshed successfully');
+
+          if (!mounted) return;
 
           // Navigate back to home screen
           print('Navigating to home screen...');
@@ -1444,6 +1410,7 @@ class _ExpenseManualPageState extends State<ExpenseManualPage> {
           amountController.clear();
         } catch (e) {
           print('Error during post-save operations: $e');
+          if (!mounted) return;
           // Even if refresh/navigation fails, the expense was saved successfully
           // Just navigate to home without refresh
           Navigator.pushReplacement(
