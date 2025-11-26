@@ -1273,8 +1273,11 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                         _buildModernDetailRow(
                           Icons.calendar_today,
                           'Receipt Date',
-                          DateFormat('MMM d, yyyy • h:mm a')
-                              .format(expense['date']),
+                          expense['receiptDate'] != null
+                              ? DateFormat('MMM d, yyyy')
+                                  .format(expense['receiptDate'])
+                              : DateFormat('MMM d, yyyy')
+                                  .format(expense['date']),
                           Color(0xFF9b59b6),
                         ),
                         if (expense['transactionDate'] != null)

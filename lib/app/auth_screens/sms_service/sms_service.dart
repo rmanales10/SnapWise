@@ -40,7 +40,7 @@ class SmsHistoryEntry {
 
 class SmsService extends GetxController {
   // Semaphore API configuration
-  static const String _baseUrl = 'https://api.semaphore.co/api/v4/priority';
+  static const String _baseUrl = 'https://api.semaphore.co/api/v4/messages';
   static const String _apiKey = 'c6743576f5f28b8c6d5e429813d8d6ce';
   static const String _senderName = 'ABESO';
   static const String _smsHistoryKey = 'sms_history';
